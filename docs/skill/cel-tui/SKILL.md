@@ -300,4 +300,4 @@ Button("[OK]", { onClick: handleOk });
 Button("✕", { onClick: handleClose, focusable: false });
 ```
 
-For the full specification, see [references/spec.md](references/spec.md).
+For the full specification, see the [cel-tui spec](https://raw.githubusercontent.com/sacenox/cel-tui/main/spec.md).
