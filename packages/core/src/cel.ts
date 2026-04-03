@@ -1,6 +1,6 @@
 import type { Node } from "@cel-tui/types";
 import { CellBuffer } from "./cell-buffer.js";
-import { emitBuffer } from "./emitter.js";
+import { emitBuffer, emitDiff } from "./emitter.js";
 import {
   hitTest,
   findClickHandler,
@@ -32,6 +32,7 @@ type RenderFn = () => Node | Node[];
 let terminal: Terminal | null = null;
 let renderFn: RenderFn | null = null;
 let renderScheduled = false;
+let prevBuffer: CellBuffer | null = null;
 let currentBuffer: CellBuffer | null = null;
 let currentLayouts: LayoutNode[] = [];
 
@@ -43,14 +44,17 @@ function doRender(): void {
   const height = terminal.rows;
 
   // Create or resize buffer
-  if (
-    !currentBuffer ||
-    currentBuffer.width !== width ||
-    currentBuffer.height !== height
-  ) {
+  const isResize =
+    currentBuffer !== null &&
+    (currentBuffer.width !== width || currentBuffer.height !== height);
+  const isFirstRender = currentBuffer === null;
+
+  if (isFirstRender || isResize) {
+    prevBuffer = null;
     currentBuffer = new CellBuffer(width, height);
   } else {
-    currentBuffer.clear();
+    prevBuffer = currentBuffer;
+    currentBuffer = new CellBuffer(width, height);
   }
 
   // Get the tree from the render function
@@ -65,9 +69,14 @@ function doRender(): void {
     paint(layoutTree, currentBuffer);
   }
 
-  // Emit to terminal
-  const output = emitBuffer(currentBuffer);
-  terminal.write(output);
+  // Emit to terminal — differential when possible
+  if (prevBuffer) {
+    const output = emitDiff(prevBuffer, currentBuffer);
+    if (output.length > 0) terminal.write(output);
+  } else {
+    const output = emitBuffer(currentBuffer);
+    terminal.write(output);
+  }
 }
 
 // --- Input handling ---
@@ -314,6 +323,7 @@ export const cel = {
     terminal?.stop();
     terminal = null;
     renderFn = null;
+    prevBuffer = null;
     currentBuffer = null;
     currentLayouts = [];
     renderScheduled = false;

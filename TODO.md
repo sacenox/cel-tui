@@ -28,7 +28,7 @@ What's implemented, what's missing, and what needs hardening. Reference `spec.md
 - ✅ ANSI emitter (SGR colors, bold/italic/underline, synchronized output CSI 2026)
 - ✅ Reactive rendering (`cel.render()` batched via `process.nextTick`)
 - ✅ Full render on first paint, cursor home positioning
-- 🔧 Differential rendering — `CellBuffer.diff()` exists but `cel.ts` always does full redraws (doesn't use diff to skip unchanged cells)
+- ✅ Differential rendering — `emitDiff()` uses `CellBuffer.diff()` to emit only changed cells
 - ❌ Full clear + re-render on terminal resize (currently re-renders but doesn't clear scrollback)
 
 ## Painting

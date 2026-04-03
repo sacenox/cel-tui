@@ -116,11 +116,16 @@ describe("layer compositing", () => {
     expect(term.output).toContain("main");
     expect(term.output).not.toContain("modal");
 
-    term.clearOutput();
     showModal = true;
     cel.render();
     await waitForRender();
 
-    expect(term.output).toContain("modal");
+    // Check buffer contents — diff rendering may not emit "modal" as a
+    // contiguous string since unchanged chars (like 'm') are skipped
+    const buf = cel._getBuffer()!;
+    const row = Array.from({ length: 5 }, (_, i) => buf.get(i, 0).char).join(
+      "",
+    );
+    expect(row).toBe("modal");
   });
 });

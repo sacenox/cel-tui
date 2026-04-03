@@ -129,3 +129,64 @@ export function emitBuffer(buf: CellBuffer): string {
   out += SYNC_END;
   return out;
 }
+
+/**
+ * Emit only the cells that differ between two buffers.
+ *
+ * Uses cursor positioning (CSI row;col H) to jump to changed cells,
+ * batching consecutive changes on the same row into a single run.
+ * Output is wrapped in synchronized output markers for flicker-free updates.
+ *
+ * @param prev - The previous buffer.
+ * @param next - The new buffer.
+ * @returns An ANSI string with only the changed cells.
+ */
+export function emitDiff(prev: CellBuffer, next: CellBuffer): string {
+  let out = SYNC_START;
+
+  const changes = prev.diff(next);
+  if (changes.length === 0) {
+    return out + SYNC_END;
+  }
+
+  let lastStyle: Cell | null = null;
+  let lastX = -1;
+  let lastY = -1;
+
+  for (const { x, y } of changes) {
+    const cell = next.get(x, y);
+
+    // Position cursor if not consecutive
+    if (y !== lastY || x !== lastX + 1) {
+      // Reset style before repositioning
+      if (lastStyle !== null && hasStyle(lastStyle)) {
+        out += RESET;
+        lastStyle = null;
+      }
+      // CSI row;col H (1-indexed)
+      out += `\x1b[${y + 1};${x + 1}H`;
+    }
+
+    // Emit style change if needed
+    if (lastStyle === null || !styleEquals(cell, lastStyle)) {
+      if (lastStyle !== null && hasStyle(lastStyle)) {
+        out += RESET;
+      }
+      const sgr = sgrForCell(cell);
+      if (sgr) out += sgr;
+      lastStyle = cell;
+    }
+
+    out += cell.char;
+    lastX = x;
+    lastY = y;
+  }
+
+  // Final reset
+  if (lastStyle !== null && hasStyle(lastStyle)) {
+    out += RESET;
+  }
+
+  out += SYNC_END;
+  return out;
+}

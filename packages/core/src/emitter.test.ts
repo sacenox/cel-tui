@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { CellBuffer, type Cell } from "./cell-buffer.js";
-import { emitBuffer } from "./emitter.js";
+import { emitBuffer, emitDiff } from "./emitter.js";
 
 function cell(char: string, overrides: Partial<Cell> = {}): Cell {
   return {
@@ -124,5 +124,63 @@ describe("emitBuffer", () => {
     // Leave all cells empty
     const output = emitBuffer(buf);
     expect(output).toContain("   ");
+  });
+});
+
+describe("emitDiff", () => {
+  test("returns empty string when buffers are identical", () => {
+    const prev = new CellBuffer(5, 2);
+    const next = new CellBuffer(5, 2);
+    prev.set(0, 0, cell("A"));
+    next.set(0, 0, cell("A"));
+    const output = emitDiff(prev, next);
+    // Only sync markers, no content
+    expect(output).toBe("\x1b[?2026h\x1b[?2026l");
+  });
+
+  test("emits only changed cells with cursor positioning", () => {
+    const prev = new CellBuffer(5, 2);
+    const next = new CellBuffer(5, 2);
+    prev.set(0, 0, cell("A"));
+    next.set(0, 0, cell("A"));
+    // Change cell at (2, 1)
+    next.set(2, 1, cell("X"));
+    const output = emitDiff(prev, next);
+    // Should position cursor at (2, 1) = CSI row;col H (1-indexed)
+    expect(output).toContain("\x1b[2;3H");
+    expect(output).toContain("X");
+  });
+
+  test("emits styled changed cells", () => {
+    const prev = new CellBuffer(3, 1);
+    const next = new CellBuffer(3, 1);
+    next.set(1, 0, cell("Z", { fgColor: "red", bold: true }));
+    const output = emitDiff(prev, next);
+    expect(output).toContain("\x1b[1;2H"); // cursor to (1, 0)
+    expect(output).toContain("Z");
+    expect(output).toContain("\x1b[1;31m"); // bold + red
+  });
+
+  test("wraps in synchronized output markers", () => {
+    const prev = new CellBuffer(1, 1);
+    const next = new CellBuffer(1, 1);
+    next.set(0, 0, cell("Q"));
+    const output = emitDiff(prev, next);
+    expect(output.startsWith("\x1b[?2026h")).toBe(true);
+    expect(output.endsWith("\x1b[?2026l")).toBe(true);
+  });
+
+  test("batches consecutive changed cells on same row", () => {
+    const prev = new CellBuffer(5, 1);
+    const next = new CellBuffer(5, 1);
+    next.set(1, 0, cell("A"));
+    next.set(2, 0, cell("B"));
+    next.set(3, 0, cell("C"));
+    const output = emitDiff(prev, next);
+    // Should position once and emit ABC together
+    expect(output).toContain("ABC");
+    // Only one cursor positioning for this run
+    const cursorMoves = output.match(/\x1b\[\d+;\d+H/g) || [];
+    expect(cursorMoves.length).toBe(1);
   });
 });

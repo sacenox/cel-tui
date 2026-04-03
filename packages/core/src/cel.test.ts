@@ -114,7 +114,10 @@ describe("cel end-to-end", () => {
     await waitForRender();
 
     expect(renderCount).toBe(2);
-    expect(term.output).toContain("Count: 3");
+    // Differential rendering: initial full render has "Count: 0",
+    // subsequent render emits only the changed character "3"
+    expect(term.output).toContain("Count: 0");
+    expect(term.output).toContain("3");
   });
 
   test("wraps output in synchronized output markers", async () => {
