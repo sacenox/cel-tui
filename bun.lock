@@ -6,6 +6,7 @@
       "name": "cel-tui",
       "devDependencies": {
         "@biomejs/biome": "^2.4.10",
+        "get-east-asian-width": "^1.5.0",
         "prettier": "^3.8.1",
         "typescript": "^6.0.2",
       },
@@ -54,6 +55,8 @@
     "@cel-tui/core": ["@cel-tui/core@workspace:packages/core"],
 
     "@cel-tui/types": ["@cel-tui/types@workspace:packages/types"],
+
+    "get-east-asian-width": ["get-east-asian-width@1.5.0", "", {}, "sha512-CQ+bEO+Tva/qlmw24dCejulK5pMzVnUOFOijVogd3KQs07HnRIgp8TGipvCCRT06xeYEbpbgwaCxglFyiuIcmA=="],
 
     "prettier": ["prettier@3.8.1", "", { "bin": { "prettier": "bin/prettier.cjs" } }, "sha512-UOnG6LftzbdaHZcKoPFtOcCKztrQ57WkHDeRD9t/PTQtmT0NHSeWWepj6pS0z/N7+08BHFDQVUrfmfMRcZwbMg=="],
 

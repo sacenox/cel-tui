@@ -71,6 +71,27 @@ Use `bun test` (built-in test runner, no extra deps). Test files live next to so
 - Terminal I/O (assert emitted ANSI sequences against an in-memory buffer)
 - End-to-end pipeline (`cel.viewport` → rendered output)
 
+## Commit Format
+
+Use [Conventional Commits](https://www.conventionalcommits.org/):
+
+```
+<type>(<scope>): <description>
+```
+
+**Types:** `feat`, `fix`, `test`, `refactor`, `docs`, `chore`, `style`
+
+**Scopes:** `types`, `core`, `components`, `spec`, or omit for repo-wide changes.
+
+**Examples:**
+
+```
+feat(core): implement visibleWidth with grapheme segmentation
+test(core): add character width tests for CJK, emoji, ANSI
+docs(spec): define Text primitive styling and wrapping
+chore: scaffold monorepo with types, core, components packages
+```
+
 ## Conventions
 
 - All code is TypeScript with strict mode
