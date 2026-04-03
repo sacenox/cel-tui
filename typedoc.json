@@ -1,0 +1,14 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "entryPoints": [
+    "packages/types/src/index.ts",
+    "packages/core/src/index.ts",
+    "packages/components/src/index.ts"
+  ],
+  "tsconfig": "tsconfig.json",
+  "name": "cel-tui",
+  "readme": "README.md",
+  "excludePrivate": true,
+  "excludeInternal": true,
+  "excludeExternals": true
+}

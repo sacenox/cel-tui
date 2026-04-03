@@ -9,7 +9,8 @@
     "check:fix": "biome check --write packages/*/src/**/*.ts",
     "format": "prettier --check .",
     "format:fix": "prettier --write .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "docs": "typedoc --out docs/html && typedoc --out docs/md --plugin typedoc-plugin-markdown"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.10",
@@ -17,6 +18,8 @@
     "get-east-asian-width": "^1.5.0",
     "lefthook": "^2.1.4",
     "prettier": "^3.8.1",
+    "typedoc": "^0.28.18",
+    "typedoc-plugin-markdown": "^4.11.0",
     "typescript": "^6.0.2"
   }
 }

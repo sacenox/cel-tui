@@ -47,6 +47,7 @@ bun run check:fix        # biome auto-fix
 bun run format           # prettier format check
 bun run format:fix       # prettier auto-fix
 bun run typecheck        # tsc --noEmit type checking
+bun run docs             # generate HTML + Markdown docs into docs/
 ```
 
 ## Spec
@@ -91,6 +92,10 @@ test(core): add character width tests for CJK, emoji, ANSI
 docs(spec): define Text primitive styling and wrapping
 chore: scaffold monorepo with types, core, components packages
 ```
+
+## Runtime
+
+**Always use `bun` and `bunx` instead of `node`, `npm`, `npx`, or `yarn`.** This is a Bun monorepo — all scripts, package management, and execution should go through Bun.
 
 ## Conventions
 
