@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>cel-tui — TypeScript TUI Framework</title>
+    <style>
+      :root {
+        --bg: #0d1117;
+        --fg: #c9d1d9;
+        --accent: #58a6ff;
+        --muted: #8b949e;
+        --surface: #161b22;
+        --border: #30363d;
+        --green: #3fb950;
+      }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial,
+          sans-serif;
+        background: var(--bg);
+        color: var(--fg);
+        line-height: 1.6;
+        padding: 2rem;
+        max-width: 720px;
+        margin: 0 auto;
+      }
+      h1 {
+        font-size: 2rem;
+        margin-bottom: 0.25rem;
+      }
+      h1 span {
+        color: var(--accent);
+      }
+      .tagline {
+        color: var(--muted);
+        font-size: 1.1rem;
+        margin-bottom: 2rem;
+      }
+      h2 {
+        font-size: 1.25rem;
+        margin-top: 2rem;
+        margin-bottom: 0.75rem;
+        color: var(--fg);
+      }
+      p {
+        margin-bottom: 1rem;
+        color: var(--muted);
+      }
+      a {
+        color: var(--accent);
+        text-decoration: none;
+      }
+      a:hover {
+        text-decoration: underline;
+      }
+      pre {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 1rem;
+        overflow-x: auto;
+        font-size: 0.875rem;
+        line-height: 1.5;
+        margin-bottom: 1.5rem;
+      }
+      code {
+        font-family:
+          "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+        color: var(--fg);
+      }
+      .keyword {
+        color: #ff7b72;
+      }
+      .string {
+        color: #a5d6ff;
+      }
+      .func {
+        color: #d2a8ff;
+      }
+      .comment {
+        color: var(--muted);
+      }
+      .cards {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.75rem;
+        margin-bottom: 1.5rem;
+      }
+      .card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 1rem;
+      }
+      .card h3 {
+        font-size: 0.95rem;
+        margin-bottom: 0.25rem;
+      }
+      .card p {
+        font-size: 0.85rem;
+        margin-bottom: 0;
+      }
+      .links {
+        list-style: none;
+        margin-bottom: 1.5rem;
+      }
+      .links li {
+        padding: 0.5rem 0;
+        border-bottom: 1px solid var(--border);
+      }
+      .links li:last-child {
+        border-bottom: none;
+      }
+      .links a {
+        font-weight: 500;
+      }
+      .links .desc {
+        color: var(--muted);
+        font-size: 0.85rem;
+      }
+      .badge {
+        display: inline-block;
+        background: var(--green);
+        color: var(--bg);
+        font-size: 0.75rem;
+        font-weight: 600;
+        padding: 0.15rem 0.5rem;
+        border-radius: 3px;
+        margin-left: 0.5rem;
+        vertical-align: middle;
+      }
+      footer {
+        margin-top: 3rem;
+        padding-top: 1rem;
+        border-top: 1px solid var(--border);
+        color: var(--muted);
+        font-size: 0.85rem;
+      }
+    </style>
+  </head>
+  <body>
+    <h1><span>cel</span>-tui</h1>
+    <p class="tagline">
+      A TypeScript TUI framework built around a declarative functional API and
+      ultra-fast rendering.
+    </p>
+
+    <p>
+      A <strong>cel</strong> is the smallest unit of a terminal display — a
+      single character cell. Start from the smallest meaningful unit and build
+      up, with nothing wasted.
+    </p>
+
+    <h2>Quick Example</h2>
+    <pre><code><span class="keyword">import</span> { cel, VStack, Text, TextInput, ProcessTerminal } <span class="keyword">from</span> <span class="string">"@cel-tui/core"</span>;
+
+<span class="keyword">let</span> input = <span class="string">""</span>;
+
+cel.<span class="func">init</span>(<span class="keyword">new</span> <span class="func">ProcessTerminal</span>());
+cel.<span class="func">viewport</span>(() =>
+  <span class="func">VStack</span>({ height: <span class="string">"100%"</span> }, [
+    <span class="func">Text</span>(<span class="string">"Hello, cel-tui!"</span>, { bold: <span class="keyword">true</span>, fgColor: <span class="string">"cyan"</span> }),
+    <span class="func">Text</span>(<span class="string">"─"</span>, { repeat: <span class="string">"fill"</span> }),
+    <span class="func">TextInput</span>({
+      flex: 1,
+      value: input,
+      focused: <span class="keyword">true</span>,
+      onChange: (v) => { input = v; cel.<span class="func">render</span>(); },
+    }),
+  ])
+);</code></pre>
+
+    <h2>4 Primitives, That's It</h2>
+    <div class="cards">
+      <div class="card">
+        <h3><code>VStack</code></h3>
+        <p>Vertical stack — children top to bottom</p>
+      </div>
+      <div class="card">
+        <h3><code>HStack</code></h3>
+        <p>Horizontal stack — children left to right</p>
+      </div>
+      <div class="card">
+        <h3><code>Text</code></h3>
+        <p>Styled text leaf node</p>
+      </div>
+      <div class="card">
+        <h3><code>TextInput</code></h3>
+        <p>Multi-line editable text container</p>
+      </div>
+    </div>
+
+    <h2>Documentation</h2>
+    <ul class="links">
+      <li>
+        <a href="docs/html/index.html">API Reference</a>
+        <span class="desc">
+          — Full TypeDoc-generated documentation for all packages</span
+        >
+      </li>
+      <li>
+        <a href="spec.md">Specification</a>
+        <span class="desc">
+          — Complete framework spec: layout, input, rendering, and
+          decisions</span
+        >
+      </li>
+      <li>
+        <a href="AGENTS.md">Agent Guide</a>
+        <span class="desc">
+          — Project structure, design decisions, testing strategy, and
+          conventions</span
+        >
+      </li>
+      <li>
+        <a href="docs/md/modules.md">API Reference (Markdown)</a>
+        <span class="desc"> — Markdown version of the API docs</span>
+      </li>
+    </ul>
+
+    <h2>Packages</h2>
+    <ul class="links">
+      <li>
+        <a href="docs/html/types/src/modules.html">@cel-tui/types</a>
+        <span class="desc"> — Shared type definitions</span>
+      </li>
+      <li>
+        <a href="docs/html/core/src/modules.html">@cel-tui/core</a>
+        <span class="desc"> — Framework engine and primitives</span>
+      </li>
+      <li>
+        <a href="docs/html/components/src/modules.html">@cel-tui/components</a>
+        <span class="desc">
+          — Pre-made components (Button, Spacer, Divider)</span
+        >
+      </li>
+    </ul>
+
+    <h2>Key Concepts</h2>
+    <ul class="links">
+      <li>
+        <strong>State is external</strong>
+        <span class="desc">
+          — The framework renders what you give it. Use any state
+          approach.</span
+        >
+      </li>
+      <li>
+        <strong>Flexbox layout</strong>
+        <span class="desc">
+          — Fixed, flex, percentage, intrinsic sizing with gap, padding,
+          alignment.</span
+        >
+      </li>
+      <li>
+        <strong>Layers</strong>
+        <span class="desc">
+          — Return an array from the render function for modals and
+          overlays.</span
+        >
+      </li>
+      <li>
+        <strong>Cell buffer rendering</strong>
+        <span class="desc">
+          — Styled cells, differential updates, synchronized output.</span
+        >
+      </li>
+      <li>
+        <strong>170+ tests</strong><span class="badge">passing</span>
+        <span class="desc">
+          — TDD across layout, painting, input, compositing, and editing.</span
+        >
+      </li>
+    </ul>
+
+    <footer>
+      MIT License · Built with
+      <a href="https://bun.sh">Bun</a> ·
+      <a href="https://github.com/xonecas/cel-tui">GitHub</a>
+    </footer>
+  </body>
+</html>
