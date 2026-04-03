@@ -53,6 +53,24 @@ bun run typecheck        # tsc --noEmit type checking
 
 The `spec.md` file is the source of truth for all API design decisions. Always read it before making changes to core framework behavior. The open questions at the bottom track what's been decided vs. still in progress.
 
+## Testing Strategy
+
+Use `bun test` (built-in test runner, no extra deps). Test files live next to source as `*.test.ts`.
+
+**TDD for pure logic** — write tests first for:
+
+- Character width (`visibleWidth`, grapheme segmentation, ANSI stripping)
+- Cell buffer (write, read, diff)
+- Layout engine (input tree + available space → output rects)
+- Painting/clipping (node + rect → cell buffer contents)
+- Hit detection (position → node lookup)
+- Focus/key routing (key events → correct handler)
+
+**Integration tests with mock terminal** for:
+
+- Terminal I/O (assert emitted ANSI sequences against an in-memory buffer)
+- End-to-end pipeline (`cel.viewport` → rendered output)
+
 ## Conventions
 
 - All code is TypeScript with strict mode
