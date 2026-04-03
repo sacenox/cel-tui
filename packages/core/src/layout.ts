@@ -94,9 +94,14 @@ function intrinsicMainSize(
     return 0;
   }
 
-  // Container: sum children along main axis + gaps
+  // Container: compute intrinsic size along the requested axis.
+  // If the requested axis matches the container's main axis, sum children + gaps.
+  // If it's the cross axis, take the max of children on that axis.
   const props = node.props;
   const gap = props.gap ?? 0;
+  const containerIsVertical = node.type === "vstack";
+  const axisMatchesMain = isVertical === containerIsVertical;
+
   const padMain = isVertical
     ? (props.padding?.y ?? 0) * 2
     : (props.padding?.x ?? 0) * 2;
@@ -104,29 +109,48 @@ function intrinsicMainSize(
     ? (props.padding?.x ?? 0) * 2
     : (props.padding?.y ?? 0) * 2;
   const innerCross = Math.max(0, crossSize - padCross);
-  const childIsVertical = node.type === "vstack";
 
-  let total = 0;
-  for (let i = 0; i < node.children.length; i++) {
-    const child = node.children[i]!;
+  if (axisMatchesMain) {
+    // Sum children along the main axis + gaps
+    let total = 0;
+    for (let i = 0; i < node.children.length; i++) {
+      const child = node.children[i]!;
+      const cProps = getProps(child);
+
+      let childMain: number;
+      if (isVertical) {
+        childMain =
+          resolveSizeValue(cProps?.height, 0) ??
+          intrinsicMainSize(child, true, innerCross);
+      } else {
+        childMain =
+          resolveSizeValue(cProps?.width, 0) ??
+          intrinsicMainSize(child, false, innerCross);
+      }
+      total += childMain;
+      if (i < node.children.length - 1) total += gap;
+    }
+    return total + padMain;
+  }
+
+  // Cross axis: max of children on the requested axis
+  let maxSize = 0;
+  for (const child of node.children) {
     const cProps = getProps(child);
 
-    // Use child's explicit main size, or recurse for intrinsic
-    let childMain: number;
-    if (childIsVertical) {
-      childMain =
+    let childSize: number;
+    if (isVertical) {
+      childSize =
         resolveSizeValue(cProps?.height, 0) ??
         intrinsicMainSize(child, true, innerCross);
     } else {
-      childMain =
+      childSize =
         resolveSizeValue(cProps?.width, 0) ??
         intrinsicMainSize(child, false, innerCross);
     }
-    total += childMain;
-    if (i < node.children.length - 1) total += gap;
+    if (childSize > maxSize) maxSize = childSize;
   }
-
-  return total + padMain;
+  return maxSize + padMain;
 }
 
 // --- Largest remainder rounding ---

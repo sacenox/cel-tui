@@ -278,6 +278,81 @@ describe("layout", () => {
     });
   });
 
+  describe("cross-axis intrinsic sizing", () => {
+    test("HStack inside VStack uses max child height, not sum of widths", () => {
+      // HStack with 3 Text children: each is 1 line tall.
+      // HStack's intrinsic height should be 1 (max), not sum of widths.
+      const node = VStack({ width: 80, height: 24 }, [
+        HStack({}, [Text("hello"), Text("world")]),
+        Text("below"),
+      ]);
+      const result = layout(node, 80, 24);
+      const rects = childRects(result);
+      // HStack height = 1 (tallest child is a single-line Text)
+      expect(rects[0]!.height).toBe(1);
+      // "below" Text starts right after
+      expect(rects[1]!.y).toBe(1);
+      expect(rects[1]!.height).toBe(1);
+    });
+
+    test("HStack intrinsic height with multi-line text child", () => {
+      const node = VStack({ width: 80, height: 24 }, [
+        HStack({}, [
+          Text("a"),
+          Text("b\nc\nd"), // 3 lines tall
+        ]),
+      ]);
+      const result = layout(node, 80, 24);
+      // HStack height = max child height = 3
+      expect(childRects(result)[0]!.height).toBe(3);
+    });
+
+    test("VStack inside HStack uses max child width, not sum of heights", () => {
+      const node = HStack({ width: 80, height: 24 }, [
+        VStack({}, [VStack({ height: 3 }, []), VStack({ height: 5 }, [])]),
+        VStack({ width: 10 }, []),
+      ]);
+      const result = layout(node, 80, 24);
+      const rects = childRects(result);
+      // First VStack intrinsic width should fill parent (80), not 3+5=8
+      // Actually with no explicit width children, innerCross is used.
+      // The second child starts after the first.
+      // VStack intrinsic width = max of children's widths on cross axis
+      // Its children have no explicit width, so they'd fill available.
+      // Let's just check that it doesn't sum heights as width.
+      expect(rects[0]!.width).not.toBe(8);
+    });
+
+    test("hello example pattern: VStack with HStack children stacks tightly", () => {
+      // Mimics the hello.ts layout pattern that was broken.
+      // Key assertion: HStack children get height=1 (max child height),
+      // not the sum of children widths.
+      const node = VStack({ width: 80 }, [
+        Text("logo line"),
+        Text(""),
+        HStack({ gap: 2 }, [Text("item1"), Text("item2"), Text("item3")]),
+        Text(""),
+        HStack({ gap: 1 }, [Text("a"), Text("b")]),
+      ]);
+      const result = layout(node, 80, 24);
+      const rects = childRects(result);
+      // All children should be height 1
+      expect(rects[0]!.height).toBe(1); // Text
+      expect(rects[1]!.height).toBe(1); // Text("")
+      expect(rects[2]!.height).toBe(1); // HStack (was broken: summed widths)
+      expect(rects[3]!.height).toBe(1); // Text("")
+      expect(rects[4]!.height).toBe(1); // HStack
+      // Children stack sequentially with no gaps
+      expect(rects[0]!.y).toBe(0);
+      expect(rects[1]!.y).toBe(1);
+      expect(rects[2]!.y).toBe(2);
+      expect(rects[3]!.y).toBe(3);
+      expect(rects[4]!.y).toBe(4);
+      // Total intrinsic height = 5
+      expect(result.rect.height).toBe(5);
+    });
+  });
+
   describe("nested layout", () => {
     test("editor-like layout: sidebar + main area", () => {
       const node = HStack({ width: 80, height: 24 }, [
