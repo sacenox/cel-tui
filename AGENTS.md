@@ -148,6 +148,25 @@ chore: scaffold monorepo with types, core, components packages
 - `width.ts` — `visibleWidth(str)` measures terminal column width. Fast ASCII path, grapheme segmentation, East Asian width, ANSI stripping, LRU cache.
 - `terminal.ts` — `ProcessTerminal` (real I/O, raw mode, SGR mouse, crash cleanup) and `MockTerminal` (testing).
 
+## Updating gh-pages
+
+The `gh-pages` branch tracks generated API docs (`docs/html/`, `docs/md/`) and an `index.html` for GitHub Pages. To update it after changes land on `main`:
+
+```bash
+git checkout gh-pages
+git merge main              # resolve any conflicts, keeping docs tracked
+bun run docs                # regenerate API docs
+git add -A
+git commit -m "docs: regenerate API docs from latest main"
+git push
+git checkout main
+```
+
+**Key differences on gh-pages:**
+
+- `.gitignore` does **not** exclude `docs/html/` or `docs/md/` (they're committed)
+- `.prettierignore` includes `docs/html` and `docs/md` (generated files fail format checks otherwise)
+
 ## Conventions
 
 - All code is TypeScript with strict mode
