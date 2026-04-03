@@ -3,7 +3,9 @@
 A TypeScript TUI framework built around a declarative functional API and ultra-fast rendering.
 
 <p align="center">
-  <img src="assets/demo.gif" alt="cel-tui demo" width="539" />
+  <picture>
+    <img src="assets/demo.gif" alt="cel-tui demo" width="539" style="border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,0.3);" />
+  </picture>
 </p>
 
 ## Why "cel"?
