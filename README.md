@@ -2,6 +2,10 @@
 
 A TypeScript TUI framework built around a declarative functional API and ultra-fast rendering.
 
+<p align="center">
+  <img src="assets/demo.gif" alt="cel-tui demo" width="539" />
+</p>
+
 ## Why "cel"?
 
 A **cel** is the smallest unit of a terminal display — a single character cell. Start from the smallest meaningful unit and build up, with nothing wasted.
