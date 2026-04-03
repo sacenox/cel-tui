@@ -350,7 +350,23 @@ function handleKeyEvent(key: string): void {
     }
   }
 
-  // Key not consumed by TextInput — bubble through layers
+  // Key not consumed by TextInput — bubble up from focused element
+  const focused = findFocusedElement();
+  if (focused) {
+    for (let i = currentLayouts.length - 1; i >= 0; i--) {
+      const path = findPathTo(currentLayouts[i]!, focused);
+      if (path) {
+        const handler = findKeyPressHandler(path);
+        if (handler) {
+          handler.handler(key);
+          cel.render();
+          return;
+        }
+      }
+    }
+  }
+
+  // No focused element — try root onKeyPress on topmost layer
   for (let i = currentLayouts.length - 1; i >= 0; i--) {
     const layoutRoot = currentLayouts[i]!;
     const path = [layoutRoot];
@@ -363,9 +379,33 @@ function handleKeyEvent(key: string): void {
   }
 }
 
+/**
+ * Build the path from root to a target node (depth-first search).
+ * Returns the path array [root, ..., target] or null if not found.
+ */
+function findPathTo(root: LayoutNode, target: LayoutNode): LayoutNode[] | null {
+  if (root === target || root.node === target.node) return [root];
+  for (const child of root.children) {
+    const childPath = findPathTo(child, target);
+    if (childPath) return [root, ...childPath];
+  }
+  return null;
+}
+
 function findFocusedTextInput(): LayoutNode | null {
   for (let i = currentLayouts.length - 1; i >= 0; i--) {
-    const found = findFocusedInTree(currentLayouts[i]!);
+    const found = findFocusedTextInputInTree(currentLayouts[i]!);
+    if (found) return found;
+  }
+  return null;
+}
+
+function findFocusedTextInputInTree(ln: LayoutNode): LayoutNode | null {
+  if (ln.node.type === "textinput" && ln.node.props.focused) {
+    return ln;
+  }
+  for (const child of ln.children) {
+    const found = findFocusedTextInputInTree(child);
     if (found) return found;
   }
   return null;

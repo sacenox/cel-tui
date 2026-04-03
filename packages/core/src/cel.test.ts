@@ -432,4 +432,136 @@ describe("cel end-to-end", () => {
       expect(focused).toEqual(["btn1"]);
     });
   });
+
+  describe("onKeyPress bubbling", () => {
+    test("key bubbles from focused element up through ancestors", async () => {
+      const term = setup(20, 5);
+      const received: string[] = [];
+
+      cel.viewport(() =>
+        VStack(
+          {
+            width: 20,
+            height: 5,
+            onKeyPress: (key) => {
+              received.push("root:" + key);
+            },
+          },
+          [
+            VStack(
+              {
+                onKeyPress: (key) => {
+                  received.push("mid:" + key);
+                },
+              },
+              [
+                HStack(
+                  {
+                    onClick: () => {},
+                    focused: true,
+                  },
+                  [Text("Focused Btn")],
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+      await waitForRender();
+
+      // Send a key — should bubble from focused btn through mid, then root
+      term.sendInput("x");
+      await waitForRender();
+
+      // Nearest ancestor with onKeyPress is "mid", so it handles first
+      expect(received).toEqual(["mid:x"]);
+    });
+
+    test("key reaches root onKeyPress when no intermediate handlers", async () => {
+      const term = setup(20, 5);
+      let rootKey = "";
+
+      cel.viewport(() =>
+        VStack(
+          {
+            width: 20,
+            height: 5,
+            onKeyPress: (key) => {
+              rootKey = key;
+            },
+          },
+          [
+            HStack(
+              {
+                onClick: () => {},
+                focused: true,
+              },
+              [Text("Btn")],
+            ),
+          ],
+        ),
+      );
+      await waitForRender();
+
+      term.sendInput("y");
+      await waitForRender();
+      expect(rootKey).toBe("y");
+    });
+
+    test("modifier key from focused TextInput bubbles to ancestors", async () => {
+      const term = setup(20, 5);
+      let parentKey = "";
+      let inputValue = "hello";
+
+      cel.viewport(() =>
+        VStack(
+          {
+            width: 20,
+            height: 5,
+            onKeyPress: (key) => {
+              parentKey = key;
+            },
+          },
+          [
+            TextInput({
+              value: inputValue,
+              onChange: (v) => {
+                inputValue = v;
+              },
+              focused: true,
+            }),
+          ],
+        ),
+      );
+      await waitForRender();
+
+      // Ctrl+S is not an editing key — should bubble up
+      term.sendInput("\x13");
+      await waitForRender();
+      expect(parentKey).toBe("ctrl+s");
+    });
+
+    test("unfocused state bubbles from root only", async () => {
+      const term = setup(20, 5);
+      let rootKey = "";
+
+      cel.viewport(() =>
+        VStack(
+          {
+            width: 20,
+            height: 5,
+            onKeyPress: (key) => {
+              rootKey = key;
+            },
+          },
+          [Text("no focus")],
+        ),
+      );
+      await waitForRender();
+
+      term.sendInput("z");
+      await waitForRender();
+      expect(rootKey).toBe("z");
+    });
+  });
 });

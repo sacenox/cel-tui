@@ -53,7 +53,7 @@ What's implemented, what's missing, and what needs hardening. Reference `spec.md
 - ✅ Scroll routing (innermost scrollable, fires `onScroll`)
 - ✅ Key routing to `onKeyPress` handlers
 - ✅ TextInput key consumption (editing keys consumed, modifiers bubble)
-- 🔧 `onKeyPress` bubbling — currently only checks the root container, should walk up from focused element through all ancestors
+- ✅ `onKeyPress` bubbling — walks up from focused element through all ancestors
 - ✅ Focus traversal (Tab/Shift+Tab cycling through focusable elements)
 - ✅ Escape to unfocus
 - ✅ Enter to activate focused clickable container
