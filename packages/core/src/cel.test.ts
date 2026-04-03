@@ -125,4 +125,80 @@ describe("cel end-to-end", () => {
     expect(term.output).toContain("\x1b[?2026h");
     expect(term.output).toContain("\x1b[?2026l");
   });
+
+  describe("input handling", () => {
+    test("onClick fires on mouse click", async () => {
+      const term = setup(20, 5);
+      let clicked = false;
+      cel.viewport(() =>
+        VStack({ width: 20, height: 5 }, [
+          HStack(
+            {
+              onClick: () => {
+                clicked = true;
+              },
+            },
+            [Text("Click me")],
+          ),
+        ]),
+      );
+      await waitForRender();
+
+      // SGR mouse click release at (3, 0): ESC [ < 0 ; 4 ; 1 m
+      term.sendInput("\x1b[<0;4;1m");
+      await waitForRender();
+
+      expect(clicked).toBe(true);
+    });
+
+    test("onKeyPress fires on key input", async () => {
+      const term = setup(20, 5);
+      let receivedKey = "";
+      cel.viewport(() =>
+        VStack(
+          {
+            width: 20,
+            height: 5,
+            onKeyPress: (key) => {
+              receivedKey = key;
+            },
+          },
+          [Text("hello")],
+        ),
+      );
+      await waitForRender();
+
+      // Send Ctrl+S
+      term.sendInput("\x13");
+      await waitForRender();
+
+      expect(receivedKey).toBe("ctrl+s");
+    });
+
+    test("onScroll fires on mouse wheel", async () => {
+      const term = setup(20, 5);
+      let scrollOffset = 0;
+      cel.viewport(() =>
+        VStack(
+          {
+            width: 20,
+            height: 5,
+            overflow: "scroll",
+            scrollOffset: scrollOffset,
+            onScroll: (offset) => {
+              scrollOffset = offset;
+            },
+          },
+          [Text("scrollable")],
+        ),
+      );
+      await waitForRender();
+
+      // SGR scroll down at (3, 2): ESC [ < 65 ; 4 ; 3 M
+      term.sendInput("\x1b[<65;4;3M");
+      await waitForRender();
+
+      expect(scrollOffset).toBe(1);
+    });
+  });
 });
