@@ -8,9 +8,21 @@ import {
   findKeyPressHandler,
   collectFocusable,
 } from "./hit-test.js";
-import { parseKey, isEditingKey } from "./keys.js";
+import { parseKey, isEditingKey, normalizeKey } from "./keys.js";
 import { layout, type LayoutNode } from "./layout.js";
-import { paint } from "./paint.js";
+import {
+  paint,
+  getTextInputCursor,
+  setTextInputCursor,
+  setTextInputScroll,
+} from "./paint.js";
+import {
+  insertChar,
+  deleteBackward,
+  deleteForward,
+  moveCursor,
+  type EditState,
+} from "./text-edit.js";
 import type { Terminal } from "./terminal.js";
 
 type RenderFn = () => Node | Node[];
@@ -131,18 +143,74 @@ function handleMouseEvent(event: MouseEvent): void {
 }
 
 function handleKeyEvent(key: string): void {
-  // Tab / Shift+Tab — focus traversal (handled by app via onFocus/onBlur)
-  // Escape — unfocus (handled by app)
-  // Enter on focused clickable — find and fire onClick
+  // Find the focused TextInput (if any) to route editing keys
+  const focusedInput = findFocusedTextInput();
 
-  // For now, route key events through the layout tree:
-  // Walk all layers top-to-bottom, find onKeyPress handlers
+  if (focusedInput) {
+    const props = focusedInput.node
+      .props as import("@cel-tui/types").TextInputProps;
+
+    // Check submitKey
+    const submitKey = normalizeKey(props.submitKey ?? "enter");
+    if (key === submitKey && props.onSubmit) {
+      props.onSubmit();
+      cel.render();
+      return;
+    }
+
+    // Editing keys are consumed by TextInput
+    if (isEditingKey(key)) {
+      const cursor = getTextInputCursor(props);
+      const editState: EditState = { value: props.value, cursor };
+      let newState: EditState | null = null;
+
+      switch (key) {
+        case "backspace":
+          newState = deleteBackward(editState);
+          break;
+        case "delete":
+          newState = deleteForward(editState);
+          break;
+        case "left":
+        case "right":
+        case "up":
+        case "down":
+        case "home":
+        case "end":
+          newState = moveCursor(
+            editState,
+            key as "left" | "right" | "up" | "down" | "home" | "end",
+            focusedInput.rect.width,
+          );
+          break;
+        case "enter":
+          newState = insertChar(editState, "\n");
+          break;
+        case "tab":
+          newState = insertChar(editState, "\t");
+          break;
+        default:
+          // Single printable character
+          if (key.length === 1) {
+            newState = insertChar(editState, key);
+          }
+          break;
+      }
+
+      if (newState && newState !== editState) {
+        setTextInputCursor(props, newState.cursor);
+        if (newState.value !== editState.value) {
+          props.onChange(newState.value);
+        }
+        cel.render();
+        return;
+      }
+    }
+  }
+
+  // Key not consumed by TextInput — bubble through layers
   for (let i = currentLayouts.length - 1; i >= 0; i--) {
     const layoutRoot = currentLayouts[i]!;
-
-    // Find the first onKeyPress handler in the tree (root acts as global)
-    // In a full implementation, this would start from the focused element
-    // and bubble up. For now, walk from root.
     const path = [layoutRoot];
     const handler = findKeyPressHandler(path);
     if (handler) {
@@ -151,6 +219,25 @@ function handleKeyEvent(key: string): void {
       return;
     }
   }
+}
+
+function findFocusedTextInput(): LayoutNode | null {
+  for (let i = currentLayouts.length - 1; i >= 0; i--) {
+    const found = findFocusedInTree(currentLayouts[i]!);
+    if (found) return found;
+  }
+  return null;
+}
+
+function findFocusedInTree(ln: LayoutNode): LayoutNode | null {
+  if (ln.node.type === "textinput" && ln.node.props.focused) {
+    return ln;
+  }
+  for (const child of ln.children) {
+    const found = findFocusedInTree(child);
+    if (found) return found;
+  }
+  return null;
 }
 
 // --- Public API ---
