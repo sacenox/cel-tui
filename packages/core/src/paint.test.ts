@@ -214,6 +214,74 @@ describe("paint", () => {
     });
   });
 
+  describe("overflow clipping", () => {
+    test("text extending beyond container width is clipped", () => {
+      // Container is 5 wide, child text is longer
+      const node = VStack({ width: 5, height: 3 }, [
+        VStack({ width: 5, height: 1 }, [Text("HelloWorld")]),
+      ]);
+      const ln = layout(node, 10, 3);
+      const buf = new CellBuffer(10, 3);
+      paint(ln, buf);
+      // Only "Hello" should appear, "World" clipped by container
+      expect(readRow(buf, 0)).toBe("Hello");
+    });
+
+    test("child positioned outside parent bounds is clipped", () => {
+      // Parent is 10 wide, 3 tall. Two children each 2 tall = 4 total.
+      // Second child overflows vertically.
+      const node = VStack({ width: 10, height: 3 }, [
+        VStack({ height: 2 }, [Text("AA")]),
+        VStack({ height: 2 }, [Text("BB")]),
+      ]);
+      const ln = layout(node, 10, 3);
+      const buf = new CellBuffer(10, 5);
+      paint(ln, buf);
+      expect(readRow(buf, 0)).toBe("AA");
+      expect(readRow(buf, 2)).toBe("BB");
+      // Row 3 is outside the parent (height=3), second line of "BB" child
+      // would be at y=3 but should be clipped
+      expect(readRow(buf, 3)).toBe("");
+    });
+
+    test("nested containers clip to innermost parent", () => {
+      // Outer 10x3, inner 5x2 at position (0,0)
+      // Text inside inner is long
+      const node = VStack({ width: 10, height: 3 }, [
+        VStack({ width: 5, height: 2 }, [Text("LongTextHere")]),
+      ]);
+      const ln = layout(node, 10, 3);
+      const buf = new CellBuffer(10, 3);
+      paint(ln, buf);
+      // Clipped to inner container width of 5
+      expect(readRow(buf, 0)).toBe("LongT");
+    });
+
+    test("HStack children clipped horizontally by parent", () => {
+      const node = HStack({ width: 8, height: 1 }, [
+        VStack({ width: 5 }, [Text("AAAAA")]),
+        VStack({ width: 5 }, [Text("BBBBB")]),
+      ]);
+      const ln = layout(node, 10, 1);
+      const buf = new CellBuffer(10, 1);
+      paint(ln, buf);
+      // First child fills 0-4 ("AAAAA"), second starts at 5
+      // But parent is only 8 wide, so second child clipped at col 8
+      expect(readRow(buf, 0)).toBe("AAAAABBB");
+    });
+
+    test("deeply nested clipping", () => {
+      const node = VStack({ width: 6, height: 2 }, [
+        HStack({}, [VStack({ width: 10 }, [Text("TooWide!!!")])]),
+      ]);
+      const ln = layout(node, 10, 2);
+      const buf = new CellBuffer(10, 2);
+      paint(ln, buf);
+      // Should be clipped to outermost container width of 6
+      expect(readRow(buf, 0)).toBe("TooWid");
+    });
+  });
+
   describe("nested layout", () => {
     test("editor-like layout paints correctly", () => {
       const node = HStack({ width: 30, height: 5 }, [

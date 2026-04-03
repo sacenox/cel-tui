@@ -17,18 +17,42 @@ const segmenter = new Intl.Segmenter(undefined, { granularity: "grapheme" });
  * @param buf - Target cell buffer.
  */
 export function paint(root: LayoutNode, buf: CellBuffer): void {
-  paintLayoutNode(root, buf);
+  paintLayoutNode(root, buf, root.rect);
 }
 
-function paintLayoutNode(ln: LayoutNode, buf: CellBuffer): void {
+/**
+ * Intersect two rectangles. Returns a rect with zero area if they don't overlap.
+ */
+function intersectRect(a: Rect, b: Rect): Rect {
+  const x = Math.max(a.x, b.x);
+  const y = Math.max(a.y, b.y);
+  const right = Math.min(a.x + a.width, b.x + b.width);
+  const bottom = Math.min(a.y + a.height, b.y + b.height);
+  return {
+    x,
+    y,
+    width: Math.max(0, right - x),
+    height: Math.max(0, bottom - y),
+  };
+}
+
+function paintLayoutNode(
+  ln: LayoutNode,
+  buf: CellBuffer,
+  clipRect: Rect,
+): void {
   const { node, rect } = ln;
+
+  // Clip this node's rect against the parent clip rect
+  const clipped = intersectRect(rect, clipRect);
+  if (clipped.width <= 0 || clipped.height <= 0) return;
 
   switch (node.type) {
     case "text":
-      paintText(node.content, node.props, rect, buf);
+      paintText(node.content, node.props, rect, clipped, buf);
       break;
     case "textinput":
-      paintTextInput(node.props, rect, buf);
+      paintTextInput(node.props, rect, clipped, buf);
       break;
     case "vstack":
     case "hstack":
@@ -36,9 +60,9 @@ function paintLayoutNode(ln: LayoutNode, buf: CellBuffer): void {
       break;
   }
 
-  // Recurse into children
+  // Recurse into children, using this node's clipped rect as the clip for children
   for (const child of ln.children) {
-    paintLayoutNode(child, buf);
+    paintLayoutNode(child, buf, clipped);
   }
 }
 
@@ -67,11 +91,17 @@ function makeCell(
  * Correctly handles wide characters (CJK, emoji) by advancing the column
  * by the grapheme's visible width.
  */
+/**
+ * Paint a single line of text into the buffer using grapheme segmentation.
+ * Correctly handles wide characters (CJK, emoji) by advancing the column
+ * by the grapheme's visible width. Respects the clip rect.
+ */
 function paintLineGraphemes(
   line: string,
   x: number,
   y: number,
   maxWidth: number,
+  clipRect: Rect,
   props: {
     fgColor?: Color;
     bgColor?: Color;
@@ -81,12 +111,21 @@ function paintLineGraphemes(
   },
   buf: CellBuffer,
 ): void {
+  if (y < clipRect.y || y >= clipRect.y + clipRect.height) return;
+  const clipLeft = clipRect.x;
+  const clipRight = clipRect.x + clipRect.width;
+
   let col = 0;
   for (const { segment } of segmenter.segment(line)) {
     const gw = visibleWidth(segment);
     if (gw === 0) continue;
-    if (col + gw > maxWidth) break; // clip: grapheme doesn't fit
-    buf.set(x + col, y, makeCell(segment, props));
+    if (col + gw > maxWidth) break; // clip: grapheme doesn't fit in rect
+    const absX = x + col;
+    if (absX >= clipRight) break; // past clip right edge
+    if (absX + gw > clipLeft) {
+      // At least partially visible in clip rect
+      buf.set(absX, y, makeCell(segment, props));
+    }
     col += gw;
   }
 }
@@ -103,6 +142,7 @@ function paintText(
     underline?: boolean;
   },
   rect: Rect,
+  clipRect: Rect,
   buf: CellBuffer,
 ): void {
   const { x, y, width: w, height: h } = rect;
@@ -139,13 +179,14 @@ function paintText(
   // Paint lines, clipped to rect (grapheme-aware)
   for (let row = 0; row < lines.length && row < h; row++) {
     const line = lines[row]!;
-    paintLineGraphemes(line, x, y + row, w, props, buf);
+    paintLineGraphemes(line, x, y + row, w, clipRect, props, buf);
   }
 }
 
 function paintTextInput(
   props: TextInputProps,
   rect: Rect,
+  clipRect: Rect,
   buf: CellBuffer,
 ): void {
   const { x, y, width: w, height: h } = rect;
@@ -156,7 +197,13 @@ function paintTextInput(
 
   if (showPlaceholder && props.placeholder) {
     // Paint placeholder text
-    paintText(props.placeholder.content, props.placeholder.props, rect, buf);
+    paintText(
+      props.placeholder.content,
+      props.placeholder.props,
+      rect,
+      clipRect,
+      buf,
+    );
     return;
   }
 
@@ -178,7 +225,7 @@ function paintTextInput(
     const lineIdx = scrollOffset + row;
     if (lineIdx >= lines.length) break;
     const line = lines[lineIdx]!;
-    paintLineGraphemes(line, x, y + row, w, props, buf);
+    paintLineGraphemes(line, x, y + row, w, clipRect, props, buf);
   }
 
   // Paint cursor if focused

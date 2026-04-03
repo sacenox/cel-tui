@@ -39,7 +39,7 @@ What's implemented, what's missing, and what needs hardening. Reference `spec.md
 - ✅ Hard clipping at rect boundaries
 - ✅ TextInput painting (value, placeholder, cursor via color inversion)
 - ✅ Text wrapping and layout use `visibleWidth()` for correct CJK/emoji handling
-- ❌ Overflow clipping (`overflow: "hidden"`) — children aren't clipped to parent bounds
+- ✅ Overflow clipping — children clipped to parent bounds via clip rect propagation
 - ❌ Scroll rendering (`overflow: "scroll"`) — content offset not applied during painting
 - ❌ Scrollbar rendering (`scrollbar: true`)
 
