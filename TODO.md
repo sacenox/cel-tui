@@ -29,7 +29,7 @@ What's implemented, what's missing, and what needs hardening. Reference `spec.md
 - ✅ Reactive rendering (`cel.render()` batched via `process.nextTick`)
 - ✅ Full render on first paint, cursor home positioning
 - ✅ Differential rendering — `emitDiff()` uses `CellBuffer.diff()` to emit only changed cells
-- ❌ Full clear + re-render on terminal resize (currently re-renders but doesn't clear scrollback)
+- ✅ Full clear + re-render on terminal resize (clears screen before re-render)
 
 ## Painting
 
@@ -84,7 +84,7 @@ What's implemented, what's missing, and what needs hardening. Reference `spec.md
 
 - ✅ `ProcessTerminal` (raw mode, SGR mouse, cursor hide/show)
 - ✅ `MockTerminal` (captured output, simulated input/resize)
-- ❌ Restore terminal state on crash/unhandled exception (cleanup handler)
+- ✅ Restore terminal state on crash/unhandled exception (cleanup handler)
 - ❌ Bracketed paste mode support
 - ❌ Kitty keyboard protocol detection
 

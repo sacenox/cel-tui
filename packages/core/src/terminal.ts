@@ -27,6 +27,9 @@ export interface Terminal {
 export class ProcessTerminal implements Terminal {
   private wasRaw = false;
   private resizeHandler?: () => void;
+  private inputHandler?: (data: string) => void;
+  private cleanupBound?: () => void;
+  private stopped = false;
 
   get columns(): number {
     return process.stdout.columns || 80;
@@ -41,7 +44,13 @@ export class ProcessTerminal implements Terminal {
   }
 
   start(onInput: (data: string) => void, onResize: () => void): void {
-    this.resizeHandler = onResize;
+    this.stopped = false;
+    this.inputHandler = onInput;
+    this.resizeHandler = () => {
+      // Clear screen on resize to avoid scrollback artifacts
+      this.write("\x1b[2J\x1b[H");
+      onResize();
+    };
     this.wasRaw = process.stdin.isRaw || false;
 
     if (process.stdin.setRawMode) {
@@ -50,14 +59,40 @@ export class ProcessTerminal implements Terminal {
     process.stdin.setEncoding("utf8");
     process.stdin.resume();
     process.stdin.on("data", onInput);
-    process.stdout.on("resize", onResize);
+    process.stdout.on("resize", this.resizeHandler);
 
     // Enable mouse SGR mode
     this.write("\x1b[?1006h");
     this.hideCursor();
+
+    // Register cleanup handlers for crash/exit scenarios
+    this.cleanupBound = () => this.cleanup();
+    process.on("exit", this.cleanupBound);
+    process.on("SIGINT", this.cleanupBound);
+    process.on("SIGTERM", this.cleanupBound);
+    process.on("uncaughtException", (err) => {
+      this.cleanup();
+      console.error(err);
+      process.exit(1);
+    });
+    process.on("unhandledRejection", (err) => {
+      this.cleanup();
+      console.error(err);
+      process.exit(1);
+    });
   }
 
   stop(): void {
+    this.cleanup();
+  }
+
+  /**
+   * Restore terminal state. Safe to call multiple times.
+   */
+  private cleanup(): void {
+    if (this.stopped) return;
+    this.stopped = true;
+
     // Disable mouse mode
     this.write("\x1b[?1006l");
     this.showCursor();
@@ -65,10 +100,20 @@ export class ProcessTerminal implements Terminal {
     if (this.resizeHandler) {
       process.stdout.removeListener("resize", this.resizeHandler);
     }
+    if (this.inputHandler) {
+      process.stdin.removeListener("data", this.inputHandler);
+    }
 
     process.stdin.pause();
     if (process.stdin.setRawMode) {
       process.stdin.setRawMode(this.wasRaw);
+    }
+
+    // Remove process handlers
+    if (this.cleanupBound) {
+      process.removeListener("exit", this.cleanupBound);
+      process.removeListener("SIGINT", this.cleanupBound);
+      process.removeListener("SIGTERM", this.cleanupBound);
     }
   }
 
