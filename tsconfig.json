@@ -3,11 +3,14 @@
     "strict": true,
     "target": "ESNext",
     "module": "ESNext",
-    "moduleResolution": "bundler"
+    "moduleResolution": "bundler",
+    "noEmit": true,
+    "skipLibCheck": true,
+    "types": ["@types/bun"],
+    "paths": {
+      "@cel-tui/types": ["./packages/types/src/index.ts"],
+      "@cel-tui/core": ["./packages/core/src/index.ts"]
+    }
   },
-  "references": [
-    { "path": "packages/types" },
-    { "path": "packages/core" },
-    { "path": "packages/components" }
-  ]
+  "include": ["packages/*/src/**/*.ts"]
 }
