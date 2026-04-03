@@ -69,11 +69,17 @@ cel.viewport(() =>
 | `@cel-tui/core`       | Framework engine and primitives               |
 | `@cel-tui/components` | Pre-made components (Button, Spacer, Divider) |
 
+## Documentation
+
+- **[API Reference](https://sacenox.github.io/cel-tui/)** — full TypeDoc-generated docs on GitHub Pages
+- **[Specification](spec.md)** — complete design spec covering layout, rendering, input, and focus
+- **[Agent Skill](docs/skill/cel-tui/SKILL.md)** — structured guide for AI coding agents to build apps with cel-tui
+
 ## Development
 
 ```bash
 bun install           # install dependencies
-bun test              # run tests (170+)
+bun test              # run tests (230+)
 bun run check         # biome lint
 bun run format        # prettier check
 bun run typecheck     # tsc --noEmit
