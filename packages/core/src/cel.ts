@@ -442,8 +442,7 @@ function findFocusedInTree(ln: LayoutNode): LayoutNode | null {
  *
  * @example
  * ```ts
- * import { cel, VStack, Text } from "@cel-tui/core";
- * import { ProcessTerminal } from "@cel-tui/core/terminal";
+ * import { cel, VStack, Text, ProcessTerminal } from "@cel-tui/core";
  *
  * cel.init(new ProcessTerminal());
  * cel.viewport(() =>

@@ -32,6 +32,20 @@ Dependency chain: `components → core → types`
 - **Key bubbling:** Unconsumed keys bubble up from focused element through ancestors. Root `onKeyPress` = global handler.
 - **Hit detection:** Topmost layer first, deepest node at (x,y), walk up to find handler. Innermost wins for scroll, click, keys.
 
+## Implementation Status
+
+All core systems from the spec are implemented and tested (232 tests):
+
+- **Layout engine** — flexbox sizing (fixed, intrinsic, flex, percentage), constraints, gap, padding, justifyContent, alignItems, largest-remainder rounding
+- **Rendering** — cell buffer, ANSI emitter with SGR styling, synchronized output (CSI 2026), differential rendering (emitDiff), full clear on resize
+- **Painting** — grapheme-aware text rendering (CJK/emoji via visibleWidth), overflow clipping via clip rect propagation, scroll content offsetting, scrollbar indicators
+- **Input** — key parsing/normalization, SGR mouse events, hit detection, click/scroll routing, focus traversal (Tab/Shift+Tab/Escape/Enter), onKeyPress bubbling from focused element through ancestors
+- **TextInput** — text editing, cursor movement, cursor persistence across re-renders (keyed on onChange), auto-scroll to keep cursor visible, placeholder rendering
+- **Layering** — multi-layer compositing, transparency, topmost-layer input priority
+- **Terminal** — crash cleanup (SIGINT/SIGTERM/uncaughtException), resize clear
+
+See `TODO.md` for remaining spec violations and future work.
+
 ## Runtime
 
 - **Bun** for package management and running TypeScript
@@ -122,6 +136,17 @@ chore: scaffold monorepo with types, core, components packages
 ## Runtime
 
 **Always use `bun` and `bunx` instead of `node`, `npm`, `npx`, or `yarn`.** This is a Bun monorepo — all scripts, package management, and execution should go through Bun.
+
+## Architecture Notes
+
+- `cel.ts` — Framework entrypoint. Owns render loop, input dispatch, focus management. `cel.init(terminal)` starts, `cel.viewport(fn)` sets render function, `cel.render()` requests re-render, `cel.stop()` restores terminal.
+- `layout.ts` — Flexbox engine. `layout(root, width, height)` → `LayoutNode` tree with absolute screen rects.
+- `paint.ts` — Paints `LayoutNode` tree into `CellBuffer`. Handles clip rects, scroll offsets, scrollbars, grapheme-aware text rendering, TextInput cursor/scroll state.
+- `emitter.ts` — `emitBuffer()` for full renders, `emitDiff()` for differential. Both wrap in CSI 2026 synchronized output.
+- `hit-test.ts` — `hitTest(root, x, y)` → path from root to deepest node. `findClickHandler`, `findScrollTarget`, `findKeyPressHandler`, `collectFocusable` walk paths.
+- `keys.ts` — `parseKey(data)` normalizes terminal input to canonical key strings. `isEditingKey()` identifies keys consumed by TextInput.
+- `width.ts` — `visibleWidth(str)` measures terminal column width. Fast ASCII path, grapheme segmentation, East Asian width, ANSI stripping, LRU cache.
+- `terminal.ts` — `ProcessTerminal` (real I/O, raw mode, SGR mouse, crash cleanup) and `MockTerminal` (testing).
 
 ## Conventions
 

@@ -1,120 +1,27 @@
 # cel-tui — TODO
 
-What's implemented, what's missing, and what needs hardening. Reference `spec.md` for full design.
+Remaining work and known discrepancies vs `spec.md`.
 
 ## Legend
 
-- ✅ Implemented and tested
-- 🔧 Partially implemented (basic version exists, needs work)
+- 🔧 Needs fix (spec violation or bug)
 - ❌ Not yet implemented
+- 💡 Nice-to-have / future enhancement
 
 ---
 
-## Layout Engine
+## Spec Violations
 
-- ✅ Fixed sizing (`width: 30, height: 10`)
-- ✅ Intrinsic sizing (containers fit children, Text height from content)
-- ✅ Flex distribution with largest remainder rounding
-- ✅ Percentage sizing (`width: "50%"`)
-- ✅ Constraints (`minWidth`, `maxWidth`, `minHeight`, `maxHeight`)
-- ✅ Gap spacing between children
-- ✅ Padding (`{ x, y }`)
-- ✅ `justifyContent` — `"start"`, `"end"`, `"center"`, `"space-between"`
-- ✅ `alignItems` — `"start"`, `"end"`, `"center"`, `"stretch"`
+- 🔧 **Tab key consumed by TextInput when focused** — The spec says Tab is an editing key consumed by TextInput (inserts `\t`). Currently Tab always triggers focus traversal. The spec requires Escape to leave the input first, then Tab to traverse. Fix: skip Tab/Shift+Tab focus traversal when a TextInput is focused.
 
-## Rendering
+- 🔧 **Mouse wheel scroll inside TextInput** — `findScrollTarget` correctly identifies TextInput as a scroll target, but `cel.ts` scroll handling only updates containers with `overflow: "scroll"`. It should also update TextInput's framework-managed scroll offset when the mouse wheel targets a TextInput.
 
-- ✅ Cell buffer (2D grid, get/set/fill/clear/resize/diff/isEmpty)
-- ✅ ANSI emitter (SGR colors, bold/italic/underline, synchronized output CSI 2026)
-- ✅ Reactive rendering (`cel.render()` batched via `process.nextTick`)
-- ✅ Full render on first paint, cursor home positioning
-- ✅ Differential rendering — `emitDiff()` uses `CellBuffer.diff()` to emit only changed cells
-- ✅ Full clear + re-render on terminal resize (clears screen before re-render)
+## Not Yet Implemented
 
-## Painting
-
-- ✅ Text painting (content, newlines, styling)
-- ✅ Text `repeat: "fill"` and `repeat: <number>`
-- ✅ Text `wrap: "word"` (basic word-wrap)
-- ✅ Hard clipping at rect boundaries
-- ✅ TextInput painting (value, placeholder, cursor via color inversion)
-- ✅ Text wrapping and layout use `visibleWidth()` for correct CJK/emoji handling
-- ✅ Overflow clipping — children clipped to parent bounds via clip rect propagation
-- ✅ Scroll rendering (`overflow: "scroll"`) — content offset applied during painting
-- ✅ Scrollbar rendering (`scrollbar: true`) — vertical and horizontal indicators
-
-## Input
-
-- ✅ Key parsing (ASCII, control chars, CSI sequences, arrow keys, function keys)
-- ✅ Key normalization (canonical modifier order)
-- ✅ Mouse event parsing (SGR mode: click, scroll-up, scroll-down)
-- ✅ Hit detection (point → deepest node path)
-- ✅ Click routing (innermost `onClick` wins)
-- ✅ Scroll routing (innermost scrollable, fires `onScroll`)
-- ✅ Key routing to `onKeyPress` handlers
-- ✅ TextInput key consumption (editing keys consumed, modifiers bubble)
-- ✅ `onKeyPress` bubbling — walks up from focused element through all ancestors
-- ✅ Focus traversal (Tab/Shift+Tab cycling through focusable elements)
-- ✅ Escape to unfocus
-- ✅ Enter to activate focused clickable container
-- ✅ Mouse click focusing (clicking a focusable element fires `onFocus`)
-- ✅ `onFocus`/`onBlur` callbacks fired by framework
-
-## Layer Compositing
-
-- ✅ Multiple layers paint bottom-to-top
-- ✅ Transparency (empty cells in upper layer show lower layer)
-- ✅ Topmost layer receives input events first
-- ✅ Conditional layers (show/hide via array inclusion)
-
-## TextInput
-
-- ✅ Text editing (insert, delete backward/forward)
-- ✅ Cursor movement (left/right/up/down/home/end)
-- ✅ Vertical navigation across lines
-- ✅ `onChange` fires on edits
-- ✅ `onSubmit` fires on `submitKey`
-- ✅ Placeholder rendering
-- ✅ Cursor display (inverted colors)
-- ✅ Cursor state keyed on `onChange` function reference for stable identity across re-renders
-- ✅ Framework-managed scroll (auto-scroll to keep cursor visible)
-- ❌ Mouse wheel scroll inside TextInput
-
-## Terminal
-
-- ✅ `ProcessTerminal` (raw mode, SGR mouse, cursor hide/show)
-- ✅ `MockTerminal` (captured output, simulated input/resize)
-- ✅ Restore terminal state on crash/unhandled exception (cleanup handler)
 - ❌ Bracketed paste mode support
 - ❌ Kitty keyboard protocol detection
 
-## Pre-made Components
+## Future Enhancements
 
-- ✅ `Spacer` — `VStack({ flex: 1 }, [])`
-- ✅ `Divider` — `Text(char, { repeat: "fill" })`
-- ✅ `Button` — `HStack({ onClick }, [Text(label)])`
-
-## Developer Experience
-
-- ✅ JSDoc on all public types, interfaces, and functions
-- ✅ TypeDoc generation (HTML + Markdown)
-- ✅ Agent Skills file (`docs/skill/cel-tui/SKILL.md`)
-- ✅ AGENTS.md for onboarding
-- ❌ Example apps that fully work end-to-end (`examples/hello.ts` needs alignment)
-
----
-
-## Priority Order
-
-Suggested order to tackle remaining work:
-
-1. **`justifyContent` + `alignItems`** — unblocks the hello example and any centered layout
-2. **`visibleWidth` integration** — text measurement in layout + paint should use grapheme-aware width
-3. **Overflow clipping** — parent bounds must clip children (`overflow: "hidden"`)
-4. **Scroll rendering** — `overflow: "scroll"` offsets content, scrollbar indicator
-5. **Differential rendering** — use `CellBuffer.diff()` to emit only changed cells
-6. **Focus system** — Tab traversal, Escape unfocus, Enter activate, onFocus/onBlur
-7. **`onKeyPress` full bubbling** — walk up from focused element, not just root
-8. **TextInput cursor persistence** — stable identity across re-renders
-9. **TextInput auto-scroll** — scroll to keep cursor visible
-10. **Terminal hardening** — crash cleanup, bracketed paste, resize clear
+- 💡 Additional example apps (chat UI, text editor from spec reference examples)
+- 💡 `overflow: "hidden"` as explicit prop (currently all containers clip by default, which matches the spec's default behavior, but the prop value is not checked)

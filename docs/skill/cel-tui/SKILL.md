@@ -284,9 +284,14 @@ All lowercase, modifiers joined by `+`: `"ctrl+s"`, `"ctrl+shift+n"`, `"escape"`
 - **Text is a leaf** — no sizing props, no children. Parent controls the box.
 - **TextInput is a container** — accepts sizing props but no children.
 - **No style inheritance** — every node sets its own styles explicitly.
-- **Escape unfocuses**, Tab/Shift+Tab traverses focusable elements.
-- **TextInput consumes editing keys** when focused. Modifier combos (ctrl+s) bubble up.
+- **Escape unfocuses** the current element.
+- **Tab/Shift+Tab** traverses focusable elements in document order (wraps around).
+- **Enter** activates a focused clickable container (fires onClick).
+- **TextInput consumes editing keys** when focused (printable chars, arrows, backspace, delete). Modifier combos (ctrl+s) bubble up through ancestors via onKeyPress.
+- **Mouse click** on a focusable element fires onFocus (and onBlur on previous).
 - **Innermost wins** — for click, scroll, and key handlers.
+- **Differential rendering** — only changed cells are emitted after the first render.
+- **Crash cleanup** — terminal state is restored on SIGINT, SIGTERM, uncaughtException.
 
 ## Pre-made Components
 

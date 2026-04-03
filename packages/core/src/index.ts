@@ -9,10 +9,11 @@
  *
  * @example
  * ```ts
- * import { cel, VStack, HStack, Text, TextInput } from "@cel-tui/core";
+ * import { cel, VStack, HStack, Text, TextInput, ProcessTerminal } from "@cel-tui/core";
  *
  * let name = "";
  *
+ * cel.init(new ProcessTerminal());
  * cel.viewport(() =>
  *   VStack({ height: "100%" }, [
  *     Text("What is your name?", { bold: true }),
