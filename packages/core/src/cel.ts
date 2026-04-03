@@ -91,7 +91,7 @@ function handleInput(data: string): void {
 
   // Keyboard input
   const key = parseKey(data);
-  handleKeyEvent(key);
+  handleKeyEvent(key, data);
 }
 
 interface MouseEvent {
@@ -228,7 +228,7 @@ function findClickFocusTarget(path: LayoutNode[]): LayoutNode | null {
   return null;
 }
 
-function handleKeyEvent(key: string): void {
+function handleKeyEvent(key: string, rawData?: string): void {
   // --- Focus traversal keys ---
 
   // Tab / Shift+Tab: cycle through focusable elements
@@ -332,8 +332,10 @@ function handleKeyEvent(key: string): void {
           newState = insertChar(editState, "\t");
           break;
         default:
-          // Single printable character
-          if (key.length === 1) {
+          // Single printable character — use raw data to preserve case
+          if (key.length === 1 && rawData && rawData.length === 1) {
+            newState = insertChar(editState, rawData);
+          } else if (key.length === 1) {
             newState = insertChar(editState, key);
           }
           break;

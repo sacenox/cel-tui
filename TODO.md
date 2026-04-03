@@ -76,7 +76,7 @@ What's implemented, what's missing, and what needs hardening. Reference `spec.md
 - ✅ `onSubmit` fires on `submitKey`
 - ✅ Placeholder rendering
 - ✅ Cursor display (inverted colors)
-- 🔧 Cursor state uses `WeakMap` keyed on props — works for single render but may lose cursor position across re-renders since props objects are recreated each frame
+- ✅ Cursor state keyed on `onChange` function reference for stable identity across re-renders
 - ❌ Framework-managed scroll (auto-scroll to keep cursor visible)
 - ❌ Mouse wheel scroll inside TextInput
 

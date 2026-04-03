@@ -432,12 +432,19 @@ export function setContainerScroll(
   containerScrolls.set(props, scroll);
 }
 
-const textInputCursors = new WeakMap<TextInputProps, number>();
-const textInputScrolls = new WeakMap<TextInputProps, number>();
+/**
+ * TextInput state is keyed on the `onChange` function reference, which is
+ * a stable identity across re-renders (the app provides the same closure).
+ * This avoids losing cursor/scroll position when props objects are recreated
+ * each frame.
+ */
+type OnChangeFn = (value: string) => void;
+const textInputCursors = new WeakMap<OnChangeFn, number>();
+const textInputScrolls = new WeakMap<OnChangeFn, number>();
 
 /** Get the cursor offset for a TextInput (framework-managed). */
 export function getTextInputCursor(props: TextInputProps): number {
-  return textInputCursors.get(props) ?? props.value.length;
+  return textInputCursors.get(props.onChange) ?? props.value.length;
 }
 
 /** Set the cursor offset for a TextInput. */
@@ -445,12 +452,12 @@ export function setTextInputCursor(
   props: TextInputProps,
   cursor: number,
 ): void {
-  textInputCursors.set(props, cursor);
+  textInputCursors.set(props.onChange, cursor);
 }
 
 /** Get the scroll offset for a TextInput (framework-managed). */
 export function getTextInputScroll(props: TextInputProps): number {
-  return textInputScrolls.get(props) ?? 0;
+  return textInputScrolls.get(props.onChange) ?? 0;
 }
 
 /** Set the scroll offset for a TextInput. */
@@ -458,7 +465,7 @@ export function setTextInputScroll(
   props: TextInputProps,
   scroll: number,
 ): void {
-  textInputScrolls.set(props, scroll);
+  textInputScrolls.set(props.onChange, scroll);
 }
 
 /**

@@ -203,6 +203,40 @@ describe("TextInput integration", () => {
     expect(value).toBe("text"); // Value unchanged
   });
 
+  test("cursor position persists across re-renders", async () => {
+    const term = setup(20, 3);
+    let value = "abcdef";
+    const onChange = (v: string) => {
+      value = v;
+      cel.render();
+    };
+
+    cel.viewport(() =>
+      VStack({}, [
+        TextInput({
+          value,
+          focused: true,
+          onChange,
+        }),
+      ]),
+    );
+    await waitForRender();
+
+    // Move cursor left 3 times (from end of "abcdef")
+    term.sendInput("\x1b[D"); // left
+    await waitForRender();
+    term.sendInput("\x1b[D"); // left
+    await waitForRender();
+    term.sendInput("\x1b[D"); // left
+    await waitForRender();
+
+    // Now type "X" — should insert at position 3 (after "abc")
+    term.sendInput("X");
+    await waitForRender();
+
+    expect(value).toBe("abcXdef");
+  });
+
   test("unfocused TextInput does not consume keys", async () => {
     const term = setup(20, 3);
     let receivedKey = "";
