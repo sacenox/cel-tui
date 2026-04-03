@@ -78,6 +78,41 @@ describe("layout", () => {
     });
   });
 
+  describe("visibleWidth-aware sizing", () => {
+    test("CJK text intrinsic width counts double-width chars", () => {
+      const node = HStack({ height: 10, alignItems: "start" }, [
+        Text("世界"), // 2 chars, each width 2 = 4 columns
+      ]);
+      const result = layout(node, 80, 24);
+      expect(childRects(result)[0]!.width).toBe(4);
+    });
+
+    test("CJK text word-wrap height uses visible width", () => {
+      // 6 CJK chars = 12 columns wide, wrap at width 5 → ceil(12/5) = 3 lines
+      const node = VStack({ width: 5, height: 24 }, [
+        Text("世界世界世界", { wrap: "word" }),
+      ]);
+      const result = layout(node, 80, 24);
+      expect(childRects(result)[0]!.height).toBe(3);
+    });
+
+    test("emoji text intrinsic width counts width 2", () => {
+      const node = HStack({ height: 10, alignItems: "start" }, [
+        Text("😀hi"), // emoji(2) + h(1) + i(1) = 4
+      ]);
+      const result = layout(node, 80, 24);
+      expect(childRects(result)[0]!.width).toBe(4);
+    });
+
+    test("mixed ASCII and CJK intrinsic width", () => {
+      const node = HStack({ height: 10, alignItems: "start" }, [
+        Text("hi世界"), // h(1) + i(1) + 世(2) + 界(2) = 6
+      ]);
+      const result = layout(node, 80, 24);
+      expect(childRects(result)[0]!.width).toBe(6);
+    });
+  });
+
   describe("flex sizing", () => {
     test("single flex child fills remaining space in VStack", () => {
       const node = VStack({ width: 80, height: 24 }, [

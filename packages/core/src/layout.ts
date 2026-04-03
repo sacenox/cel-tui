@@ -1,4 +1,5 @@
 import type { Node, ContainerProps, SizeValue } from "@cel-tui/types";
+import { visibleWidth } from "./width.js";
 
 /**
  * A rectangle in absolute screen coordinates.
@@ -63,7 +64,10 @@ function intrinsicMainSize(
       if (node.props.wrap === "word") {
         let total = 0;
         for (const line of lines) {
-          total += Math.max(1, Math.ceil(line.length / Math.max(1, crossSize)));
+          total += Math.max(
+            1,
+            Math.ceil(visibleWidth(line) / Math.max(1, crossSize)),
+          );
         }
         return total;
       }
@@ -74,7 +78,8 @@ function intrinsicMainSize(
     const lines = node.content.split("\n");
     let maxW = 0;
     for (const line of lines) {
-      if (line.length > maxW) maxW = line.length;
+      const w = visibleWidth(line);
+      if (w > maxW) maxW = w;
     }
     if (typeof node.props.repeat === "number") maxW *= node.props.repeat;
     return maxW;
@@ -87,7 +92,10 @@ function intrinsicMainSize(
       const lines = val.split("\n");
       let total = 0;
       for (const line of lines) {
-        total += Math.max(1, Math.ceil(line.length / Math.max(1, crossSize)));
+        total += Math.max(
+          1,
+          Math.ceil(visibleWidth(line) / Math.max(1, crossSize)),
+        );
       }
       return total;
     }

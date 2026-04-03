@@ -158,6 +158,62 @@ describe("paint", () => {
     });
   });
 
+  describe("wide character rendering", () => {
+    test("CJK characters occupy 2 cells each", () => {
+      const node = VStack({ width: 20, height: 1 }, [Text("\u4e16\u754c")]);
+      const ln = layout(node, 20, 1);
+      const buf = new CellBuffer(20, 1);
+      paint(ln, buf);
+      // \u4e16 at col 0 (wide), \u754c at col 2 (wide)
+      expect(buf.get(0, 0).char).toBe("\u4e16");
+      expect(buf.get(2, 0).char).toBe("\u754c");
+    });
+
+    test("emoji occupies 2 cells", () => {
+      const node = VStack({ width: 20, height: 1 }, [Text("\ud83d\ude00x")]);
+      const ln = layout(node, 20, 1);
+      const buf = new CellBuffer(20, 1);
+      paint(ln, buf);
+      // emoji at col 0 (wide), x at col 2
+      expect(buf.get(0, 0).char).toBe("\ud83d\ude00");
+      expect(buf.get(2, 0).char).toBe("x");
+    });
+
+    test("repeat fill with CJK char fills by visible width", () => {
+      const node = VStack({ width: 6, height: 1 }, [
+        Text("\u4e16", { repeat: "fill" }), // width 2, fills 6 cols = 3 repeats
+      ]);
+      const ln = layout(node, 6, 1);
+      const buf = new CellBuffer(6, 1);
+      paint(ln, buf);
+      expect(buf.get(0, 0).char).toBe("\u4e16");
+      expect(buf.get(2, 0).char).toBe("\u4e16");
+      expect(buf.get(4, 0).char).toBe("\u4e16");
+    });
+
+    test("mixed ASCII and CJK paints at correct positions", () => {
+      const node = VStack({ width: 20, height: 1 }, [Text("hi\u4e16\u754c")]);
+      const ln = layout(node, 20, 1);
+      const buf = new CellBuffer(20, 1);
+      paint(ln, buf);
+      expect(buf.get(0, 0).char).toBe("h");
+      expect(buf.get(1, 0).char).toBe("i");
+      expect(buf.get(2, 0).char).toBe("\u4e16");
+      expect(buf.get(4, 0).char).toBe("\u754c");
+    });
+
+    test("CJK text clips at rect boundary", () => {
+      // \u4e16(2) + \u754c(2) = 4, but rect is 3 wide \u2192 clip \u754c
+      const node = VStack({ width: 3, height: 1 }, [Text("\u4e16\u754c")]);
+      const ln = layout(node, 3, 1);
+      const buf = new CellBuffer(3, 1);
+      paint(ln, buf);
+      expect(buf.get(0, 0).char).toBe("\u4e16");
+      // col 2 should be empty - \u754c doesn't fit (needs 2 cols, only 1 remains)
+      expect(buf.get(2, 0).char).toBe(" ");
+    });
+  });
+
   describe("nested layout", () => {
     test("editor-like layout paints correctly", () => {
       const node = HStack({ width: 30, height: 5 }, [

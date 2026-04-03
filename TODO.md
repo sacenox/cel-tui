@@ -38,7 +38,7 @@ What's implemented, what's missing, and what needs hardening. Reference `spec.md
 - ✅ Text `wrap: "word"` (basic word-wrap)
 - ✅ Hard clipping at rect boundaries
 - ✅ TextInput painting (value, placeholder, cursor via color inversion)
-- 🔧 Text wrapping and layout use `string.length` for width — should use `visibleWidth()` for correct CJK/emoji handling
+- ✅ Text wrapping and layout use `visibleWidth()` for correct CJK/emoji handling
 - ❌ Overflow clipping (`overflow: "hidden"`) — children aren't clipped to parent bounds
 - ❌ Scroll rendering (`overflow: "scroll"`) — content offset not applied during painting
 - ❌ Scrollbar rendering (`scrollbar: true`)

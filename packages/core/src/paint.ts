@@ -2,6 +2,9 @@ import type { Color, TextInputProps } from "@cel-tui/types";
 import type { Cell } from "./cell-buffer.js";
 import { CellBuffer } from "./cell-buffer.js";
 import type { LayoutNode, Rect } from "./layout.js";
+import { visibleWidth } from "./width.js";
+
+const segmenter = new Intl.Segmenter(undefined, { granularity: "grapheme" });
 
 /**
  * Paint a laid-out tree into a cell buffer.
@@ -59,6 +62,35 @@ function makeCell(
   };
 }
 
+/**
+ * Paint a single line of text into the buffer using grapheme segmentation.
+ * Correctly handles wide characters (CJK, emoji) by advancing the column
+ * by the grapheme's visible width.
+ */
+function paintLineGraphemes(
+  line: string,
+  x: number,
+  y: number,
+  maxWidth: number,
+  props: {
+    fgColor?: Color;
+    bgColor?: Color;
+    bold?: boolean;
+    italic?: boolean;
+    underline?: boolean;
+  },
+  buf: CellBuffer,
+): void {
+  let col = 0;
+  for (const { segment } of segmenter.segment(line)) {
+    const gw = visibleWidth(segment);
+    if (gw === 0) continue;
+    if (col + gw > maxWidth) break; // clip: grapheme doesn't fit
+    buf.set(x + col, y, makeCell(segment, props));
+    col += gw;
+  }
+}
+
 function paintText(
   content: string,
   props: {
@@ -79,7 +111,10 @@ function paintText(
   // Resolve repeat
   let text = content;
   if (props.repeat === "fill" && content.length > 0) {
-    text = content.repeat(Math.ceil(w / content.length)).slice(0, w);
+    const contentW = visibleWidth(content);
+    if (contentW > 0) {
+      text = content.repeat(Math.ceil(w / contentW));
+    }
   } else if (typeof props.repeat === "number" && props.repeat > 0) {
     text = content.repeat(props.repeat);
   }
@@ -91,7 +126,7 @@ function paintText(
   const lines: string[] = [];
   if (props.wrap === "word") {
     for (const rawLine of rawLines) {
-      if (rawLine.length <= w) {
+      if (visibleWidth(rawLine) <= w) {
         lines.push(rawLine);
       } else {
         wrapLine(rawLine, w, lines);
@@ -101,12 +136,10 @@ function paintText(
     lines.push(...rawLines);
   }
 
-  // Paint lines, clipped to rect
+  // Paint lines, clipped to rect (grapheme-aware)
   for (let row = 0; row < lines.length && row < h; row++) {
     const line = lines[row]!;
-    for (let col = 0; col < line.length && col < w; col++) {
-      buf.set(x + col, y + row, makeCell(line[col]!, props));
-    }
+    paintLineGraphemes(line, x, y + row, w, props, buf);
   }
 }
 
@@ -130,7 +163,7 @@ function paintTextInput(
   // Word-wrap value (always on for TextInput)
   const lines: string[] = [];
   for (const rawLine of value.split("\n")) {
-    if (rawLine.length <= w) {
+    if (visibleWidth(rawLine) <= w) {
       lines.push(rawLine);
     } else {
       wrapLine(rawLine, w, lines);
@@ -140,14 +173,12 @@ function paintTextInput(
   // Framework-managed scroll: use stored scroll offset
   const scrollOffset = getTextInputScroll(props);
 
-  // Paint visible lines
+  // Paint visible lines (grapheme-aware)
   for (let row = 0; row < h; row++) {
     const lineIdx = scrollOffset + row;
     if (lineIdx >= lines.length) break;
     const line = lines[lineIdx]!;
-    for (let col = 0; col < line.length && col < w; col++) {
-      buf.set(x + col, y + row, makeCell(line[col]!, props));
-    }
+    paintLineGraphemes(line, x, y + row, w, props, buf);
   }
 
   // Paint cursor if focused
@@ -188,14 +219,18 @@ function offsetToWrappedPos(
       // Cursor is in this raw line
       const colInRaw = cursor - offset;
       if (width <= 0) return { line: wrappedLine, col: colInRaw };
-      const extraLines = Math.floor(colInRaw / width);
-      return { line: wrappedLine + extraLines, col: colInRaw % width };
+      // Compute visible width of text before cursor
+      const textBeforeCursor = rawLine.slice(0, colInRaw);
+      const vw = visibleWidth(textBeforeCursor);
+      const extraLines = Math.floor(vw / width);
+      return { line: wrappedLine + extraLines, col: vw % width };
     }
     // Count wrapped lines for this raw line
-    if (rawLine.length <= width || width <= 0) {
+    const lineVW = visibleWidth(rawLine);
+    if (lineVW <= width || width <= 0) {
       wrappedLine += 1;
     } else {
-      wrappedLine += Math.ceil(rawLine.length / width);
+      wrappedLine += Math.ceil(lineVW / width);
     }
     offset += rawLine.length + 1; // +1 for \n
   }
@@ -241,22 +276,46 @@ function wrapLine(line: string, width: number, out: string[]): void {
   if (width <= 0) return;
 
   let current = "";
+  let currentW = 0;
   const words = line.split(" ");
 
   for (const word of words) {
-    if (current.length === 0) {
+    const wordW = visibleWidth(word);
+    if (currentW === 0) {
       current = word;
-    } else if (current.length + 1 + word.length <= width) {
+      currentW = wordW;
+    } else if (currentW + 1 + wordW <= width) {
       current += " " + word;
+      currentW += 1 + wordW;
     } else {
       out.push(current);
       current = word;
+      currentW = wordW;
     }
 
-    // Handle words longer than width (break by character)
-    while (current.length > width) {
-      out.push(current.slice(0, width));
-      current = current.slice(width);
+    // Handle words longer than width (break by grapheme)
+    while (currentW > width) {
+      let taken = "";
+      let takenW = 0;
+      let rest = "";
+      let inRest = false;
+      for (const { segment } of segmenter.segment(current)) {
+        if (inRest) {
+          rest += segment;
+          continue;
+        }
+        const gw = visibleWidth(segment);
+        if (takenW + gw > width) {
+          rest += segment;
+          inRest = true;
+        } else {
+          taken += segment;
+          takenW += gw;
+        }
+      }
+      out.push(taken);
+      current = rest;
+      currentW = visibleWidth(rest);
     }
   }
 
