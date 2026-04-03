@@ -11,14 +11,14 @@
 import { cel, VStack, HStack, Text, ProcessTerminal } from "@cel-tui/core";
 
 const logo = [
-  "        ╭─────────────────────╮",
-  "        │  ██████╗███████╗██╗ │",
-  "        │ ██╔════╝██╔════╝██║ │",
-  "        │ ██║     █████╗  ██║ │",
-  "        │ ██║     ██╔══╝  ██║ │",
-  "        │ ╚██████╗███████╗██║ │",
-  "        │  ╚═════╝╚══════╝╚═╝ │",
-  "        ╰─────────────────────╯",
+  "╭─────────────────────╮",
+  "│  ██████╗███████╗██╗ │",
+  "│ ██╔════╝██╔════╝██║ │",
+  "│ ██║     █████╗  ██║ │",
+  "│ ██║     ██╔══╝  ██║ │",
+  "│ ╚██████╗███████╗██║ │",
+  "│  ╚═════╝╚══════╝╚═╝ │",
+  "╰─────────────────────╯",
 ];
 
 const palette: Array<"cyan" | "magenta" | "yellow" | "green" | "blue" | "red"> =
@@ -65,7 +65,7 @@ cel.viewport(() => {
 
       // Tagline
       Text(""),
-      Text("  terminal UIs, cell by cell", {
+      Text("terminal UIs, cell by cell", {
         italic: true,
         fgColor: "brightBlack",
       }),
@@ -81,7 +81,7 @@ cel.viewport(() => {
 
       // Live info row
       HStack({ gap: 2 }, [
-        Text(`  ${spinner}`, { fgColor: color, bold: true }),
+        Text(`${spinner}`, { fgColor: color, bold: true }),
         Text(clock(), { fgColor: "white" }),
         Text("│", { fgColor: "brightBlack" }),
         Text("press any key to change color", { fgColor: "brightBlack" }),
@@ -90,7 +90,6 @@ cel.viewport(() => {
       // Quit hint
       Text(""),
       HStack({ gap: 1 }, [
-        Text("  "),
         Text(" ctrl+q ", { bgColor: color, fgColor: "black", bold: true }),
         Text("quit", { fgColor: "brightBlack" }),
       ]),
