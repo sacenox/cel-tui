@@ -411,6 +411,94 @@ VStack({ height: "100%" }, [
 
 ---
 
+## Reference Example: Text Editor
+
+```
+┌──────────────┬───────────────────────────────┐
+│ files/       │ main.ts                       │
+│  ▸ main.ts   │                               │
+│    utils.ts  │ import { foo } from "./utils"; │
+│    test.ts   │                               │
+│              │ function main() {             │
+│              │   console.log(foo());         │
+│              │ }                             │
+│              │                               │
+│              │                               │
+├──────────────┴───────────────────────────────┤
+│ main.ts  Ln 3, Col 1         TypeScript  ✓   │
+└──────────────────────────────────────────────┘
+```
+
+```ts
+HStack({ height: "100%" }, [
+  // Sidebar
+  VStack(
+    {
+      width: 20,
+      overflow: "scroll",
+      scrollOffset: sidebarScroll,
+      onScroll: (o) => {
+        sidebarScroll = o;
+      },
+    },
+    [
+      Text("files/", { bold: true }),
+      ...files.map((file) =>
+        HStack(
+          {
+            onClick: () => selectFile(file),
+            focusable: false,
+          },
+          [
+            Text(
+              `${file === activeFile ? "▸" : " "} ${file.name}`,
+              file === activeFile
+                ? { fgColor: "cyan", bgColor: "brightBlack" }
+                : {},
+            ),
+          ],
+        ),
+      ),
+    ],
+  ),
+
+  // Main area
+  VStack({ flex: 1 }, [
+    // Tab bar
+    HStack({ height: 1 }, [
+      Text(` ${activeFile.name} `, { bold: true, bgColor: "brightBlack" }),
+      Text(" ", { repeat: "fill" }),
+    ]),
+
+    // Editor
+    TextInput({
+      value: activeFile.content,
+      onChange: handleEdit,
+      focused: editorFocused,
+      onFocus: () => {
+        editorFocused = true;
+      },
+      onBlur: () => {
+        editorFocused = false;
+      },
+    }),
+
+    // Status bar
+    HStack({ height: 1 }, [
+      Text(` ${activeFile.name}`, { fgColor: "white", bgColor: "blue" }),
+      Text(`  Ln ${cursor.line}, Col ${cursor.col}`, {
+        fgColor: "white",
+        bgColor: "blue",
+      }),
+      Text(" ", { repeat: "fill", bgColor: "blue" }),
+      Text(`TypeScript  ✓ `, { fgColor: "white", bgColor: "blue" }),
+    ]),
+  ]),
+]);
+```
+
+---
+
 ## Open Questions
 
 - [x] `Text` styling props and text wrapping
