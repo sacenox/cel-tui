@@ -15,6 +15,8 @@ import {
   getTextInputCursor,
   setTextInputCursor,
   setTextInputScroll,
+  getContainerScroll,
+  setContainerScroll,
 } from "./paint.js";
 import {
   insertChar,
@@ -130,10 +132,17 @@ function handleMouseEvent(event: MouseEvent): void {
       const target = findScrollTarget(path);
       if (target) {
         const props = target.node.type !== "text" ? target.node.props : null;
-        if (props && "onScroll" in props && props.onScroll) {
-          const offset = (props as any).scrollOffset ?? 0;
+        if (props && "onScroll" in props) {
           const delta = event.type === "scroll-up" ? -1 : 1;
-          props.onScroll(offset + delta);
+          if (props.onScroll) {
+            // Controlled scroll: notify app
+            const offset = (props as any).scrollOffset ?? 0;
+            props.onScroll(Math.max(0, offset + delta));
+          } else {
+            // Uncontrolled scroll: framework manages state
+            const current = getContainerScroll(props);
+            setContainerScroll(props, Math.max(0, current + delta));
+          }
           cel.render();
         }
       }

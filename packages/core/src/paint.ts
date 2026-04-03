@@ -60,9 +60,137 @@ function paintLayoutNode(
       break;
   }
 
+  // Determine scroll offset for scrollable containers
+  const isContainer = node.type === "vstack" || node.type === "hstack";
+  const containerProps = isContainer ? node.props : null;
+  const isScrollable = containerProps?.overflow === "scroll";
+  const scrollOffset = isScrollable
+    ? (containerProps.scrollOffset ?? getContainerScroll(containerProps))
+    : 0;
+  const isVertical = node.type === "vstack";
+
   // Recurse into children, using this node's clipped rect as the clip for children
   for (const child of ln.children) {
-    paintLayoutNode(child, buf, clipped);
+    if (isScrollable && scrollOffset !== 0) {
+      // Paint child with shifted position
+      const shifted = shiftLayoutNode(child, isVertical, -scrollOffset);
+      paintLayoutNode(shifted, buf, clipped);
+    } else {
+      paintLayoutNode(child, buf, clipped);
+    }
+  }
+
+  // Paint scrollbar if enabled
+  if (isScrollable && containerProps.scrollbar) {
+    paintScrollbar(ln, scrollOffset, buf, clipped);
+  }
+}
+
+/**
+ * Create a copy of a layout node (and all descendants) with positions
+ * shifted along the given axis.
+ */
+function shiftLayoutNode(
+  ln: LayoutNode,
+  isVertical: boolean,
+  offset: number,
+): LayoutNode {
+  const newRect: Rect = {
+    x: ln.rect.x + (isVertical ? 0 : offset),
+    y: ln.rect.y + (isVertical ? offset : 0),
+    width: ln.rect.width,
+    height: ln.rect.height,
+  };
+  return {
+    node: ln.node,
+    rect: newRect,
+    children: ln.children.map((c) => shiftLayoutNode(c, isVertical, offset)),
+  };
+}
+
+/**
+ * Paint a scrollbar indicator for a scrollable container.
+ */
+function paintScrollbar(
+  ln: LayoutNode,
+  scrollOffset: number,
+  buf: CellBuffer,
+  clipRect: Rect,
+): void {
+  const { rect, children } = ln;
+  const isVertical = ln.node.type === "vstack";
+
+  if (isVertical) {
+    // Compute total content height from children
+    let contentHeight = 0;
+    for (const child of children) {
+      const childBottom = child.rect.y + child.rect.height - rect.y;
+      if (childBottom > contentHeight) contentHeight = childBottom;
+    }
+    const viewportH = rect.height;
+    if (contentHeight <= viewportH) return; // no scrollbar needed
+
+    // Thumb size and position
+    const thumbSize = Math.max(
+      1,
+      Math.round((viewportH / contentHeight) * viewportH),
+    );
+    const maxOffset = contentHeight - viewportH;
+    const thumbPos =
+      maxOffset > 0
+        ? Math.round((scrollOffset / maxOffset) * (viewportH - thumbSize))
+        : 0;
+
+    const barX = rect.x + rect.width - 1;
+    for (let row = 0; row < viewportH; row++) {
+      const absY = rect.y + row;
+      if (absY < clipRect.y || absY >= clipRect.y + clipRect.height) continue;
+      if (barX < clipRect.x || barX >= clipRect.x + clipRect.width) continue;
+      const isThumb = row >= thumbPos && row < thumbPos + thumbSize;
+      buf.set(barX, absY, {
+        char: isThumb ? "┃" : "│",
+        fgColor: isThumb ? "white" : "brightBlack",
+        bgColor: null,
+        bold: false,
+        italic: false,
+        underline: false,
+      });
+    }
+  } else {
+    // Horizontal scrollbar
+    let contentWidth = 0;
+    for (const child of children) {
+      const childRight = child.rect.x + child.rect.width - rect.x;
+      if (childRight > contentWidth) contentWidth = childRight;
+    }
+    const viewportW = rect.width;
+    if (contentWidth <= viewportW) return;
+
+    const thumbSize = Math.max(
+      1,
+      Math.round((viewportW / contentWidth) * viewportW),
+    );
+    const maxOffset = contentWidth - viewportW;
+    const thumbPos =
+      maxOffset > 0
+        ? Math.round((scrollOffset / maxOffset) * (viewportW - thumbSize))
+        : 0;
+
+    const barY = rect.y + rect.height - 1;
+    for (let col = 0; col < viewportW; col++) {
+      const absX = rect.x + col;
+      if (absX < clipRect.x || absX >= clipRect.x + clipRect.width) continue;
+      if (barY < clipRect.y || barY >= clipRect.y + clipRect.height) continue;
+      const isThumb = col >= thumbPos && col < thumbPos + thumbSize;
+      buf.set(absX, barY, {
+        char: isThumb ? "━" : "─",
+        fgColor: isThumb ? "white" : "brightBlack",
+        bgColor: null,
+        bold: false,
+        italic: false,
+        underline: false,
+      });
+    }
   }
 }
 
@@ -285,7 +413,24 @@ function offsetToWrappedPos(
   return { line: wrappedLine, col: 0 };
 }
 
-// --- TextInput framework-managed state ---
+// --- Framework-managed state ---
+
+import type { ContainerProps } from "@cel-tui/types";
+
+const containerScrolls = new WeakMap<ContainerProps, number>();
+
+/** Get the scroll offset for an uncontrolled scrollable container. */
+export function getContainerScroll(props: ContainerProps): number {
+  return containerScrolls.get(props) ?? 0;
+}
+
+/** Set the scroll offset for an uncontrolled scrollable container. */
+export function setContainerScroll(
+  props: ContainerProps,
+  scroll: number,
+): void {
+  containerScrolls.set(props, scroll);
+}
 
 const textInputCursors = new WeakMap<TextInputProps, number>();
 const textInputScrolls = new WeakMap<TextInputProps, number>();

@@ -282,6 +282,105 @@ describe("paint", () => {
     });
   });
 
+  describe("scroll rendering", () => {
+    test("VStack with overflow scroll and scrollOffset offsets children vertically", () => {
+      const node = VStack(
+        { width: 10, height: 3, overflow: "scroll", scrollOffset: 1 },
+        [
+          Text("line0"),
+          Text("line1"),
+          Text("line2"),
+          Text("line3"),
+          Text("line4"),
+        ],
+      );
+      const ln = layout(node, 10, 3);
+      const buf = new CellBuffer(10, 5);
+      paint(ln, buf);
+      // scrollOffset=1 means first visible line is line1
+      expect(readRow(buf, 0)).toBe("line1");
+      expect(readRow(buf, 1)).toBe("line2");
+      expect(readRow(buf, 2)).toBe("line3");
+      // Row 3 should be empty (outside container)
+      expect(readRow(buf, 3)).toBe("");
+    });
+
+    test("scrollOffset 0 shows from the top", () => {
+      const node = VStack(
+        { width: 10, height: 2, overflow: "scroll", scrollOffset: 0 },
+        [Text("first"), Text("second"), Text("third")],
+      );
+      const ln = layout(node, 10, 2);
+      const buf = new CellBuffer(10, 3);
+      paint(ln, buf);
+      expect(readRow(buf, 0)).toBe("first");
+      expect(readRow(buf, 1)).toBe("second");
+      expect(readRow(buf, 2)).toBe("");
+    });
+
+    test("HStack with overflow scroll and scrollOffset offsets children horizontally", () => {
+      const node = HStack(
+        { width: 5, height: 1, overflow: "scroll", scrollOffset: 3 },
+        [
+          VStack({ width: 4 }, [Text("AAAA")]),
+          VStack({ width: 4 }, [Text("BBBB")]),
+          VStack({ width: 4 }, [Text("CCCC")]),
+        ],
+      );
+      const ln = layout(node, 10, 1);
+      const buf = new CellBuffer(10, 1);
+      paint(ln, buf);
+      // Total content width = 12, scrollOffset=3, viewport=5
+      // Visible: cols 3-7 of content = "A" + "BBBB" → "ABBBB" but clipped to 5
+      expect(readRow(buf, 0)).toBe("ABBBB");
+    });
+
+    test("scroll with scrollbar shows indicator", () => {
+      const node = VStack(
+        {
+          width: 10,
+          height: 4,
+          overflow: "scroll",
+          scrollOffset: 0,
+          scrollbar: true,
+        },
+        [
+          Text("line0"),
+          Text("line1"),
+          Text("line2"),
+          Text("line3"),
+          Text("line4"),
+          Text("line5"),
+          Text("line6"),
+          Text("line7"),
+        ],
+      );
+      const ln = layout(node, 10, 4);
+      const buf = new CellBuffer(10, 4);
+      paint(ln, buf);
+      // Scrollbar should be in the last column (col 9)
+      // Content height = 8, viewport = 4, scrollOffset = 0
+      // Scrollbar thumb should be at top rows
+      const lastCol = Array.from({ length: 4 }, (_, y) => buf.get(9, y).char);
+      // At least one cell should have the scrollbar character
+      expect(lastCol.some((c) => c !== " ")).toBe(true);
+    });
+
+    test("scroll clamps content — no painting above container", () => {
+      const node = VStack(
+        { width: 10, height: 3, overflow: "scroll", scrollOffset: 2 },
+        [Text("line0"), Text("line1"), Text("line2"), Text("line3")],
+      );
+      const ln = layout(node, 10, 5);
+      const buf = new CellBuffer(10, 5);
+      paint(ln, buf);
+      // With scrollOffset=2, line2 and line3 visible
+      expect(readRow(buf, 0)).toBe("line2");
+      expect(readRow(buf, 1)).toBe("line3");
+      expect(readRow(buf, 2)).toBe("");
+    });
+  });
+
   describe("nested layout", () => {
     test("editor-like layout paints correctly", () => {
       const node = HStack({ width: 30, height: 5 }, [

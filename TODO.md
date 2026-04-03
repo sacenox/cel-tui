@@ -40,8 +40,8 @@ What's implemented, what's missing, and what needs hardening. Reference `spec.md
 - ✅ TextInput painting (value, placeholder, cursor via color inversion)
 - ✅ Text wrapping and layout use `visibleWidth()` for correct CJK/emoji handling
 - ✅ Overflow clipping — children clipped to parent bounds via clip rect propagation
-- ❌ Scroll rendering (`overflow: "scroll"`) — content offset not applied during painting
-- ❌ Scrollbar rendering (`scrollbar: true`)
+- ✅ Scroll rendering (`overflow: "scroll"`) — content offset applied during painting
+- ✅ Scrollbar rendering (`scrollbar: true`) — vertical and horizontal indicators
 
 ## Input
 
