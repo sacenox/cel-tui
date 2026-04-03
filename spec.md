@@ -11,10 +11,15 @@ cel-tui is a TypeScript TUI framework built around a declarative functional API,
 ### Entrypoint
 
 ```ts
-cel.viewport(layer: Node | Node[])
+cel.viewport(render: () => Node | Node[])
+cel.render()
 ```
 
-Accepts a single layer or an array of layers. Each layer is a container with full viewport dimensions, laid out independently. When multiple layers are provided, they are composited bottom-to-top (array index = z-order).
+`cel.viewport` sets the render function that returns the UI tree. Accepts a single layer or an array of layers. Each layer is a container with full viewport dimensions, laid out independently. When multiple layers are provided, they are composited bottom-to-top (array index = z-order). Setting the viewport triggers the first render.
+
+`cel.render` requests a re-render. Batched via `process.nextTick()` — multiple calls within the same tick produce a single render. Call this after state changes.
+
+State is fully external to the framework. Use any state management approach — plain variables, classes, libraries. The framework just calls the render function and renders the returned tree.
 
 ### Primitives
 
@@ -81,6 +86,7 @@ Shared by both VStack and HStack:
 | `focused`        | `boolean`                    | Whether this element is focused (controlled)    |
 | `onFocus`        | `() => void`                 | Called when element receives focus              |
 | `onBlur`         | `() => void`                 | Called when element loses focus                 |
+| `onKeyPress`     | `(key: string) => void`      | Called on key event (bubbles up from focus)     |
 
 ### Sizing
 
@@ -236,7 +242,43 @@ Focus is implicit — no `focusable` prop needed for the common case:
 
 **Escape** unfocuses the current element. **Tab / Shift+Tab** moves focus to the next/previous focusable element in document order (depth-first tree traversal).
 
-When a TextInput is focused, all keys (including Tab) go to the input. Press Escape first to leave the input, then Tab to traverse. This avoids the Tab conflict with text editing.
+When a TextInput is focused, text-editing keys (printable characters, arrows, backspace, Tab) go to the input. Modifier combos (e.g., `ctrl+s`) are not consumed by TextInput and bubble up. Press Escape to leave the input, then Tab to traverse.
+
+---
+
+## Key Handling
+
+Key events are routed through the focus and layer system, then bubble up the tree.
+
+### Key Event Flow
+
+1. **Topmost layer** receives the key event
+2. If a **TextInput** is focused, it consumes text-editing keys (printable characters, arrows, backspace, Tab). Modifier combos pass through.
+3. If a **clickable container** is focused, Enter fires `onClick`. Other keys pass through.
+4. Unconsumed keys **bubble up** through ancestors — the nearest `onKeyPress` handler in the ancestor chain handles it.
+5. The root container's `onKeyPress` acts as the global key handler.
+
+### Key Format
+
+All lowercase, modifiers joined by `+` in canonical order `ctrl+alt+shift+<key>`:
+
+```
+"ctrl+s"
+"ctrl+shift+n"
+"escape"
+"enter"
+"alt+up"
+"f1"
+"ctrl+plus"
+```
+
+**Modifiers:** `ctrl`, `alt`, `shift`
+
+**Named keys:** `escape`, `enter`, `tab`, `backspace`, `delete`, `space`, `plus`, `up`, `down`, `left`, `right`, `home`, `end`, `pageup`, `pagedown`, `f1`–`f12`
+
+**Printable characters:** lowercase letter or character itself — `"a"`, `"1"`, `"/"`
+
+The framework normalizes modifier order, so `"shift+ctrl+s"` and `"ctrl+shift+s"` both match.
 
 ### Activation
 
@@ -274,12 +316,12 @@ Layering enables modals, dropdowns, and overlay UI. Each layer is an independent
 
 ```ts
 // Single layer — most apps
-cel.viewport(
+cel.viewport(() =>
   VStack({ height: "100%" }, [...])
 )
 
 // Multiple layers — ordered bottom-to-top
-cel.viewport([
+cel.viewport(() => [
   VStack({ height: "100%" }, [...mainUI]),
   VStack({ height: "100%" }, [...modalUI]),
 ])
@@ -292,7 +334,7 @@ cel.viewport([
 **Modal backdrop pattern:** A full-viewport container on the top layer captures all input, preventing interaction with the base UI:
 
 ```ts
-cel.viewport([
+cel.viewport(() => [
   VStack({ height: "100%" }, [...mainUI]),
   VStack(
     {
@@ -423,6 +465,71 @@ Shared by Text and TextInput:
 
 ---
 
+## Character Width
+
+Terminal cells are monospaced, but not all characters occupy one cell. Correct width measurement is critical for layout, wrapping, truncation, and cursor positioning.
+
+### Width Rules
+
+| Category                    | Width | Examples                                           |
+| --------------------------- | ----- | -------------------------------------------------- |
+| Printable ASCII (0x20–0x7E) | 1     | `a`, `Z`, `#`, ` `                                 |
+| East Asian wide (CJK)       | 2     | `世`, `界`, `！`                                   |
+| Emoji (RGI)                 | 2     | `😀`, `👨‍👩‍👧`                                         |
+| Zero-width                  | 0     | Control chars, combining marks, default ignorables |
+| ANSI escape sequences       | 0     | `\x1b[31m`, `\x1b[0m`                              |
+
+### Measurement Strategy
+
+1. **Fast ASCII path** — if the entire string is printable ASCII, width = `string.length`. No segmentation needed. This is the hot path.
+2. **Grapheme segmentation** — `Intl.Segmenter` with `granularity: "grapheme"` to handle multi-codepoint characters (emoji with ZWJ, skin tones, combining marks).
+3. **East Asian width lookup** — per-codepoint lookup for CJK full-width characters (via `get-east-asian-width` or equivalent).
+4. **ANSI stripping** — escape sequences (CSI, OSC, APC) are stripped before measuring.
+5. **Caching** — LRU cache for non-ASCII width results.
+
+---
+
+## Rendering
+
+### Cell Buffer
+
+The rendering pipeline uses a 2D **cell buffer** — a grid matching the terminal dimensions where each cell stores:
+
+- Character (grapheme cluster)
+- Foreground color
+- Background color
+- Style flags (bold, italic, underline)
+
+The layout engine writes styled cells into the buffer. This makes clipping trivial (don't write outside the rect), and layer compositing trivial (higher layers overwrite lower layers, empty cells are transparent).
+
+### Pipeline
+
+1. **Layout** — flexbox engine computes absolute screen rects for all nodes
+2. **Paint** — each node writes styled cells into the buffer within its rect
+3. **Composite** — layers are painted bottom-to-top into the final buffer
+4. **Diff** — compare new buffer against previous buffer
+5. **Emit** — generate ANSI sequences for changed cells, write in a single batched call
+
+### Reactive Rendering
+
+Rendering is **reactive**, not FPS-based. `cel.render()` batches via `process.nextTick()` — multiple calls within the same tick produce a single render. Terminal resize also triggers a re-render automatically. No fixed frame rate, no wasted renders.
+
+### Synchronized Output
+
+All screen updates are wrapped in **CSI 2026** (`\x1b[?2026h` to begin, `\x1b[?2026l` to end). The terminal holds display updates until the end marker, producing atomic flicker-free screen refreshes.
+
+### Differential Rendering
+
+Three strategies, selected automatically:
+
+| Strategy           | When            | Description                                    |
+| ------------------ | --------------- | ---------------------------------------------- |
+| **Full + clear**   | Terminal resize | Clear scrollback, re-render everything         |
+| **Full, no clear** | First render    | Output everything to clean screen              |
+| **Differential**   | Most renders    | Compare buffers, only emit changed cells/lines |
+
+---
+
 ## Reference Example: Agentic Chat UI
 
 ```
@@ -449,44 +556,68 @@ Shared by Text and TextInput:
 ```
 
 ```ts
-cel.viewport(
-  VStack({ height: "100%" }, [
-    // Header
-    HStack({ height: 1, padding: { x: 1 } }, [
-      Text("Agent Name", { bold: true }),
-      VStack({ flex: 1 }),
-      Text("model: gpt", { fgColor: "brightBlack" }),
-    ]),
+// State
+let messages = [];
+let input = "";
 
-    // Message history
-    VStack(
-      { flex: 1, overflow: "scroll", scrollbar: true, padding: { x: 1 } },
-      [
-        ...messages.map((msg) =>
-          VStack({ gap: 0 }, [
-            Text(`${msg.role === "user" ? "▶" : "▷"} ${msg.role}:`, {
-              bold: msg.role === "user",
-              fgColor: msg.role === "user" ? "blue" : "green",
-            }),
-            ...msg.blocks.map((block) => Text(`  ${block.content}`)),
-          ]),
-        ),
-      ],
-    ),
+function handleChange(value) {
+  input = value;
+  cel.render();
+}
 
-    // Input area
-    HStack({ padding: { x: 1 }, gap: 1 }, [
-      Text(">"),
-      TextInput({
-        flex: 1,
-        maxHeight: 10,
-        value: input,
-        onChange: handleChange,
-        placeholder: Text("type a message...", { fgColor: "brightBlack" }),
-        onSubmit: handleSend,
-      }),
-    ]),
-  ]),
+function handleSend() {
+  messages.push({ role: "user", content: input });
+  input = "";
+  cel.render();
+}
+
+// UI
+cel.viewport(() =>
+  VStack(
+    {
+      height: "100%",
+      onKeyPress: (key) => {
+        if (key === "ctrl+q") process.exit();
+      },
+    },
+    [
+      // Header
+      HStack({ height: 1, padding: { x: 1 } }, [
+        Text("Agent Name", { bold: true }),
+        VStack({ flex: 1 }),
+        Text("model: gpt", { fgColor: "brightBlack" }),
+      ]),
+
+      // Message history
+      VStack(
+        { flex: 1, overflow: "scroll", scrollbar: true, padding: { x: 1 } },
+        [
+          ...messages.map((msg) =>
+            VStack({ gap: 0 }, [
+              Text(`${msg.role === "user" ? "▶" : "▷"} ${msg.role}:`, {
+                bold: msg.role === "user",
+                fgColor: msg.role === "user" ? "blue" : "green",
+              }),
+              ...msg.blocks.map((block) => Text(`  ${block.content}`)),
+            ]),
+          ),
+        ],
+      ),
+
+      // Input area
+      HStack({ padding: { x: 1 }, gap: 1 }, [
+        Text(">"),
+        TextInput({
+          flex: 1,
+          maxHeight: 10,
+          value: input,
+          onChange: handleChange,
+          placeholder: Text("type a message...", { fgColor: "brightBlack" }),
+          onSubmit: handleSend,
+        }),
+      ]),
+    ],
+  ),
 );
 ```
 
@@ -511,73 +642,82 @@ cel.viewport(
 ```
 
 ```ts
-cel.viewport(
-  HStack({ height: "100%" }, [
-    // Sidebar
-    VStack(
-      {
-        width: 20,
-        overflow: "scroll",
-        scrollOffset: sidebarScroll,
-        onScroll: (o) => {
-          sidebarScroll = o;
-        },
+cel.viewport(() =>
+  HStack(
+    {
+      height: "100%",
+      onKeyPress: (key) => {
+        if (key === "ctrl+q") process.exit();
+        if (key === "ctrl+s") saveFile();
       },
-      [
-        Text("files/", { bold: true }),
-        ...files.map((file) =>
-          HStack(
-            {
-              onClick: () => selectFile(file),
-              focusable: false,
-            },
-            [
-              Text(
-                `${file === activeFile ? "▸" : " "} ${file.name}`,
-                file === activeFile
-                  ? { fgColor: "cyan", bgColor: "brightBlack" }
-                  : {},
-              ),
-            ],
+    },
+    [
+      // Sidebar
+      VStack(
+        {
+          width: 20,
+          overflow: "scroll",
+          scrollOffset: sidebarScroll,
+          onScroll: (o) => {
+            sidebarScroll = o;
+          },
+        },
+        [
+          Text("files/", { bold: true }),
+          ...files.map((file) =>
+            HStack(
+              {
+                onClick: () => selectFile(file),
+                focusable: false,
+              },
+              [
+                Text(
+                  `${file === activeFile ? "▸" : " "} ${file.name}`,
+                  file === activeFile
+                    ? { fgColor: "cyan", bgColor: "brightBlack" }
+                    : {},
+                ),
+              ],
+            ),
           ),
-        ),
-      ],
-    ),
+        ],
+      ),
 
-    // Main area
-    VStack({ flex: 1 }, [
-      // Tab bar
-      HStack({ height: 1 }, [
-        Text(` ${activeFile.name} `, { bold: true, bgColor: "brightBlack" }),
-        Text(" ", { repeat: "fill" }),
-      ]),
+      // Main area
+      VStack({ flex: 1 }, [
+        // Tab bar
+        HStack({ height: 1 }, [
+          Text(` ${activeFile.name} `, { bold: true, bgColor: "brightBlack" }),
+          Text(" ", { repeat: "fill" }),
+        ]),
 
-      // Editor
-      TextInput({
-        flex: 1,
-        value: activeFile.content,
-        onChange: handleEdit,
-        focused: editorFocused,
-        onFocus: () => {
-          editorFocused = true;
-        },
-        onBlur: () => {
-          editorFocused = false;
-        },
-      }),
-
-      // Status bar
-      HStack({ height: 1 }, [
-        Text(` ${activeFile.name}`, { fgColor: "white", bgColor: "blue" }),
-        Text(`  Ln ${cursor.line}, Col ${cursor.col}`, {
-          fgColor: "white",
-          bgColor: "blue",
+        // Editor
+        TextInput({
+          flex: 1,
+          value: activeFile.content,
+          onChange: handleEdit,
+          focused: editorFocused,
+          onFocus: () => {
+            editorFocused = true;
+          },
+          onBlur: () => {
+            editorFocused = false;
+          },
         }),
-        Text(" ", { repeat: "fill", bgColor: "blue" }),
-        Text(`TypeScript  ✓ `, { fgColor: "white", bgColor: "blue" }),
+
+        // Status bar
+        HStack({ height: 1 }, [
+          Text(` ${activeFile.name}`, { fgColor: "white", bgColor: "blue" }),
+          Text(`  Ln ${cursor.line}, Col ${cursor.col}`, {
+            fgColor: "white",
+            bgColor: "blue",
+          }),
+          Text(" ", { repeat: "fill", bgColor: "blue" }),
+          Text(`TypeScript  ✓ `, { fgColor: "white", bgColor: "blue" }),
+        ]),
       ]),
-    ]),
-  ]),
+    ],
+  ),
 );
 ```
 
@@ -592,10 +732,5 @@ cel.viewport(
 - [x] Layering for interactive components, like modals and autocomplete interactions.
 - [x] Clickable areas/containers. Could be it's own primitive or a prop in the containers.
 - [x] Rounding strategy for fractional cell division
-- [ ] Handling different width characters and ANSI escapes sequences when computing sizes.
-- [ ] Flicker free rendering strategy. Reactive or FPS based? Diff rendering?
-
-## Things to keep in mind for the rendering discussion
-
-- Differential Rendering: Three-strategy rendering system that only updates what changed
-- Synchronized Output: Uses CSI 2026 for atomic screen updates (no flicker)
+- [x] Handling different width characters and ANSI escapes sequences when computing sizes.
+- [x] Flicker free rendering strategy. Reactive or FPS based? Diff rendering?

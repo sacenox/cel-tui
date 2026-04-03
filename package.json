@@ -1,0 +1,19 @@
+{
+  "name": "cel-tui",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "check": "biome check packages/*/src/**/*.ts",
+    "check:fix": "biome check --write packages/*/src/**/*.ts",
+    "format": "prettier --check .",
+    "format:fix": "prettier --write .",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.4.10",
+    "prettier": "^3.8.1",
+    "typescript": "^6.0.2"
+  }
+}
