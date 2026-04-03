@@ -1,5 +1,6 @@
 node_modules/
 dist/
-docs/
+docs/html/
+docs/md/
 bun.lockb
 *.tsbuildinfo
