@@ -237,6 +237,52 @@ describe("TextInput integration", () => {
     expect(value).toBe("abcXdef");
   });
 
+  test("auto-scrolls to keep cursor visible when typing past viewport", async () => {
+    const term = setup(20, 3); // 3 rows tall
+    let value = "line1\nline2\nline3";
+    const onChange = (v: string) => {
+      value = v;
+      cel.render();
+    };
+
+    cel.viewport(() =>
+      VStack({}, [
+        TextInput({
+          value,
+          focused: true,
+          height: 3,
+          onChange,
+        }),
+      ]),
+    );
+    await waitForRender();
+
+    // Press enter to add line4 — cursor is now on line 4 (index 3)
+    // which is below the 3-row viewport
+    term.sendInput("\r");
+    await waitForRender();
+
+    // The buffer should show the cursor line (line4 area)
+    // not the top lines. Check that the scroll adjusted.
+    const buf = cel._getBuffer()!;
+    // The cursor should be visible somewhere in the viewport.
+    // With 4 lines and 3-row viewport, scroll should be at least 1.
+    // Row 2 (bottom of viewport) should show content from line3 or line4 area.
+    // At minimum, the empty line4 cursor should be visible.
+    // Let's verify line1 is NOT visible (scrolled past)
+    let hasLine1 = false;
+    for (let x = 0; x < 20; x++) {
+      if (buf.get(x, 0).char === "l" && buf.get(x + 1, 0).char === "i") {
+        const row = Array.from(
+          { length: 5 },
+          (_, i) => buf.get(x + i, 0).char,
+        ).join("");
+        if (row === "line1") hasLine1 = true;
+      }
+    }
+    expect(hasLine1).toBe(false);
+  });
+
   test("unfocused TextInput does not consume keys", async () => {
     const term = setup(20, 3);
     let receivedKey = "";

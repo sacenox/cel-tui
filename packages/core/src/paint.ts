@@ -345,8 +345,22 @@ function paintTextInput(
     }
   }
 
-  // Framework-managed scroll: use stored scroll offset
-  const scrollOffset = getTextInputScroll(props);
+  // Framework-managed scroll: auto-scroll to keep cursor visible
+  let scrollOffset = getTextInputScroll(props);
+
+  if (props.focused) {
+    const cursorOffset = getTextInputCursor(props);
+    const cursorPos = offsetToWrappedPos(value, cursorOffset, w);
+    // Scroll down if cursor is below viewport
+    if (cursorPos.line >= scrollOffset + h) {
+      scrollOffset = cursorPos.line - h + 1;
+    }
+    // Scroll up if cursor is above viewport
+    if (cursorPos.line < scrollOffset) {
+      scrollOffset = cursorPos.line;
+    }
+    setTextInputScroll(props, scrollOffset);
+  }
 
   // Paint visible lines (grapheme-aware)
   for (let row = 0; row < h; row++) {

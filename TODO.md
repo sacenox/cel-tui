@@ -77,7 +77,7 @@ What's implemented, what's missing, and what needs hardening. Reference `spec.md
 - ✅ Placeholder rendering
 - ✅ Cursor display (inverted colors)
 - ✅ Cursor state keyed on `onChange` function reference for stable identity across re-renders
-- ❌ Framework-managed scroll (auto-scroll to keep cursor visible)
+- ✅ Framework-managed scroll (auto-scroll to keep cursor visible)
 - ❌ Mouse wheel scroll inside TextInput
 
 ## Terminal
