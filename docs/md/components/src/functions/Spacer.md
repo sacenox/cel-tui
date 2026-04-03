@@ -1,6 +1,6 @@
 [**cel-tui**](../../../README.md)
 
----
+***
 
 [cel-tui](../../../modules.md) / [components/src](../README.md) / Spacer
 
@@ -8,7 +8,7 @@
 
 > **Spacer**(): [`ContainerNode`](../../../types/src/interfaces/ContainerNode.md)
 
-Defined in: [components/src/spacer.ts:20](https://github.com/sacenox/cel-tui/blob/012c589c1da7c914300d2b6f5a482b5357e2ddb4/packages/components/src/spacer.ts#L20)
+Defined in: [components/src/spacer.ts:20](https://github.com/sacenox/cel-tui/blob/c22a4594bf50c6f4704e9f084926eb0b2ffdc459/packages/components/src/spacer.ts#L20)
 
 Flexible spacer that fills available space along the parent's main axis.
 
@@ -25,5 +25,9 @@ A flex container node that expands to fill remaining space.
 
 ```ts
 // Push items to opposite ends of a row
-HStack({ height: 1 }, [Text("left"), Spacer(), Text("right")]);
+HStack({ height: 1 }, [
+  Text("left"),
+  Spacer(),
+  Text("right"),
+])
 ```

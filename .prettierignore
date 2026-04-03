@@ -1,3 +1,5 @@
 node_modules
 dist
 bun.lock
+docs/html
+docs/md

@@ -1,12 +1,12 @@
 [**cel-tui**](../../../README.md)
 
----
+***
 
 [cel-tui](../../../modules.md) / [core/src](../README.md) / ProcessTerminal
 
 # Class: ProcessTerminal
 
-Defined in: [core/src/terminal.ts:27](https://github.com/sacenox/cel-tui/blob/012c589c1da7c914300d2b6f5a482b5357e2ddb4/packages/core/src/terminal.ts#L27)
+Defined in: [core/src/terminal.ts:27](https://github.com/sacenox/cel-tui/blob/c22a4594bf50c6f4704e9f084926eb0b2ffdc459/packages/core/src/terminal.ts#L27)
 
 Real terminal using process.stdin/stdout.
 
@@ -32,7 +32,7 @@ Real terminal using process.stdin/stdout.
 
 > **get** **columns**(): `number`
 
-Defined in: [core/src/terminal.ts:31](https://github.com/sacenox/cel-tui/blob/012c589c1da7c914300d2b6f5a482b5357e2ddb4/packages/core/src/terminal.ts#L31)
+Defined in: [core/src/terminal.ts:34](https://github.com/sacenox/cel-tui/blob/c22a4594bf50c6f4704e9f084926eb0b2ffdc459/packages/core/src/terminal.ts#L34)
 
 Terminal width in columns.
 
@@ -44,7 +44,7 @@ Terminal width in columns.
 
 [`Terminal`](../interfaces/Terminal.md).[`columns`](../interfaces/Terminal.md#columns)
 
----
+***
 
 ### rows
 
@@ -52,7 +52,7 @@ Terminal width in columns.
 
 > **get** **rows**(): `number`
 
-Defined in: [core/src/terminal.ts:35](https://github.com/sacenox/cel-tui/blob/012c589c1da7c914300d2b6f5a482b5357e2ddb4/packages/core/src/terminal.ts#L35)
+Defined in: [core/src/terminal.ts:38](https://github.com/sacenox/cel-tui/blob/c22a4594bf50c6f4704e9f084926eb0b2ffdc459/packages/core/src/terminal.ts#L38)
 
 Terminal height in rows.
 
@@ -70,7 +70,7 @@ Terminal height in rows.
 
 > **hideCursor**(): `void`
 
-Defined in: [core/src/terminal.ts:75](https://github.com/sacenox/cel-tui/blob/012c589c1da7c914300d2b6f5a482b5357e2ddb4/packages/core/src/terminal.ts#L75)
+Defined in: [core/src/terminal.ts:120](https://github.com/sacenox/cel-tui/blob/c22a4594bf50c6f4704e9f084926eb0b2ffdc459/packages/core/src/terminal.ts#L120)
 
 Hide the terminal cursor.
 
@@ -82,13 +82,13 @@ Hide the terminal cursor.
 
 [`Terminal`](../interfaces/Terminal.md).[`hideCursor`](../interfaces/Terminal.md#hidecursor)
 
----
+***
 
 ### showCursor()
 
 > **showCursor**(): `void`
 
-Defined in: [core/src/terminal.ts:79](https://github.com/sacenox/cel-tui/blob/012c589c1da7c914300d2b6f5a482b5357e2ddb4/packages/core/src/terminal.ts#L79)
+Defined in: [core/src/terminal.ts:124](https://github.com/sacenox/cel-tui/blob/c22a4594bf50c6f4704e9f084926eb0b2ffdc459/packages/core/src/terminal.ts#L124)
 
 Show the terminal cursor.
 
@@ -100,13 +100,13 @@ Show the terminal cursor.
 
 [`Terminal`](../interfaces/Terminal.md).[`showCursor`](../interfaces/Terminal.md#showcursor)
 
----
+***
 
 ### start()
 
 > **start**(`onInput`, `onResize`): `void`
 
-Defined in: [core/src/terminal.ts:43](https://github.com/sacenox/cel-tui/blob/012c589c1da7c914300d2b6f5a482b5357e2ddb4/packages/core/src/terminal.ts#L43)
+Defined in: [core/src/terminal.ts:46](https://github.com/sacenox/cel-tui/blob/c22a4594bf50c6f4704e9f084926eb0b2ffdc459/packages/core/src/terminal.ts#L46)
 
 Enter raw mode, enable mouse tracking, hide cursor.
 
@@ -128,13 +128,13 @@ Enter raw mode, enable mouse tracking, hide cursor.
 
 [`Terminal`](../interfaces/Terminal.md).[`start`](../interfaces/Terminal.md#start)
 
----
+***
 
 ### stop()
 
 > **stop**(): `void`
 
-Defined in: [core/src/terminal.ts:60](https://github.com/sacenox/cel-tui/blob/012c589c1da7c914300d2b6f5a482b5357e2ddb4/packages/core/src/terminal.ts#L60)
+Defined in: [core/src/terminal.ts:85](https://github.com/sacenox/cel-tui/blob/c22a4594bf50c6f4704e9f084926eb0b2ffdc459/packages/core/src/terminal.ts#L85)
 
 Restore terminal state.
 
@@ -146,13 +146,13 @@ Restore terminal state.
 
 [`Terminal`](../interfaces/Terminal.md).[`stop`](../interfaces/Terminal.md#stop)
 
----
+***
 
 ### write()
 
 > **write**(`data`): `void`
 
-Defined in: [core/src/terminal.ts:39](https://github.com/sacenox/cel-tui/blob/012c589c1da7c914300d2b6f5a482b5357e2ddb4/packages/core/src/terminal.ts#L39)
+Defined in: [core/src/terminal.ts:42](https://github.com/sacenox/cel-tui/blob/c22a4594bf50c6f4704e9f084926eb0b2ffdc459/packages/core/src/terminal.ts#L42)
 
 Write a string to the terminal output.
 

@@ -1,6 +1,6 @@
 [**cel-tui**](../../../README.md)
 
----
+***
 
 [cel-tui](../../../modules.md) / [core/src](../README.md) / cel
 
@@ -8,7 +8,7 @@
 
 > `const` **cel**: `object`
 
-Defined in: [core/src/cel.ts:266](https://github.com/sacenox/cel-tui/blob/012c589c1da7c914300d2b6f5a482b5357e2ddb4/packages/core/src/cel.ts#L266)
+Defined in: [core/src/cel.ts:455](https://github.com/sacenox/cel-tui/blob/c22a4594bf50c6f4704e9f084926eb0b2ffdc459/packages/core/src/cel.ts#L455)
 
 cel-tui framework entrypoint.
 
@@ -83,11 +83,12 @@ A function that returns the current UI tree.
 ## Example
 
 ```ts
-import { cel, VStack, Text } from "@cel-tui/core";
-import { ProcessTerminal } from "@cel-tui/core/terminal";
+import { cel, VStack, Text, ProcessTerminal } from "@cel-tui/core";
 
 cel.init(new ProcessTerminal());
 cel.viewport(() =>
-  VStack({ height: "100%" }, [Text("Hello, world!", { bold: true })]),
+  VStack({ height: "100%" }, [
+    Text("Hello, world!", { bold: true }),
+  ])
 );
 ```

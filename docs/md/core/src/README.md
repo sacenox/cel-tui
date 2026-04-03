@@ -1,6 +1,6 @@
 [**cel-tui**](../../README.md)
 
----
+***
 
 [cel-tui](../../modules.md) / core/src
 
@@ -9,21 +9,19 @@
 ## Example
 
 ```ts
-import { cel, VStack, HStack, Text, TextInput } from "@cel-tui/core";
+import { cel, VStack, HStack, Text, TextInput, ProcessTerminal } from "@cel-tui/core";
 
 let name = "";
 
+cel.init(new ProcessTerminal());
 cel.viewport(() =>
   VStack({ height: "100%" }, [
     Text("What is your name?", { bold: true }),
     TextInput({
       value: name,
-      onChange: (v) => {
-        name = v;
-        cel.render();
-      },
+      onChange: (v) => { name = v; cel.render(); },
     }),
-  ]),
+  ])
 );
 ```
 
@@ -41,7 +39,7 @@ cel.viewport(() =>
 ## Variables
 
 - [cel](variables/cel.md)
-- [EMPTY_CELL](variables/EMPTY_CELL.md)
+- [EMPTY\_CELL](variables/EMPTY_CELL.md)
 
 ## Functions
 
@@ -59,55 +57,55 @@ cel.viewport(() =>
 
 Re-exports [Color](../../types/src/type-aliases/Color.md)
 
----
+***
 
 ### ContainerNode
 
 Re-exports [ContainerNode](../../types/src/interfaces/ContainerNode.md)
 
----
+***
 
 ### ContainerProps
 
 Re-exports [ContainerProps](../../types/src/interfaces/ContainerProps.md)
 
----
+***
 
 ### Node
 
 Re-exports [Node](../../types/src/type-aliases/Node.md)
 
----
+***
 
 ### SizeValue
 
 Re-exports [SizeValue](../../types/src/type-aliases/SizeValue.md)
 
----
+***
 
 ### StyleProps
 
 Re-exports [StyleProps](../../types/src/interfaces/StyleProps.md)
 
----
+***
 
 ### TextInputNode
 
 Re-exports [TextInputNode](../../types/src/interfaces/TextInputNode.md)
 
----
+***
 
 ### TextInputProps
 
 Re-exports [TextInputProps](../../types/src/interfaces/TextInputProps.md)
 
----
+***
 
 ### TextNode
 
 Re-exports [TextNode](../../types/src/interfaces/TextNode.md)
 
----
+***
 
 ### TextProps
 

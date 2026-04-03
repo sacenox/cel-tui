@@ -1,6 +1,6 @@
 [**cel-tui**](../../../README.md)
 
----
+***
 
 [cel-tui](../../../modules.md) / [core/src](../README.md) / Text
 
@@ -8,7 +8,7 @@
 
 > **Text**(`content`, `props?`): [`TextNode`](../../../types/src/interfaces/TextNode.md)
 
-Defined in: [core/src/primitives/text.ts:27](https://github.com/sacenox/cel-tui/blob/012c589c1da7c914300d2b6f5a482b5357e2ddb4/packages/core/src/primitives/text.ts#L27)
+Defined in: [core/src/primitives/text.ts:27](https://github.com/sacenox/cel-tui/blob/c22a4594bf50c6f4704e9f084926eb0b2ffdc459/packages/core/src/primitives/text.ts#L27)
 
 Create a styled text leaf node.
 
@@ -43,11 +43,11 @@ A text node for the UI tree.
 
 ```ts
 // Simple styled text
-Text("Hello", { bold: true, fgColor: "cyan" });
+Text("Hello", { bold: true, fgColor: "cyan" })
 
 // Horizontal divider
-Text("─", { repeat: "fill" });
+Text("─", { repeat: "fill" })
 
 // Word-wrapped paragraph
-Text(paragraph, { wrap: "word" });
+Text(paragraph, { wrap: "word" })
 ```

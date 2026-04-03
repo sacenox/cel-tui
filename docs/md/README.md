@@ -1,10 +1,16 @@
 **cel-tui**
 
----
+***
 
 # cel-tui
 
 A TypeScript TUI framework built around a declarative functional API and ultra-fast rendering.
+
+<p align="center">
+  <picture>
+    <img src="_media/demo.gif" alt="cel-tui demo" width="539" style="border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,0.3);" />
+  </picture>
+</p>
 
 ## Why "cel"?
 
@@ -69,11 +75,17 @@ cel.viewport(() =>
 | `@cel-tui/core`       | Framework engine and primitives               |
 | `@cel-tui/components` | Pre-made components (Button, Spacer, Divider) |
 
+## Documentation
+
+- **[API Reference](https://sacenox.github.io/cel-tui/)** — full TypeDoc-generated docs on GitHub Pages
+- **[Specification](_media/spec.md)** — complete design spec covering layout, rendering, input, and focus
+- **[Agent Skill](_media/SKILL.md)** — structured guide for AI coding agents to build apps with cel-tui
+
 ## Development
 
 ```bash
 bun install           # install dependencies
-bun test              # run tests (170+)
+bun test              # run tests (230+)
 bun run check         # biome lint
 bun run format        # prettier check
 bun run typecheck     # tsc --noEmit

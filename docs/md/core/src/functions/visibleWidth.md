@@ -1,6 +1,6 @@
 [**cel-tui**](../../../README.md)
 
----
+***
 
 [cel-tui](../../../modules.md) / [core/src](../README.md) / visibleWidth
 
@@ -8,7 +8,7 @@
 
 > **visibleWidth**(`str`): `number`
 
-Defined in: [core/src/width.ts:133](https://github.com/sacenox/cel-tui/blob/012c589c1da7c914300d2b6f5a482b5357e2ddb4/packages/core/src/width.ts#L133)
+Defined in: [core/src/width.ts:133](https://github.com/sacenox/cel-tui/blob/c22a4594bf50c6f4704e9f084926eb0b2ffdc459/packages/core/src/width.ts#L133)
 
 Calculate the visible width of a string in terminal columns.
 

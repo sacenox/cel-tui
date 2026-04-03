@@ -1,6 +1,6 @@
 [**cel-tui**](../../README.md)
 
----
+***
 
 [cel-tui](../../modules.md) / components/src
 
@@ -15,7 +15,7 @@ HStack({ height: 1 }, [
   Text("Title", { bold: true }),
   Spacer(),
   Button("[OK]", { onClick: handleOk }),
-]);
+])
 ```
 
 ## Interfaces

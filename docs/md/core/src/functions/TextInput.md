@@ -1,6 +1,6 @@
 [**cel-tui**](../../../README.md)
 
----
+***
 
 [cel-tui](../../../modules.md) / [core/src](../README.md) / TextInput
 
@@ -8,7 +8,7 @@
 
 > **TextInput**(`props`): [`TextInputNode`](../../../types/src/interfaces/TextInputNode.md)
 
-Defined in: [core/src/primitives/text-input.ts:40](https://github.com/sacenox/cel-tui/blob/012c589c1da7c914300d2b6f5a482b5357e2ddb4/packages/core/src/primitives/text-input.ts#L40)
+Defined in: [core/src/primitives/text-input.ts:40](https://github.com/sacenox/cel-tui/blob/c22a4594bf50c6f4704e9f084926eb0b2ffdc459/packages/core/src/primitives/text-input.ts#L40)
 
 Create a multi-line editable text container.
 
@@ -44,11 +44,8 @@ A text input node for the UI tree.
 // Basic input
 TextInput({
   value: text,
-  onChange: (v) => {
-    text = v;
-    cel.render();
-  },
-});
+  onChange: (v) => { text = v; cel.render(); },
+})
 ```
 
 ```ts
@@ -61,5 +58,5 @@ TextInput({
   onSubmit: handleSend,
   submitKey: "ctrl+enter",
   placeholder: Text("type a message...", { fgColor: "brightBlack" }),
-});
+})
 ```

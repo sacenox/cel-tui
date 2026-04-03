@@ -1,6 +1,6 @@
 [**cel-tui**](../../../README.md)
 
----
+***
 
 [cel-tui](../../../modules.md) / [core/src](../README.md) / VStack
 
@@ -8,7 +8,7 @@
 
 > **VStack**(`props`, `children`): [`ContainerNode`](../../../types/src/interfaces/ContainerNode.md)
 
-Defined in: [core/src/primitives/stacks.ts:19](https://github.com/sacenox/cel-tui/blob/012c589c1da7c914300d2b6f5a482b5357e2ddb4/packages/core/src/primitives/stacks.ts#L19)
+Defined in: [core/src/primitives/stacks.ts:19](https://github.com/sacenox/cel-tui/blob/c22a4594bf50c6f4704e9f084926eb0b2ffdc459/packages/core/src/primitives/stacks.ts#L19)
 
 Create a vertical stack container — children laid out top to bottom.
 
@@ -38,5 +38,8 @@ A container node for the UI tree.
 ## Example
 
 ```ts
-VStack({ flex: 1, gap: 1 }, [Text("Hello"), Text("World")]);
+VStack({ flex: 1, gap: 1 }, [
+  Text("Hello"),
+  Text("World"),
+])
 ```

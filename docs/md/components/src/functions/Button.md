@@ -1,6 +1,6 @@
 [**cel-tui**](../../../README.md)
 
----
+***
 
 [cel-tui](../../../modules.md) / [components/src](../README.md) / Button
 
@@ -8,7 +8,7 @@
 
 > **Button**(`label`, `props`): [`ContainerNode`](../../../types/src/interfaces/ContainerNode.md)
 
-Defined in: [components/src/button.ts:39](https://github.com/sacenox/cel-tui/blob/012c589c1da7c914300d2b6f5a482b5357e2ddb4/packages/components/src/button.ts#L39)
+Defined in: [components/src/button.ts:39](https://github.com/sacenox/cel-tui/blob/c22a4594bf50c6f4704e9f084926eb0b2ffdc459/packages/components/src/button.ts#L39)
 
 Clickable button with a styled text label.
 
@@ -39,10 +39,10 @@ A clickable container node.
 ## Examples
 
 ```ts
-Button("[Send]", { onClick: handleSend, bold: true, fgColor: "cyan" });
+Button("[Send]", { onClick: handleSend, bold: true, fgColor: "cyan" })
 ```
 
 ```ts
 // Mouse-only button (not in Tab order)
-Button("✕", { onClick: handleClose, focusable: false });
+Button("✕", { onClick: handleClose, focusable: false })
 ```

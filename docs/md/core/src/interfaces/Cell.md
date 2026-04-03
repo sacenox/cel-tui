@@ -1,12 +1,12 @@
 [**cel-tui**](../../../README.md)
 
----
+***
 
 [cel-tui](../../../modules.md) / [core/src](../README.md) / Cell
 
 # Interface: Cell
 
-Defined in: [core/src/cell-buffer.ts:10](https://github.com/sacenox/cel-tui/blob/012c589c1da7c914300d2b6f5a482b5357e2ddb4/packages/core/src/cell-buffer.ts#L10)
+Defined in: [core/src/cell-buffer.ts:10](https://github.com/sacenox/cel-tui/blob/c22a4594bf50c6f4704e9f084926eb0b2ffdc459/packages/core/src/cell-buffer.ts#L10)
 
 A single terminal cell with character content and styling.
 
@@ -20,56 +20,56 @@ holds the character, the second is a continuation marker.
 
 > **bgColor**: [`Color`](../../../types/src/type-aliases/Color.md) \| `null`
 
-Defined in: [core/src/cell-buffer.ts:16](https://github.com/sacenox/cel-tui/blob/012c589c1da7c914300d2b6f5a482b5357e2ddb4/packages/core/src/cell-buffer.ts#L16)
+Defined in: [core/src/cell-buffer.ts:16](https://github.com/sacenox/cel-tui/blob/c22a4594bf50c6f4704e9f084926eb0b2ffdc459/packages/core/src/cell-buffer.ts#L16)
 
 Background color, or null for terminal default.
 
----
+***
 
 ### bold
 
 > **bold**: `boolean`
 
-Defined in: [core/src/cell-buffer.ts:18](https://github.com/sacenox/cel-tui/blob/012c589c1da7c914300d2b6f5a482b5357e2ddb4/packages/core/src/cell-buffer.ts#L18)
+Defined in: [core/src/cell-buffer.ts:18](https://github.com/sacenox/cel-tui/blob/c22a4594bf50c6f4704e9f084926eb0b2ffdc459/packages/core/src/cell-buffer.ts#L18)
 
 Bold weight.
 
----
+***
 
 ### char
 
 > **char**: `string`
 
-Defined in: [core/src/cell-buffer.ts:12](https://github.com/sacenox/cel-tui/blob/012c589c1da7c914300d2b6f5a482b5357e2ddb4/packages/core/src/cell-buffer.ts#L12)
+Defined in: [core/src/cell-buffer.ts:12](https://github.com/sacenox/cel-tui/blob/c22a4594bf50c6f4704e9f084926eb0b2ffdc459/packages/core/src/cell-buffer.ts#L12)
 
 The grapheme cluster displayed in this cell.
 
----
+***
 
 ### fgColor
 
 > **fgColor**: [`Color`](../../../types/src/type-aliases/Color.md) \| `null`
 
-Defined in: [core/src/cell-buffer.ts:14](https://github.com/sacenox/cel-tui/blob/012c589c1da7c914300d2b6f5a482b5357e2ddb4/packages/core/src/cell-buffer.ts#L14)
+Defined in: [core/src/cell-buffer.ts:14](https://github.com/sacenox/cel-tui/blob/c22a4594bf50c6f4704e9f084926eb0b2ffdc459/packages/core/src/cell-buffer.ts#L14)
 
 Foreground color, or null for terminal default.
 
----
+***
 
 ### italic
 
 > **italic**: `boolean`
 
-Defined in: [core/src/cell-buffer.ts:20](https://github.com/sacenox/cel-tui/blob/012c589c1da7c914300d2b6f5a482b5357e2ddb4/packages/core/src/cell-buffer.ts#L20)
+Defined in: [core/src/cell-buffer.ts:20](https://github.com/sacenox/cel-tui/blob/c22a4594bf50c6f4704e9f084926eb0b2ffdc459/packages/core/src/cell-buffer.ts#L20)
 
 Italic style.
 
----
+***
 
 ### underline
 
 > **underline**: `boolean`
 
-Defined in: [core/src/cell-buffer.ts:22](https://github.com/sacenox/cel-tui/blob/012c589c1da7c914300d2b6f5a482b5357e2ddb4/packages/core/src/cell-buffer.ts#L22)
+Defined in: [core/src/cell-buffer.ts:22](https://github.com/sacenox/cel-tui/blob/c22a4594bf50c6f4704e9f084926eb0b2ffdc459/packages/core/src/cell-buffer.ts#L22)
 
 Underline decoration.

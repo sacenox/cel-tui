@@ -1,6 +1,6 @@
 [**cel-tui**](../../README.md)
 
----
+***
 
 [cel-tui](../../modules.md) / types/src
 

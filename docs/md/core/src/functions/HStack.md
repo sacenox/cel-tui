@@ -1,6 +1,6 @@
 [**cel-tui**](../../../README.md)
 
----
+***
 
 [cel-tui](../../../modules.md) / [core/src](../README.md) / HStack
 
@@ -8,7 +8,7 @@
 
 > **HStack**(`props`, `children`): [`ContainerNode`](../../../types/src/interfaces/ContainerNode.md)
 
-Defined in: [core/src/primitives/stacks.ts:40](https://github.com/sacenox/cel-tui/blob/012c589c1da7c914300d2b6f5a482b5357e2ddb4/packages/core/src/primitives/stacks.ts#L40)
+Defined in: [core/src/primitives/stacks.ts:40](https://github.com/sacenox/cel-tui/blob/c22a4594bf50c6f4704e9f084926eb0b2ffdc459/packages/core/src/primitives/stacks.ts#L40)
 
 Create a horizontal stack container — children laid out left to right.
 
@@ -42,5 +42,5 @@ HStack({ height: 1, gap: 1 }, [
   Text("Name", { bold: true }),
   VStack({ flex: 1 }, []),
   Text("value", { fgColor: "brightBlack" }),
-]);
+])
 ```
