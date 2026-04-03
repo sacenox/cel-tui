@@ -54,11 +54,11 @@ What's implemented, what's missing, and what needs hardening. Reference `spec.md
 - ✅ Key routing to `onKeyPress` handlers
 - ✅ TextInput key consumption (editing keys consumed, modifiers bubble)
 - 🔧 `onKeyPress` bubbling — currently only checks the root container, should walk up from focused element through all ancestors
-- ❌ Focus traversal (Tab/Shift+Tab cycling through focusable elements)
-- ❌ Escape to unfocus
-- ❌ Enter to activate focused clickable container
-- ❌ Mouse click focusing (clicking a focusable element should fire `onFocus`)
-- ❌ `onFocus`/`onBlur` callbacks not fired by framework
+- ✅ Focus traversal (Tab/Shift+Tab cycling through focusable elements)
+- ✅ Escape to unfocus
+- ✅ Enter to activate focused clickable container
+- ✅ Mouse click focusing (clicking a focusable element fires `onFocus`)
+- ✅ `onFocus`/`onBlur` callbacks fired by framework
 
 ## Layer Compositing
 

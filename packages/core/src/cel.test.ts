@@ -2,8 +2,8 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { cel } from "./cel.js";
 import { MockTerminal } from "./terminal.js";
 import { Text } from "./primitives/text.js";
-import { VStack } from "./primitives/stacks.js";
-import { HStack } from "./primitives/stacks.js";
+import { TextInput } from "./primitives/text-input.js";
+import { VStack, HStack } from "./primitives/stacks.js";
 
 describe("cel end-to-end", () => {
   let term: MockTerminal;
@@ -202,6 +202,234 @@ describe("cel end-to-end", () => {
       await waitForRender();
 
       expect(scrollOffset).toBe(1);
+    });
+  });
+
+  describe("focus system", () => {
+    test("Tab moves focus to next focusable element", async () => {
+      const term = setup(20, 5);
+      const focused: string[] = [];
+      let focus1 = false;
+      let focus2 = false;
+
+      cel.viewport(() =>
+        VStack({ width: 20, height: 5 }, [
+          HStack(
+            {
+              onClick: () => {},
+              focused: focus1,
+              onFocus: () => {
+                focus1 = true;
+                focus2 = false;
+                focused.push("btn1");
+              },
+              onBlur: () => {
+                focus1 = false;
+              },
+            },
+            [Text("Btn1")],
+          ),
+          HStack(
+            {
+              onClick: () => {},
+              focused: focus2,
+              onFocus: () => {
+                focus2 = true;
+                focus1 = false;
+                focused.push("btn2");
+              },
+              onBlur: () => {
+                focus2 = false;
+              },
+            },
+            [Text("Btn2")],
+          ),
+        ]),
+      );
+      await waitForRender();
+
+      // Tab to focus first element
+      term.sendInput("\t");
+      await waitForRender();
+      expect(focused).toEqual(["btn1"]);
+
+      // Tab to focus second element
+      term.sendInput("\t");
+      await waitForRender();
+      expect(focused).toEqual(["btn1", "btn2"]);
+    });
+
+    test("Shift+Tab moves focus backwards", async () => {
+      const term = setup(20, 5);
+      let focus1 = false;
+      let focus2 = true;
+      const focused: string[] = [];
+
+      cel.viewport(() =>
+        VStack({ width: 20, height: 5 }, [
+          HStack(
+            {
+              onClick: () => {},
+              focused: focus1,
+              onFocus: () => {
+                focus1 = true;
+                focus2 = false;
+                focused.push("btn1");
+              },
+              onBlur: () => {
+                focus1 = false;
+              },
+            },
+            [Text("Btn1")],
+          ),
+          HStack(
+            {
+              onClick: () => {},
+              focused: focus2,
+              onFocus: () => {
+                focus2 = true;
+                focus1 = false;
+                focused.push("btn2");
+              },
+              onBlur: () => {
+                focus2 = false;
+              },
+            },
+            [Text("Btn2")],
+          ),
+        ]),
+      );
+      await waitForRender();
+
+      // Shift+Tab from btn2 should focus btn1
+      term.sendInput("\x1b[Z");
+      await waitForRender();
+      expect(focused).toEqual(["btn1"]);
+    });
+
+    test("Escape unfocuses the current element", async () => {
+      const term = setup(20, 5);
+      let blurred = false;
+      let btnFocused = true;
+
+      cel.viewport(() =>
+        VStack({ width: 20, height: 5 }, [
+          HStack(
+            {
+              onClick: () => {},
+              focused: btnFocused,
+              onBlur: () => {
+                blurred = true;
+                btnFocused = false;
+              },
+            },
+            [Text("Btn")],
+          ),
+        ]),
+      );
+      await waitForRender();
+
+      term.sendInput("\x1b");
+      await waitForRender();
+      expect(blurred).toBe(true);
+    });
+
+    test("Enter activates focused clickable container", async () => {
+      const term = setup(20, 5);
+      let clicked = false;
+
+      cel.viewport(() =>
+        VStack({ width: 20, height: 5 }, [
+          HStack(
+            {
+              onClick: () => {
+                clicked = true;
+              },
+              focused: true,
+            },
+            [Text("Btn")],
+          ),
+        ]),
+      );
+      await waitForRender();
+
+      term.sendInput("\r");
+      await waitForRender();
+      expect(clicked).toBe(true);
+    });
+
+    test("mouse click on focusable element fires onFocus", async () => {
+      const term = setup(20, 5);
+      let btnFocused = false;
+
+      cel.viewport(() =>
+        VStack({ width: 20, height: 5 }, [
+          HStack(
+            {
+              onClick: () => {},
+              focused: btnFocused,
+              onFocus: () => {
+                btnFocused = true;
+              },
+            },
+            [Text("Btn")],
+          ),
+        ]),
+      );
+      await waitForRender();
+
+      // Click on the button at (1, 0)
+      term.sendInput("\x1b[<0;2;1m");
+      await waitForRender();
+      expect(btnFocused).toBe(true);
+    });
+
+    test("Tab wraps around to first element", async () => {
+      const term = setup(20, 5);
+      let focus1 = false;
+      let focus2 = true;
+      const focused: string[] = [];
+
+      cel.viewport(() =>
+        VStack({ width: 20, height: 5 }, [
+          HStack(
+            {
+              onClick: () => {},
+              focused: focus1,
+              onFocus: () => {
+                focus1 = true;
+                focus2 = false;
+                focused.push("btn1");
+              },
+              onBlur: () => {
+                focus1 = false;
+              },
+            },
+            [Text("Btn1")],
+          ),
+          HStack(
+            {
+              onClick: () => {},
+              focused: focus2,
+              onFocus: () => {
+                focus2 = true;
+                focus1 = false;
+                focused.push("btn2");
+              },
+              onBlur: () => {
+                focus2 = false;
+              },
+            },
+            [Text("Btn2")],
+          ),
+        ]),
+      );
+      await waitForRender();
+
+      // Tab from btn2 (last) should wrap to btn1
+      term.sendInput("\t");
+      await waitForRender();
+      expect(focused).toEqual(["btn1"]);
     });
   });
 });

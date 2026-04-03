@@ -120,6 +120,51 @@ function parseMouseEvent(data: string): MouseEvent | null {
   return null;
 }
 
+/**
+ * Find the currently focused element across all layers.
+ * Checks both TextInput (focused prop) and containers (focused prop).
+ */
+function findFocusedElement(): LayoutNode | null {
+  for (let i = currentLayouts.length - 1; i >= 0; i--) {
+    const found = findFocusedInTree(currentLayouts[i]!);
+    if (found) return found;
+  }
+  return null;
+}
+
+/**
+ * Blur the currently focused element and focus a new one.
+ */
+function changeFocus(target: LayoutNode | null): void {
+  const current = findFocusedElement();
+
+  // Blur current
+  if (current && current !== target) {
+    const props =
+      current.node.type === "textinput"
+        ? current.node.props
+        : current.node.type !== "text"
+          ? current.node.props
+          : null;
+    if (props && "onBlur" in props && props.onBlur) {
+      props.onBlur();
+    }
+  }
+
+  // Focus new target
+  if (target && target !== current) {
+    const props =
+      target.node.type === "textinput"
+        ? target.node.props
+        : target.node.type !== "text"
+          ? target.node.props
+          : null;
+    if (props && "onFocus" in props && props.onFocus) {
+      props.onFocus();
+    }
+  }
+}
+
 function handleMouseEvent(event: MouseEvent): void {
   // Hit test on topmost layer first
   for (let i = currentLayouts.length - 1; i >= 0; i--) {
@@ -128,12 +173,17 @@ function handleMouseEvent(event: MouseEvent): void {
     if (path.length === 0) continue;
 
     if (event.type === "click") {
+      // Find and focus the focusable element at click position
+      const focusable = findClickFocusTarget(path);
+      if (focusable) {
+        changeFocus(focusable);
+      }
+
       const click = findClickHandler(path);
       if (click) {
         click.handler();
-        cel.render();
       }
-      // Clicking a focusable element — fire onFocus/onBlur via props
+      cel.render();
       return;
     }
 
@@ -160,7 +210,81 @@ function handleMouseEvent(event: MouseEvent): void {
   }
 }
 
+/**
+ * Find the nearest focusable element in a hit path (for mouse click focusing).
+ */
+function findClickFocusTarget(path: LayoutNode[]): LayoutNode | null {
+  for (let i = path.length - 1; i >= 0; i--) {
+    const node = path[i]!.node;
+    if (node.type === "textinput") return path[i]!;
+    if (
+      (node.type === "vstack" || node.type === "hstack") &&
+      node.props.onClick &&
+      node.props.focusable !== false
+    ) {
+      return path[i]!;
+    }
+  }
+  return null;
+}
+
 function handleKeyEvent(key: string): void {
+  // --- Focus traversal keys ---
+
+  // Tab / Shift+Tab: cycle through focusable elements
+  if (key === "tab" || key === "shift+tab") {
+    const topLayer = currentLayouts[currentLayouts.length - 1];
+    if (!topLayer) return;
+    const focusables = collectFocusable(topLayer);
+    if (focusables.length === 0) return;
+
+    const current = findFocusedElement();
+    let currentIdx = current ? focusables.indexOf(current) : -1;
+
+    // If current not found in focusables list, search by identity
+    if (currentIdx === -1 && current) {
+      currentIdx = focusables.findIndex((f) => f.node === current.node);
+    }
+
+    let nextIdx: number;
+    if (key === "tab") {
+      nextIdx = currentIdx === -1 ? 0 : (currentIdx + 1) % focusables.length;
+    } else {
+      nextIdx =
+        currentIdx === -1
+          ? focusables.length - 1
+          : (currentIdx - 1 + focusables.length) % focusables.length;
+    }
+
+    changeFocus(focusables[nextIdx]!);
+    cel.render();
+    return;
+  }
+
+  // Escape: unfocus current element
+  if (key === "escape") {
+    const current = findFocusedElement();
+    if (current) {
+      changeFocus(null);
+      cel.render();
+      return;
+    }
+  }
+
+  // Enter: activate focused clickable container
+  if (key === "enter") {
+    const current = findFocusedElement();
+    if (current && current.node.type !== "textinput") {
+      const props = current.node.type !== "text" ? current.node.props : null;
+      if (props?.onClick) {
+        props.onClick();
+        cel.render();
+        return;
+      }
+    }
+  }
+
+  // --- TextInput key routing ---
   // Find the focused TextInput (if any) to route editing keys
   const focusedInput = findFocusedTextInput();
 
@@ -249,6 +373,12 @@ function findFocusedTextInput(): LayoutNode | null {
 
 function findFocusedInTree(ln: LayoutNode): LayoutNode | null {
   if (ln.node.type === "textinput" && ln.node.props.focused) {
+    return ln;
+  }
+  if (
+    (ln.node.type === "vstack" || ln.node.type === "hstack") &&
+    ln.node.props.focused
+  ) {
     return ln;
   }
   for (const child of ln.children) {
