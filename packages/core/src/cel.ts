@@ -1,15 +1,46 @@
 import type { Node } from "@cel-tui/types";
+import { CellBuffer } from "./cell-buffer.js";
+import { emitBuffer } from "./emitter.js";
+import type { Terminal } from "./terminal.js";
+import { paintNode } from "./paint.js";
 
 type RenderFn = () => Node | Node[];
 
+let terminal: Terminal | null = null;
 let renderFn: RenderFn | null = null;
 let renderScheduled = false;
+let currentBuffer: CellBuffer | null = null;
 
 function doRender(): void {
   renderScheduled = false;
-  if (!renderFn) return;
-  const _tree = renderFn();
-  // TODO: layout → paint → composite → diff → emit
+  if (!renderFn || !terminal) return;
+
+  const width = terminal.columns;
+  const height = terminal.rows;
+
+  // Create or resize buffer
+  if (
+    !currentBuffer ||
+    currentBuffer.width !== width ||
+    currentBuffer.height !== height
+  ) {
+    currentBuffer = new CellBuffer(width, height);
+  } else {
+    currentBuffer.clear();
+  }
+
+  // Get the tree from the render function
+  const tree = renderFn();
+  const layers = Array.isArray(tree) ? tree : [tree];
+
+  // Paint each layer into the buffer
+  for (const layer of layers) {
+    paintNode(layer, currentBuffer, 0, 0, width, height);
+  }
+
+  // Emit to terminal
+  const output = emitBuffer(currentBuffer);
+  terminal.write(output);
 }
 
 /**
@@ -22,19 +53,37 @@ function doRender(): void {
  *
  * @example
  * ```ts
- * let count = 0;
+ * import { cel, VStack, Text } from "@cel-tui/core";
+ * import { ProcessTerminal } from "@cel-tui/core/terminal";
  *
+ * cel.init(new ProcessTerminal());
  * cel.viewport(() =>
  *   VStack({ height: "100%" }, [
- *     Text(`Count: ${count}`),
- *     HStack({ onClick: () => { count++; cel.render(); } }, [
- *       Text("[+1]"),
- *     ]),
+ *     Text("Hello, world!", { bold: true }),
  *   ])
  * );
  * ```
  */
 export const cel = {
+  /**
+   * Initialize the framework with a terminal implementation.
+   * Must be called before {@link cel.viewport}.
+   *
+   * @param term - Terminal to render to (ProcessTerminal or MockTerminal).
+   */
+  init(term: Terminal): void {
+    terminal = term;
+    terminal.start(
+      (_data) => {
+        // TODO: input routing (keys, mouse)
+      },
+      () => {
+        // Terminal resize — trigger re-render
+        cel.render();
+      },
+    );
+  },
+
   /**
    * Set the render function that returns the UI tree.
    * Triggers the first render automatically.
@@ -45,16 +94,6 @@ export const cel = {
    * nodes (multiple layers, composited bottom-to-top).
    *
    * @param fn - A function that returns the current UI tree.
-   *
-   * @example
-   * // Single layer
-   * cel.viewport(() => VStack({ height: "100%" }, [...]))
-   *
-   * // Multiple layers (modal on top)
-   * cel.viewport(() => [
-   *   VStack({ height: "100%" }, [...mainUI]),
-   *   VStack({ height: "100%" }, [...modalUI]),
-   * ])
    */
   viewport(fn: RenderFn): void {
     renderFn = fn;
@@ -72,5 +111,21 @@ export const cel = {
     if (renderScheduled) return;
     renderScheduled = true;
     process.nextTick(doRender);
+  },
+
+  /**
+   * Stop the framework and restore terminal state.
+   */
+  stop(): void {
+    terminal?.stop();
+    terminal = null;
+    renderFn = null;
+    currentBuffer = null;
+    renderScheduled = false;
+  },
+
+  /** @internal — exposed for testing. */
+  _getBuffer(): CellBuffer | null {
+    return currentBuffer;
   },
 };

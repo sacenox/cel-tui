@@ -42,3 +42,7 @@ export { VStack, HStack } from "./primitives/stacks.js";
 export { Text } from "./primitives/text.js";
 export { TextInput } from "./primitives/text-input.js";
 export { cel } from "./cel.js";
+export { CellBuffer, EMPTY_CELL, type Cell } from "./cell-buffer.js";
+export { emitBuffer } from "./emitter.js";
+export { visibleWidth, extractAnsiCode } from "./width.js";
+export { type Terminal, ProcessTerminal, MockTerminal } from "./terminal.js";
