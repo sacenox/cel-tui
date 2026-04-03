@@ -1,8 +1,9 @@
 import type { Node } from "@cel-tui/types";
 import { CellBuffer } from "./cell-buffer.js";
 import { emitBuffer } from "./emitter.js";
+import { layout } from "./layout.js";
+import { paint } from "./paint.js";
 import type { Terminal } from "./terminal.js";
-import { paintNode } from "./paint.js";
 
 type RenderFn = () => Node | Node[];
 
@@ -33,9 +34,10 @@ function doRender(): void {
   const tree = renderFn();
   const layers = Array.isArray(tree) ? tree : [tree];
 
-  // Paint each layer into the buffer
+  // Layout and paint each layer into the buffer
   for (const layer of layers) {
-    paintNode(layer, currentBuffer, 0, 0, width, height);
+    const layoutTree = layout(layer, width, height);
+    paint(layoutTree, currentBuffer);
   }
 
   // Emit to terminal

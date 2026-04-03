@@ -1,42 +1,41 @@
-import type { Node, Color } from "@cel-tui/types";
+import type { Color } from "@cel-tui/types";
 import type { Cell } from "./cell-buffer.js";
 import { CellBuffer } from "./cell-buffer.js";
+import type { LayoutNode, Rect } from "./layout.js";
 
 /**
- * Paint a node into the cell buffer within the given rect.
+ * Paint a laid-out tree into a cell buffer.
  *
- * This is a minimal implementation for phase 2 — handles Text nodes
- * with basic styling. Layout engine will replace the hardcoded rect
- * passing in phase 3.
+ * Walks the {@link LayoutNode} tree and writes styled cells into the
+ * buffer within each node's computed rect. Content is clipped at
+ * rect boundaries.
  *
- * @param node - The node to paint.
+ * @param root - The root of the laid-out tree (from {@link layout}).
  * @param buf - Target cell buffer.
- * @param x - Left edge of the rect.
- * @param y - Top edge of the rect.
- * @param w - Width of the rect.
- * @param h - Height of the rect.
  */
-export function paintNode(
-  node: Node,
-  buf: CellBuffer,
-  x: number,
-  y: number,
-  w: number,
-  h: number,
-): void {
+export function paint(root: LayoutNode, buf: CellBuffer): void {
+  paintLayoutNode(root, buf);
+}
+
+function paintLayoutNode(ln: LayoutNode, buf: CellBuffer): void {
+  const { node, rect } = ln;
+
   switch (node.type) {
     case "text":
-      paintText(node.content, node.props, buf, x, y, w, h);
-      break;
-    case "vstack":
-      paintVStack(node, buf, x, y, w, h);
-      break;
-    case "hstack":
-      paintHStack(node, buf, x, y, w, h);
+      paintText(node.content, node.props, rect, buf);
       break;
     case "textinput":
       // TODO: implement in phase 7
       break;
+    case "vstack":
+    case "hstack":
+      // Containers just paint their children
+      break;
+  }
+
+  // Recurse into children
+  for (const child of ln.children) {
+    paintLayoutNode(child, buf);
   }
 }
 
@@ -62,14 +61,22 @@ function makeCell(
 
 function paintText(
   content: string,
-  props: Node extends { type: "text"; props: infer P } ? P : never,
+  props: {
+    repeat?: number | "fill";
+    wrap?: "none" | "word";
+    fgColor?: Color;
+    bgColor?: Color;
+    bold?: boolean;
+    italic?: boolean;
+    underline?: boolean;
+  },
+  rect: Rect,
   buf: CellBuffer,
-  x: number,
-  y: number,
-  w: number,
-  h: number,
 ): void {
-  // Handle repeat: "fill"
+  const { x, y, width: w, height: h } = rect;
+  if (w <= 0 || h <= 0) return;
+
+  // Resolve repeat
   let text = content;
   if (props.repeat === "fill" && content.length > 0) {
     text = content.repeat(Math.ceil(w / content.length)).slice(0, w);
@@ -77,9 +84,24 @@ function paintText(
     text = content.repeat(props.repeat);
   }
 
-  // Split into lines (preserve \n)
-  const lines = text.split("\n");
+  // Split into lines
+  const rawLines = text.split("\n");
 
+  // Word-wrap if enabled
+  const lines: string[] = [];
+  if (props.wrap === "word") {
+    for (const rawLine of rawLines) {
+      if (rawLine.length <= w) {
+        lines.push(rawLine);
+      } else {
+        wrapLine(rawLine, w, lines);
+      }
+    }
+  } else {
+    lines.push(...rawLines);
+  }
+
+  // Paint lines, clipped to rect
   for (let row = 0; row < lines.length && row < h; row++) {
     const line = lines[row]!;
     for (let col = 0; col < line.length && col < w; col++) {
@@ -89,50 +111,32 @@ function paintText(
 }
 
 /**
- * Minimal VStack painter — divides height equally among children.
- * Will be replaced by the proper layout engine in phase 3.
+ * Simple word-wrap: break a line into multiple lines at word boundaries.
  */
-function paintVStack(
-  node: Extract<Node, { type: "vstack" }>,
-  buf: CellBuffer,
-  x: number,
-  y: number,
-  w: number,
-  h: number,
-): void {
-  if (node.children.length === 0) return;
+function wrapLine(line: string, width: number, out: string[]): void {
+  if (width <= 0) return;
 
-  // Simple equal distribution for now
-  const childHeight = Math.floor(h / node.children.length);
-  let currentY = y;
+  let current = "";
+  const words = line.split(" ");
 
-  for (let i = 0; i < node.children.length; i++) {
-    const ch = i === node.children.length - 1 ? y + h - currentY : childHeight;
-    paintNode(node.children[i]!, buf, x, currentY, w, ch);
-    currentY += ch;
+  for (const word of words) {
+    if (current.length === 0) {
+      current = word;
+    } else if (current.length + 1 + word.length <= width) {
+      current += " " + word;
+    } else {
+      out.push(current);
+      current = word;
+    }
+
+    // Handle words longer than width (break by character)
+    while (current.length > width) {
+      out.push(current.slice(0, width));
+      current = current.slice(width);
+    }
   }
-}
 
-/**
- * Minimal HStack painter — divides width equally among children.
- * Will be replaced by the proper layout engine in phase 3.
- */
-function paintHStack(
-  node: Extract<Node, { type: "hstack" }>,
-  buf: CellBuffer,
-  x: number,
-  y: number,
-  w: number,
-  h: number,
-): void {
-  if (node.children.length === 0) return;
-
-  const childWidth = Math.floor(w / node.children.length);
-  let currentX = x;
-
-  for (let i = 0; i < node.children.length; i++) {
-    const cw = i === node.children.length - 1 ? x + w - currentX : childWidth;
-    paintNode(node.children[i]!, buf, currentX, y, cw, h);
-    currentX += cw;
+  if (current.length > 0) {
+    out.push(current);
   }
 }
