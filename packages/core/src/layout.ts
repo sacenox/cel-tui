@@ -251,6 +251,8 @@ function layoutNode(
   const infos: ChildInfo[] = [];
   let fixedMain = 0;
   let totalFlex = 0;
+  const align = props.alignItems ?? "stretch";
+  const useIntrinsicCross = align !== "stretch";
 
   for (const child of children) {
     const cProps = getProps(child);
@@ -258,10 +260,19 @@ function layoutNode(
 
     if (flex > 0) {
       totalFlex += flex;
-      // Cross-axis
-      const cross = isVertical
-        ? (resolveSizeValue(cProps?.width, innerW) ?? innerW)
-        : (resolveSizeValue(cProps?.height, innerH) ?? innerH);
+      // Cross-axis: explicit size, or intrinsic if not stretch, or fill
+      let cross: number;
+      if (isVertical) {
+        cross =
+          resolveSizeValue(cProps?.width, innerW) ??
+          (useIntrinsicCross
+            ? intrinsicMainSize(child, false, innerH)
+            : innerW);
+      } else {
+        cross =
+          resolveSizeValue(cProps?.height, innerH) ??
+          (useIntrinsicCross ? intrinsicMainSize(child, true, innerW) : innerH);
+      }
       infos.push({ node: child, mainSize: 0, crossSize: cross, flex });
     } else {
       // Main-axis: explicit → percentage → intrinsic
@@ -271,12 +282,18 @@ function layoutNode(
         main =
           resolveSizeValue(cProps?.height, innerH) ??
           intrinsicMainSize(child, true, innerW);
-        cross = resolveSizeValue(cProps?.width, innerW) ?? innerW;
+        cross =
+          resolveSizeValue(cProps?.width, innerW) ??
+          (useIntrinsicCross
+            ? intrinsicMainSize(child, false, innerH)
+            : innerW);
       } else {
         main =
           resolveSizeValue(cProps?.width, innerW) ??
           intrinsicMainSize(child, false, innerH);
-        cross = resolveSizeValue(cProps?.height, innerH) ?? innerH;
+        cross =
+          resolveSizeValue(cProps?.height, innerH) ??
+          (useIntrinsicCross ? intrinsicMainSize(child, true, innerW) : innerH);
       }
 
       // Apply constraints
@@ -320,20 +337,62 @@ function layoutNode(
   }
 
   // --- Position phase ---
+
+  // Compute total main-axis content size (children + gaps)
+  const totalChildMain = infos.reduce((sum, c) => sum + c.mainSize, 0);
+  const totalContent = totalChildMain + totalGap;
+  const mainInner = isVertical ? innerH : innerW;
+  const crossInner = isVertical ? innerW : innerH;
+  const remainingMain = Math.max(0, mainInner - totalContent);
+
+  // justifyContent: compute main-axis starting offset and per-gap extra space
+  const justify = props.justifyContent ?? "start";
+  let mainStart = 0;
+  let betweenGaps: number[] | null = null;
+
+  if (justify === "end") {
+    mainStart = remainingMain;
+  } else if (justify === "center") {
+    mainStart = Math.floor(remainingMain / 2);
+  } else if (justify === "space-between" && infos.length > 1) {
+    // Distribute remaining space into gaps between children
+    const gapCount = infos.length - 1;
+    const rawGaps = Array.from(
+      { length: gapCount },
+      () => remainingMain / gapCount,
+    );
+    betweenGaps = largestRemainder(rawGaps, remainingMain);
+  }
+
   const layoutChildren: LayoutNode[] = [];
-  let mainOffset = 0;
+  let mainOffset = mainStart;
 
   for (let i = 0; i < infos.length; i++) {
     const info = infos[i]!;
-    const childX = isVertical ? innerX : innerX + mainOffset;
-    const childY = isVertical ? innerY + mainOffset : innerY;
+
+    // Cross-axis alignment
+    let crossOffset = 0;
+    if (align === "center") {
+      crossOffset = Math.floor((crossInner - info.crossSize) / 2);
+    } else if (align === "end") {
+      crossOffset = crossInner - info.crossSize;
+    }
+    // "start" and "stretch" keep crossOffset = 0
+
+    const childX = isVertical ? innerX + crossOffset : innerX + mainOffset;
+    const childY = isVertical ? innerY + mainOffset : innerY + crossOffset;
     const childW = isVertical ? info.crossSize : info.mainSize;
     const childH = isVertical ? info.mainSize : info.crossSize;
 
     layoutChildren.push(layoutNode(info.node, childX, childY, childW, childH));
 
     mainOffset += info.mainSize;
-    if (i < infos.length - 1) mainOffset += gap;
+    if (i < infos.length - 1) {
+      mainOffset += gap;
+      if (betweenGaps) {
+        mainOffset += betweenGaps[i]!;
+      }
+    }
   }
 
   // --- Intrinsic container sizing ---

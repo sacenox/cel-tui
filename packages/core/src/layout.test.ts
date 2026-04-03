@@ -353,6 +353,266 @@ describe("layout", () => {
     });
   });
 
+  describe("justifyContent", () => {
+    test("start is the default (no offset)", () => {
+      const node = VStack({ width: 80, height: 24, justifyContent: "start" }, [
+        VStack({ height: 3 }, []),
+        VStack({ height: 3 }, []),
+      ]);
+      const result = layout(node, 80, 24);
+      const rects = childRects(result);
+      expect(rects[0]!.y).toBe(0);
+      expect(rects[1]!.y).toBe(3);
+    });
+
+    test("end pushes children to the end of the main axis", () => {
+      const node = VStack({ width: 80, height: 24, justifyContent: "end" }, [
+        VStack({ height: 3 }, []),
+        VStack({ height: 3 }, []),
+      ]);
+      const result = layout(node, 80, 24);
+      const rects = childRects(result);
+      // remaining = 24 - 6 = 18
+      expect(rects[0]!.y).toBe(18);
+      expect(rects[1]!.y).toBe(21);
+    });
+
+    test("center centers children on the main axis", () => {
+      const node = VStack({ width: 80, height: 24, justifyContent: "center" }, [
+        VStack({ height: 3 }, []),
+        VStack({ height: 3 }, []),
+      ]);
+      const result = layout(node, 80, 24);
+      const rects = childRects(result);
+      // remaining = 24 - 6 = 18, offset = 9
+      expect(rects[0]!.y).toBe(9);
+      expect(rects[1]!.y).toBe(12);
+    });
+
+    test("space-between distributes space between children", () => {
+      const node = VStack(
+        { width: 80, height: 24, justifyContent: "space-between" },
+        [
+          VStack({ height: 3 }, []),
+          VStack({ height: 3 }, []),
+          VStack({ height: 3 }, []),
+        ],
+      );
+      const result = layout(node, 80, 24);
+      const rects = childRects(result);
+      // remaining = 24 - 9 = 15, gaps = 2, space per gap = 7.5 → 8, 7
+      expect(rects[0]!.y).toBe(0);
+      // gap after first = floor(15/2) or largest-remainder?
+      // 15 / 2 = 7.5 each → 8, 7 via largest remainder
+      expect(rects[1]!.y).toBe(3 + 8); // 11
+      expect(rects[2]!.y).toBe(3 + 8 + 3 + 7); // 21
+    });
+
+    test("space-between with single child acts like start", () => {
+      const node = VStack(
+        { width: 80, height: 24, justifyContent: "space-between" },
+        [VStack({ height: 3 }, [])],
+      );
+      const result = layout(node, 80, 24);
+      expect(childRects(result)[0]!.y).toBe(0);
+    });
+
+    test("center in HStack centers horizontally", () => {
+      const node = HStack({ width: 80, height: 24, justifyContent: "center" }, [
+        VStack({ width: 10, height: 24 }, []),
+        VStack({ width: 10, height: 24 }, []),
+      ]);
+      const result = layout(node, 80, 24);
+      const rects = childRects(result);
+      // remaining = 80 - 20 = 60, offset = 30
+      expect(rects[0]!.x).toBe(30);
+      expect(rects[1]!.x).toBe(40);
+    });
+
+    test("end in HStack pushes children right", () => {
+      const node = HStack({ width: 80, height: 24, justifyContent: "end" }, [
+        VStack({ width: 20, height: 24 }, []),
+      ]);
+      const result = layout(node, 80, 24);
+      expect(childRects(result)[0]!.x).toBe(60);
+    });
+
+    test("justifyContent with padding", () => {
+      const node = VStack(
+        {
+          width: 80,
+          height: 24,
+          justifyContent: "center",
+          padding: { y: 2 },
+        },
+        [VStack({ height: 4 }, [])],
+      );
+      const result = layout(node, 80, 24);
+      // inner height = 24 - 4 = 20, remaining = 20 - 4 = 16, offset = 8
+      // child y = padY + offset = 2 + 8 = 10
+      expect(childRects(result)[0]!.y).toBe(10);
+    });
+
+    test("justifyContent with gap", () => {
+      const node = VStack(
+        { width: 80, height: 24, justifyContent: "end", gap: 2 },
+        [VStack({ height: 3 }, []), VStack({ height: 3 }, [])],
+      );
+      const result = layout(node, 80, 24);
+      const rects = childRects(result);
+      // total content = 3 + 2 + 3 = 8, remaining = 24 - 8 = 16
+      expect(rects[0]!.y).toBe(16);
+      expect(rects[1]!.y).toBe(21); // 16 + 3 + 2
+    });
+  });
+
+  describe("alignItems", () => {
+    test("stretch is the default (children fill cross axis)", () => {
+      const node = VStack({ width: 80, height: 24 }, [
+        VStack({ height: 3 }, []),
+      ]);
+      const result = layout(node, 80, 24);
+      // cross axis = width, should fill parent
+      expect(childRects(result)[0]!.width).toBe(80);
+      expect(childRects(result)[0]!.x).toBe(0);
+    });
+
+    test("center centers children on cross axis in VStack", () => {
+      const node = VStack({ width: 80, height: 24, alignItems: "center" }, [
+        VStack({ width: 20, height: 3 }, []),
+      ]);
+      const result = layout(node, 80, 24);
+      // cross remaining = 80 - 20 = 60, offset = 30
+      expect(childRects(result)[0]!.x).toBe(30);
+    });
+
+    test("end aligns children to the end of cross axis", () => {
+      const node = VStack({ width: 80, height: 24, alignItems: "end" }, [
+        VStack({ width: 20, height: 3 }, []),
+      ]);
+      const result = layout(node, 80, 24);
+      // cross remaining = 80 - 20 = 60
+      expect(childRects(result)[0]!.x).toBe(60);
+    });
+
+    test("start aligns children to the start of cross axis", () => {
+      const node = VStack({ width: 80, height: 24, alignItems: "start" }, [
+        VStack({ width: 20, height: 3 }, []),
+      ]);
+      const result = layout(node, 80, 24);
+      expect(childRects(result)[0]!.x).toBe(0);
+    });
+
+    test("center in HStack centers vertically", () => {
+      const node = HStack({ width: 80, height: 24, alignItems: "center" }, [
+        VStack({ width: 20, height: 6 }, []),
+      ]);
+      const result = layout(node, 80, 24);
+      // cross = height, remaining = 24 - 6 = 18, offset = 9
+      expect(childRects(result)[0]!.y).toBe(9);
+    });
+
+    test("end in HStack pushes children to the bottom", () => {
+      const node = HStack({ width: 80, height: 24, alignItems: "end" }, [
+        VStack({ width: 20, height: 6 }, []),
+      ]);
+      const result = layout(node, 80, 24);
+      expect(childRects(result)[0]!.y).toBe(18);
+    });
+
+    test("alignItems with padding", () => {
+      const node = VStack(
+        {
+          width: 80,
+          height: 24,
+          alignItems: "center",
+          padding: { x: 5 },
+        },
+        [VStack({ width: 20, height: 3 }, [])],
+      );
+      const result = layout(node, 80, 24);
+      // inner width = 80 - 10 = 70, remaining = 70 - 20 = 50, offset = 25
+      // child x = padX + offset = 5 + 25 = 30
+      expect(childRects(result)[0]!.x).toBe(30);
+    });
+
+    test("alignItems affects each child independently", () => {
+      const node = VStack({ width: 80, height: 24, alignItems: "center" }, [
+        VStack({ width: 20, height: 3 }, []),
+        VStack({ width: 40, height: 3 }, []),
+      ]);
+      const result = layout(node, 80, 24);
+      const rects = childRects(result);
+      // child 1: (80 - 20) / 2 = 30
+      expect(rects[0]!.x).toBe(30);
+      // child 2: (80 - 40) / 2 = 20
+      expect(rects[1]!.x).toBe(20);
+    });
+
+    test("center uses intrinsic cross size for Text children", () => {
+      // Text("hello") has intrinsic width 5. With alignItems center,
+      // it should be centered in 80 columns, not fill the width.
+      const node = VStack({ width: 80, height: 24, alignItems: "center" }, [
+        Text("hello"),
+      ]);
+      const result = layout(node, 80, 24);
+      const r = childRects(result)[0]!;
+      // intrinsic width of "hello" = 5, cross = 80
+      // offset = (80 - 5) / 2 = 37 (floored from 37.5)
+      expect(r.x).toBe(37);
+      expect(r.width).toBe(5);
+    });
+
+    test("center uses intrinsic cross size for HStack without explicit width", () => {
+      const node = VStack({ width: 80, height: 24, alignItems: "center" }, [
+        HStack({ gap: 1 }, [Text("aa"), Text("bb")]),
+      ]);
+      const result = layout(node, 80, 24);
+      const r = childRects(result)[0]!;
+      // HStack intrinsic width = 2 + 1 + 2 = 5
+      expect(r.width).toBe(5);
+      expect(r.x).toBe(37);
+    });
+
+    test("end uses intrinsic cross size for children without explicit width", () => {
+      const node = VStack({ width: 80, height: 24, alignItems: "end" }, [
+        Text("hi"),
+      ]);
+      const result = layout(node, 80, 24);
+      const r = childRects(result)[0]!;
+      // intrinsic width of "hi" = 2
+      expect(r.width).toBe(2);
+      expect(r.x).toBe(78);
+    });
+
+    test("stretch still fills cross axis (default)", () => {
+      const node = VStack({ width: 80, height: 24, alignItems: "stretch" }, [
+        Text("hi"),
+      ]);
+      const result = layout(node, 80, 24);
+      expect(childRects(result)[0]!.width).toBe(80);
+      expect(childRects(result)[0]!.x).toBe(0);
+    });
+
+    test("combined justifyContent center + alignItems center", () => {
+      const node = VStack(
+        {
+          width: 80,
+          height: 24,
+          justifyContent: "center",
+          alignItems: "center",
+        },
+        [VStack({ width: 20, height: 4 }, [])],
+      );
+      const result = layout(node, 80, 24);
+      const r = childRects(result)[0]!;
+      // main (y): (24 - 4) / 2 = 10
+      expect(r.y).toBe(10);
+      // cross (x): (80 - 20) / 2 = 30
+      expect(r.x).toBe(30);
+    });
+  });
+
   describe("nested layout", () => {
     test("editor-like layout: sidebar + main area", () => {
       const node = HStack({ width: 80, height: 24 }, [

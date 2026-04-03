@@ -19,8 +19,8 @@ What's implemented, what's missing, and what needs hardening. Reference `spec.md
 - ✅ Constraints (`minWidth`, `maxWidth`, `minHeight`, `maxHeight`)
 - ✅ Gap spacing between children
 - ✅ Padding (`{ x, y }`)
-- ❌ `justifyContent` — positions are computed but alignment offsets not applied (`"start"`, `"end"`, `"center"`, `"space-between"`)
-- ❌ `alignItems` — cross-axis alignment not applied (`"start"`, `"end"`, `"center"`, `"stretch"`)
+- ✅ `justifyContent` — `"start"`, `"end"`, `"center"`, `"space-between"`
+- ✅ `alignItems` — `"start"`, `"end"`, `"center"`, `"stretch"`
 
 ## Rendering
 

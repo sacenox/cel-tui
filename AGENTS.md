@@ -50,6 +50,32 @@ bun run typecheck        # tsc --noEmit type checking
 bun run docs             # generate HTML + Markdown docs into docs/
 ```
 
+## Visual Testing with tmux
+
+Use a tmux session to run examples and visually inspect rendered output:
+
+```bash
+# Create a session (set size to simulate a terminal window)
+tmux new-session -d -s cel -x 80 -y 24
+
+# Run an example
+tmux send-keys -t cel "cd /home/xonecas/src/cel-tui && bun run examples/hello.ts" Enter
+
+# Wait for render, then capture the screen contents
+sleep 1; tmux capture-pane -t cel -p
+
+# Send keystrokes (e.g., Ctrl+Q to quit)
+tmux send-keys -t cel C-q
+
+# Resize the window to test different terminal sizes
+tmux resize-window -t cel -x 60 -y 20
+
+# Kill the session when done
+tmux kill-session -t cel
+```
+
+This lets you see exactly what the user sees — rendered cells, alignment, clipping, colors — without needing a real interactive terminal.
+
 ## Spec
 
 The `spec.md` file is the source of truth for all API design decisions. Always read it before making changes to core framework behavior. The open questions at the bottom track what's been decided vs. still in progress.
