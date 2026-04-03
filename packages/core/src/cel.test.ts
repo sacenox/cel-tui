@@ -2,8 +2,8 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { cel } from "./cel.js";
 import { MockTerminal } from "./terminal.js";
 import { Text } from "./primitives/text.js";
-import { VStack } from "./primitives/stacks.js";
-import { HStack } from "./primitives/stacks.js";
+import { TextInput } from "./primitives/text-input.js";
+import { VStack, HStack } from "./primitives/stacks.js";
 
 describe("cel end-to-end", () => {
   let term: MockTerminal;
@@ -114,7 +114,10 @@ describe("cel end-to-end", () => {
     await waitForRender();
 
     expect(renderCount).toBe(2);
-    expect(term.output).toContain("Count: 3");
+    // Differential rendering: initial full render has "Count: 0",
+    // subsequent render emits only the changed character "3"
+    expect(term.output).toContain("Count: 0");
+    expect(term.output).toContain("3");
   });
 
   test("wraps output in synchronized output markers", async () => {
@@ -199,6 +202,366 @@ describe("cel end-to-end", () => {
       await waitForRender();
 
       expect(scrollOffset).toBe(1);
+    });
+  });
+
+  describe("focus system", () => {
+    test("Tab moves focus to next focusable element", async () => {
+      const term = setup(20, 5);
+      const focused: string[] = [];
+      let focus1 = false;
+      let focus2 = false;
+
+      cel.viewport(() =>
+        VStack({ width: 20, height: 5 }, [
+          HStack(
+            {
+              onClick: () => {},
+              focused: focus1,
+              onFocus: () => {
+                focus1 = true;
+                focus2 = false;
+                focused.push("btn1");
+              },
+              onBlur: () => {
+                focus1 = false;
+              },
+            },
+            [Text("Btn1")],
+          ),
+          HStack(
+            {
+              onClick: () => {},
+              focused: focus2,
+              onFocus: () => {
+                focus2 = true;
+                focus1 = false;
+                focused.push("btn2");
+              },
+              onBlur: () => {
+                focus2 = false;
+              },
+            },
+            [Text("Btn2")],
+          ),
+        ]),
+      );
+      await waitForRender();
+
+      // Tab to focus first element
+      term.sendInput("\t");
+      await waitForRender();
+      expect(focused).toEqual(["btn1"]);
+
+      // Tab to focus second element
+      term.sendInput("\t");
+      await waitForRender();
+      expect(focused).toEqual(["btn1", "btn2"]);
+    });
+
+    test("Shift+Tab moves focus backwards", async () => {
+      const term = setup(20, 5);
+      let focus1 = false;
+      let focus2 = true;
+      const focused: string[] = [];
+
+      cel.viewport(() =>
+        VStack({ width: 20, height: 5 }, [
+          HStack(
+            {
+              onClick: () => {},
+              focused: focus1,
+              onFocus: () => {
+                focus1 = true;
+                focus2 = false;
+                focused.push("btn1");
+              },
+              onBlur: () => {
+                focus1 = false;
+              },
+            },
+            [Text("Btn1")],
+          ),
+          HStack(
+            {
+              onClick: () => {},
+              focused: focus2,
+              onFocus: () => {
+                focus2 = true;
+                focus1 = false;
+                focused.push("btn2");
+              },
+              onBlur: () => {
+                focus2 = false;
+              },
+            },
+            [Text("Btn2")],
+          ),
+        ]),
+      );
+      await waitForRender();
+
+      // Shift+Tab from btn2 should focus btn1
+      term.sendInput("\x1b[Z");
+      await waitForRender();
+      expect(focused).toEqual(["btn1"]);
+    });
+
+    test("Escape unfocuses the current element", async () => {
+      const term = setup(20, 5);
+      let blurred = false;
+      let btnFocused = true;
+
+      cel.viewport(() =>
+        VStack({ width: 20, height: 5 }, [
+          HStack(
+            {
+              onClick: () => {},
+              focused: btnFocused,
+              onBlur: () => {
+                blurred = true;
+                btnFocused = false;
+              },
+            },
+            [Text("Btn")],
+          ),
+        ]),
+      );
+      await waitForRender();
+
+      term.sendInput("\x1b");
+      await waitForRender();
+      expect(blurred).toBe(true);
+    });
+
+    test("Enter activates focused clickable container", async () => {
+      const term = setup(20, 5);
+      let clicked = false;
+
+      cel.viewport(() =>
+        VStack({ width: 20, height: 5 }, [
+          HStack(
+            {
+              onClick: () => {
+                clicked = true;
+              },
+              focused: true,
+            },
+            [Text("Btn")],
+          ),
+        ]),
+      );
+      await waitForRender();
+
+      term.sendInput("\r");
+      await waitForRender();
+      expect(clicked).toBe(true);
+    });
+
+    test("mouse click on focusable element fires onFocus", async () => {
+      const term = setup(20, 5);
+      let btnFocused = false;
+
+      cel.viewport(() =>
+        VStack({ width: 20, height: 5 }, [
+          HStack(
+            {
+              onClick: () => {},
+              focused: btnFocused,
+              onFocus: () => {
+                btnFocused = true;
+              },
+            },
+            [Text("Btn")],
+          ),
+        ]),
+      );
+      await waitForRender();
+
+      // Click on the button at (1, 0)
+      term.sendInput("\x1b[<0;2;1m");
+      await waitForRender();
+      expect(btnFocused).toBe(true);
+    });
+
+    test("Tab wraps around to first element", async () => {
+      const term = setup(20, 5);
+      let focus1 = false;
+      let focus2 = true;
+      const focused: string[] = [];
+
+      cel.viewport(() =>
+        VStack({ width: 20, height: 5 }, [
+          HStack(
+            {
+              onClick: () => {},
+              focused: focus1,
+              onFocus: () => {
+                focus1 = true;
+                focus2 = false;
+                focused.push("btn1");
+              },
+              onBlur: () => {
+                focus1 = false;
+              },
+            },
+            [Text("Btn1")],
+          ),
+          HStack(
+            {
+              onClick: () => {},
+              focused: focus2,
+              onFocus: () => {
+                focus2 = true;
+                focus1 = false;
+                focused.push("btn2");
+              },
+              onBlur: () => {
+                focus2 = false;
+              },
+            },
+            [Text("Btn2")],
+          ),
+        ]),
+      );
+      await waitForRender();
+
+      // Tab from btn2 (last) should wrap to btn1
+      term.sendInput("\t");
+      await waitForRender();
+      expect(focused).toEqual(["btn1"]);
+    });
+  });
+
+  describe("onKeyPress bubbling", () => {
+    test("key bubbles from focused element up through ancestors", async () => {
+      const term = setup(20, 5);
+      const received: string[] = [];
+
+      cel.viewport(() =>
+        VStack(
+          {
+            width: 20,
+            height: 5,
+            onKeyPress: (key) => {
+              received.push("root:" + key);
+            },
+          },
+          [
+            VStack(
+              {
+                onKeyPress: (key) => {
+                  received.push("mid:" + key);
+                },
+              },
+              [
+                HStack(
+                  {
+                    onClick: () => {},
+                    focused: true,
+                  },
+                  [Text("Focused Btn")],
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+      await waitForRender();
+
+      // Send a key — should bubble from focused btn through mid, then root
+      term.sendInput("x");
+      await waitForRender();
+
+      // Nearest ancestor with onKeyPress is "mid", so it handles first
+      expect(received).toEqual(["mid:x"]);
+    });
+
+    test("key reaches root onKeyPress when no intermediate handlers", async () => {
+      const term = setup(20, 5);
+      let rootKey = "";
+
+      cel.viewport(() =>
+        VStack(
+          {
+            width: 20,
+            height: 5,
+            onKeyPress: (key) => {
+              rootKey = key;
+            },
+          },
+          [
+            HStack(
+              {
+                onClick: () => {},
+                focused: true,
+              },
+              [Text("Btn")],
+            ),
+          ],
+        ),
+      );
+      await waitForRender();
+
+      term.sendInput("y");
+      await waitForRender();
+      expect(rootKey).toBe("y");
+    });
+
+    test("modifier key from focused TextInput bubbles to ancestors", async () => {
+      const term = setup(20, 5);
+      let parentKey = "";
+      let inputValue = "hello";
+
+      cel.viewport(() =>
+        VStack(
+          {
+            width: 20,
+            height: 5,
+            onKeyPress: (key) => {
+              parentKey = key;
+            },
+          },
+          [
+            TextInput({
+              value: inputValue,
+              onChange: (v) => {
+                inputValue = v;
+              },
+              focused: true,
+            }),
+          ],
+        ),
+      );
+      await waitForRender();
+
+      // Ctrl+S is not an editing key — should bubble up
+      term.sendInput("\x13");
+      await waitForRender();
+      expect(parentKey).toBe("ctrl+s");
+    });
+
+    test("unfocused state bubbles from root only", async () => {
+      const term = setup(20, 5);
+      let rootKey = "";
+
+      cel.viewport(() =>
+        VStack(
+          {
+            width: 20,
+            height: 5,
+            onKeyPress: (key) => {
+              rootKey = key;
+            },
+          },
+          [Text("no focus")],
+        ),
+      );
+      await waitForRender();
+
+      term.sendInput("z");
+      await waitForRender();
+      expect(rootKey).toBe("z");
     });
   });
 });

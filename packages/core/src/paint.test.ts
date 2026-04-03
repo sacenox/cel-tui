@@ -158,6 +158,229 @@ describe("paint", () => {
     });
   });
 
+  describe("wide character rendering", () => {
+    test("CJK characters occupy 2 cells each", () => {
+      const node = VStack({ width: 20, height: 1 }, [Text("\u4e16\u754c")]);
+      const ln = layout(node, 20, 1);
+      const buf = new CellBuffer(20, 1);
+      paint(ln, buf);
+      // \u4e16 at col 0 (wide), \u754c at col 2 (wide)
+      expect(buf.get(0, 0).char).toBe("\u4e16");
+      expect(buf.get(2, 0).char).toBe("\u754c");
+    });
+
+    test("emoji occupies 2 cells", () => {
+      const node = VStack({ width: 20, height: 1 }, [Text("\ud83d\ude00x")]);
+      const ln = layout(node, 20, 1);
+      const buf = new CellBuffer(20, 1);
+      paint(ln, buf);
+      // emoji at col 0 (wide), x at col 2
+      expect(buf.get(0, 0).char).toBe("\ud83d\ude00");
+      expect(buf.get(2, 0).char).toBe("x");
+    });
+
+    test("repeat fill with CJK char fills by visible width", () => {
+      const node = VStack({ width: 6, height: 1 }, [
+        Text("\u4e16", { repeat: "fill" }), // width 2, fills 6 cols = 3 repeats
+      ]);
+      const ln = layout(node, 6, 1);
+      const buf = new CellBuffer(6, 1);
+      paint(ln, buf);
+      expect(buf.get(0, 0).char).toBe("\u4e16");
+      expect(buf.get(2, 0).char).toBe("\u4e16");
+      expect(buf.get(4, 0).char).toBe("\u4e16");
+    });
+
+    test("mixed ASCII and CJK paints at correct positions", () => {
+      const node = VStack({ width: 20, height: 1 }, [Text("hi\u4e16\u754c")]);
+      const ln = layout(node, 20, 1);
+      const buf = new CellBuffer(20, 1);
+      paint(ln, buf);
+      expect(buf.get(0, 0).char).toBe("h");
+      expect(buf.get(1, 0).char).toBe("i");
+      expect(buf.get(2, 0).char).toBe("\u4e16");
+      expect(buf.get(4, 0).char).toBe("\u754c");
+    });
+
+    test("CJK text clips at rect boundary", () => {
+      // \u4e16(2) + \u754c(2) = 4, but rect is 3 wide \u2192 clip \u754c
+      const node = VStack({ width: 3, height: 1 }, [Text("\u4e16\u754c")]);
+      const ln = layout(node, 3, 1);
+      const buf = new CellBuffer(3, 1);
+      paint(ln, buf);
+      expect(buf.get(0, 0).char).toBe("\u4e16");
+      // col 2 should be empty - \u754c doesn't fit (needs 2 cols, only 1 remains)
+      expect(buf.get(2, 0).char).toBe(" ");
+    });
+  });
+
+  describe("overflow clipping", () => {
+    test("text extending beyond container width is clipped", () => {
+      // Container is 5 wide, child text is longer
+      const node = VStack({ width: 5, height: 3 }, [
+        VStack({ width: 5, height: 1 }, [Text("HelloWorld")]),
+      ]);
+      const ln = layout(node, 10, 3);
+      const buf = new CellBuffer(10, 3);
+      paint(ln, buf);
+      // Only "Hello" should appear, "World" clipped by container
+      expect(readRow(buf, 0)).toBe("Hello");
+    });
+
+    test("child positioned outside parent bounds is clipped", () => {
+      // Parent is 10 wide, 3 tall. Two children each 2 tall = 4 total.
+      // Second child overflows vertically.
+      const node = VStack({ width: 10, height: 3 }, [
+        VStack({ height: 2 }, [Text("AA")]),
+        VStack({ height: 2 }, [Text("BB")]),
+      ]);
+      const ln = layout(node, 10, 3);
+      const buf = new CellBuffer(10, 5);
+      paint(ln, buf);
+      expect(readRow(buf, 0)).toBe("AA");
+      expect(readRow(buf, 2)).toBe("BB");
+      // Row 3 is outside the parent (height=3), second line of "BB" child
+      // would be at y=3 but should be clipped
+      expect(readRow(buf, 3)).toBe("");
+    });
+
+    test("nested containers clip to innermost parent", () => {
+      // Outer 10x3, inner 5x2 at position (0,0)
+      // Text inside inner is long
+      const node = VStack({ width: 10, height: 3 }, [
+        VStack({ width: 5, height: 2 }, [Text("LongTextHere")]),
+      ]);
+      const ln = layout(node, 10, 3);
+      const buf = new CellBuffer(10, 3);
+      paint(ln, buf);
+      // Clipped to inner container width of 5
+      expect(readRow(buf, 0)).toBe("LongT");
+    });
+
+    test("HStack children clipped horizontally by parent", () => {
+      const node = HStack({ width: 8, height: 1 }, [
+        VStack({ width: 5 }, [Text("AAAAA")]),
+        VStack({ width: 5 }, [Text("BBBBB")]),
+      ]);
+      const ln = layout(node, 10, 1);
+      const buf = new CellBuffer(10, 1);
+      paint(ln, buf);
+      // First child fills 0-4 ("AAAAA"), second starts at 5
+      // But parent is only 8 wide, so second child clipped at col 8
+      expect(readRow(buf, 0)).toBe("AAAAABBB");
+    });
+
+    test("deeply nested clipping", () => {
+      const node = VStack({ width: 6, height: 2 }, [
+        HStack({}, [VStack({ width: 10 }, [Text("TooWide!!!")])]),
+      ]);
+      const ln = layout(node, 10, 2);
+      const buf = new CellBuffer(10, 2);
+      paint(ln, buf);
+      // Should be clipped to outermost container width of 6
+      expect(readRow(buf, 0)).toBe("TooWid");
+    });
+  });
+
+  describe("scroll rendering", () => {
+    test("VStack with overflow scroll and scrollOffset offsets children vertically", () => {
+      const node = VStack(
+        { width: 10, height: 3, overflow: "scroll", scrollOffset: 1 },
+        [
+          Text("line0"),
+          Text("line1"),
+          Text("line2"),
+          Text("line3"),
+          Text("line4"),
+        ],
+      );
+      const ln = layout(node, 10, 3);
+      const buf = new CellBuffer(10, 5);
+      paint(ln, buf);
+      // scrollOffset=1 means first visible line is line1
+      expect(readRow(buf, 0)).toBe("line1");
+      expect(readRow(buf, 1)).toBe("line2");
+      expect(readRow(buf, 2)).toBe("line3");
+      // Row 3 should be empty (outside container)
+      expect(readRow(buf, 3)).toBe("");
+    });
+
+    test("scrollOffset 0 shows from the top", () => {
+      const node = VStack(
+        { width: 10, height: 2, overflow: "scroll", scrollOffset: 0 },
+        [Text("first"), Text("second"), Text("third")],
+      );
+      const ln = layout(node, 10, 2);
+      const buf = new CellBuffer(10, 3);
+      paint(ln, buf);
+      expect(readRow(buf, 0)).toBe("first");
+      expect(readRow(buf, 1)).toBe("second");
+      expect(readRow(buf, 2)).toBe("");
+    });
+
+    test("HStack with overflow scroll and scrollOffset offsets children horizontally", () => {
+      const node = HStack(
+        { width: 5, height: 1, overflow: "scroll", scrollOffset: 3 },
+        [
+          VStack({ width: 4 }, [Text("AAAA")]),
+          VStack({ width: 4 }, [Text("BBBB")]),
+          VStack({ width: 4 }, [Text("CCCC")]),
+        ],
+      );
+      const ln = layout(node, 10, 1);
+      const buf = new CellBuffer(10, 1);
+      paint(ln, buf);
+      // Total content width = 12, scrollOffset=3, viewport=5
+      // Visible: cols 3-7 of content = "A" + "BBBB" → "ABBBB" but clipped to 5
+      expect(readRow(buf, 0)).toBe("ABBBB");
+    });
+
+    test("scroll with scrollbar shows indicator", () => {
+      const node = VStack(
+        {
+          width: 10,
+          height: 4,
+          overflow: "scroll",
+          scrollOffset: 0,
+          scrollbar: true,
+        },
+        [
+          Text("line0"),
+          Text("line1"),
+          Text("line2"),
+          Text("line3"),
+          Text("line4"),
+          Text("line5"),
+          Text("line6"),
+          Text("line7"),
+        ],
+      );
+      const ln = layout(node, 10, 4);
+      const buf = new CellBuffer(10, 4);
+      paint(ln, buf);
+      // Scrollbar should be in the last column (col 9)
+      // Content height = 8, viewport = 4, scrollOffset = 0
+      // Scrollbar thumb should be at top rows
+      const lastCol = Array.from({ length: 4 }, (_, y) => buf.get(9, y).char);
+      // At least one cell should have the scrollbar character
+      expect(lastCol.some((c) => c !== " ")).toBe(true);
+    });
+
+    test("scroll clamps content — no painting above container", () => {
+      const node = VStack(
+        { width: 10, height: 3, overflow: "scroll", scrollOffset: 2 },
+        [Text("line0"), Text("line1"), Text("line2"), Text("line3")],
+      );
+      const ln = layout(node, 10, 5);
+      const buf = new CellBuffer(10, 5);
+      paint(ln, buf);
+      // With scrollOffset=2, line2 and line3 visible
+      expect(readRow(buf, 0)).toBe("line2");
+      expect(readRow(buf, 1)).toBe("line3");
+      expect(readRow(buf, 2)).toBe("");
+    });
+  });
+
   describe("nested layout", () => {
     test("editor-like layout paints correctly", () => {
       const node = HStack({ width: 30, height: 5 }, [
