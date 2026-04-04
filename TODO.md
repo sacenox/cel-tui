@@ -20,6 +20,10 @@ Remaining work, known bugs, and planned improvements.
 
 - 🔧 **Duplicate max scroll offset calculation** — `getMaxScrollOffset` in `cel.ts` and `computeMaxScrollOffset` in `paint.ts` implement the same logic. Should be extracted to a shared function.
 
+- 🔧 **Key events leak through layers** — When no element is focused and the topmost layer's root has no `onKeyPress`, `handleKeyEvent` falls through to lower layers. Mouse input stops at the topmost layer with a node at the event position, but keyboard input doesn't follow the same rule. A modal overlay without its own root `onKeyPress` would leak keys to the base layer, breaking the "events target the topmost layer" principle.
+
+- 🔧 **`space-between` + `gap` double-spaces children** — When both `justifyContent: "space-between"` and `gap` are set, children get `gap` spacing plus the distributed remaining space on top. The remaining-space calculation subtracts `totalGap` first, then `space-between` distributes what's left as extra gap — so the effective gap is `gap + betweenGaps[i]`. CSS flex doesn't stack `space-between` on top of `gap` this way. The spec doesn't define this interaction.
+
 ---
 
 ## API Improvements

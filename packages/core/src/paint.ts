@@ -201,8 +201,7 @@ function paintLayoutNode(
   const isVertical = node.type === "vstack";
   let scrollOffset = 0;
   if (isScrollable) {
-    const raw =
-      containerProps.scrollOffset ?? getContainerScroll(containerProps);
+    const raw = containerProps.scrollOffset ?? 0;
     // Clamp to valid range so apps can pass large values to mean "scroll to end"
     const maxOffset = computeMaxScrollOffset(ln, isVertical);
     scrollOffset = Math.max(0, Math.min(raw, maxOffset));
@@ -599,13 +598,6 @@ function offsetToWrappedPos(
 // --- Framework-managed state ---
 
 import type { ContainerProps } from "@cel-tui/types";
-
-const containerScrolls = new WeakMap<ContainerProps, number>();
-
-/** Get the scroll offset for an uncontrolled scrollable container. */
-function getContainerScroll(props: ContainerProps): number {
-  return containerScrolls.get(props) ?? 0;
-}
 
 /**
  * TextInput state is keyed on the `onChange` function reference, which is
