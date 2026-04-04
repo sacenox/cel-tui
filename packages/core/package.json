@@ -14,7 +14,8 @@
   },
   "files": [
     "src/**/*.ts",
-    "!src/**/*.test.ts"
+    "!src/**/*.test.ts",
+    "!src/test-helpers.ts"
   ],
   "license": "MIT",
   "repository": {

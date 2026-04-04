@@ -4,6 +4,14 @@ import { MockTerminal } from "./terminal.js";
 import { Text } from "./primitives/text.js";
 import { TextInput } from "./primitives/text-input.js";
 import { VStack, HStack } from "./primitives/stacks.js";
+import { kittyEncode } from "./test-helpers.js";
+
+// Kitty protocol byte sequences for commonly used keys
+const TAB = kittyEncode("tab");
+const ENTER = kittyEncode("enter");
+const ESCAPE = kittyEncode("escape");
+const SHIFT_TAB = kittyEncode("shift+tab");
+const CTRL_S = kittyEncode("ctrl+s");
 
 describe("cel end-to-end", () => {
   let term: MockTerminal;
@@ -172,7 +180,7 @@ describe("cel end-to-end", () => {
       await waitForRender();
 
       // Send Ctrl+S
-      term.sendInput("\x13");
+      term.sendInput(CTRL_S);
       await waitForRender();
 
       expect(receivedKey).toBe("ctrl+s");
@@ -314,12 +322,12 @@ describe("cel end-to-end", () => {
       await waitForRender();
 
       // Tab to focus first element
-      term.sendInput("\t");
+      term.sendInput(TAB);
       await waitForRender();
       expect(focused).toEqual(["btn1"]);
 
       // Tab to focus second element
-      term.sendInput("\t");
+      term.sendInput(TAB);
       await waitForRender();
       expect(focused).toEqual(["btn1", "btn2"]);
     });
@@ -367,7 +375,7 @@ describe("cel end-to-end", () => {
       await waitForRender();
 
       // Shift+Tab from btn2 should focus btn1
-      term.sendInput("\x1b[Z");
+      term.sendInput(SHIFT_TAB);
       await waitForRender();
       expect(focused).toEqual(["btn1"]);
     });
@@ -394,7 +402,7 @@ describe("cel end-to-end", () => {
       );
       await waitForRender();
 
-      term.sendInput("\x1b");
+      term.sendInput(ESCAPE);
       await waitForRender();
       expect(blurred).toBe(true);
     });
@@ -418,7 +426,7 @@ describe("cel end-to-end", () => {
       );
       await waitForRender();
 
-      term.sendInput("\r");
+      term.sendInput(ENTER);
       await waitForRender();
       expect(clicked).toBe(true);
     });
@@ -492,7 +500,7 @@ describe("cel end-to-end", () => {
       await waitForRender();
 
       // Tab from btn2 (last) should wrap to btn1
-      term.sendInput("\t");
+      term.sendInput(TAB);
       await waitForRender();
       expect(focused).toEqual(["btn1"]);
     });
@@ -735,7 +743,7 @@ describe("cel end-to-end", () => {
       await waitForRender();
 
       // Ctrl+S is not an editing key — should bubble up
-      term.sendInput("\x13");
+      term.sendInput(CTRL_S);
       await waitForRender();
       expect(parentKey).toBe("ctrl+s");
     });
@@ -782,7 +790,7 @@ describe("cel end-to-end", () => {
       await waitForRender();
 
       // Tab should insert \t, not traverse focus
-      term.sendInput("\t");
+      term.sendInput(TAB);
       await waitForRender();
       expect(value).toBe("hello\t");
     });
@@ -816,7 +824,7 @@ describe("cel end-to-end", () => {
       await waitForRender();
 
       // Shift+Tab should not move focus away from TextInput
-      term.sendInput("\x1b[Z");
+      term.sendInput(SHIFT_TAB);
       await waitForRender();
       expect(btnFocused).toBe(false);
     });
@@ -840,7 +848,7 @@ describe("cel end-to-end", () => {
       await waitForRender();
 
       // Tab should traverse to the TextInput (it's not focused yet)
-      term.sendInput("\t");
+      term.sendInput(TAB);
       await waitForRender();
       expect(tiFocused).toBe(true);
     });
@@ -876,12 +884,12 @@ describe("cel end-to-end", () => {
       await waitForRender();
 
       // Escape to leave TextInput
-      term.sendInput("\x1b");
+      term.sendInput(ESCAPE);
       await waitForRender();
       expect(tiFocused).toBe(false);
 
       // Tab should now traverse to the button
-      term.sendInput("\t");
+      term.sendInput(TAB);
       await waitForRender();
       expect(btnFocused).toBe(true);
     });
@@ -922,13 +930,13 @@ describe("cel end-to-end", () => {
       expect(focused as string | null).toBe("ti");
 
       // Escape to unfocus TextInput
-      term.sendInput("\x1b");
+      term.sendInput(ESCAPE);
       await waitForRender();
       expect(focused as string | null).toBe(null);
 
       // Tab should go FORWARD to the button (next after TextInput),
       // not back to the TextInput
-      term.sendInput("\t");
+      term.sendInput(TAB);
       await waitForRender();
       expect(focused as string | null).toBe("btn");
     });
@@ -983,18 +991,18 @@ describe("cel end-to-end", () => {
       await waitForRender();
 
       // Tab to B
-      term.sendInput("\t"); // → A
+      term.sendInput(TAB); // → A
       await waitForRender();
-      term.sendInput("\t"); // → B
+      term.sendInput(TAB); // → B
       await waitForRender();
       expect(focused as string | null).toBe("b");
 
       // Escape, then Shift+Tab should go backward to A
-      term.sendInput("\x1b");
+      term.sendInput(ESCAPE);
       await waitForRender();
       expect(focused as string | null).toBe(null);
 
-      term.sendInput("\x1b[Z"); // Shift+Tab
+      term.sendInput(SHIFT_TAB); // Shift+Tab
       await waitForRender();
       expect(focused as string | null).toBe("a");
     });
@@ -1130,11 +1138,11 @@ describe("cel end-to-end", () => {
       await waitForRender();
 
       // Tab to focus the button
-      term.sendInput("\t");
+      term.sendInput(TAB);
       await waitForRender();
 
       // Enter to activate
-      term.sendInput("\r");
+      term.sendInput(ENTER);
       await waitForRender();
 
       expect(clicked).toBe(true);
@@ -1153,16 +1161,16 @@ describe("cel end-to-end", () => {
       await waitForRender();
 
       // Tab to first, activate
-      term.sendInput("\t");
+      term.sendInput(TAB);
       await waitForRender();
-      term.sendInput("\r");
+      term.sendInput(ENTER);
       await waitForRender();
       expect(clicks).toEqual(["btn1"]);
 
       // Tab to second, activate
-      term.sendInput("\t");
+      term.sendInput(TAB);
       await waitForRender();
-      term.sendInput("\r");
+      term.sendInput(ENTER);
       await waitForRender();
       expect(clicks).toEqual(["btn1", "btn2"]);
     });
@@ -1180,16 +1188,16 @@ describe("cel end-to-end", () => {
       await waitForRender();
 
       // Shift+Tab to focus last element
-      term.sendInput("\x1b[Z");
+      term.sendInput(SHIFT_TAB);
       await waitForRender();
-      term.sendInput("\r");
+      term.sendInput(ENTER);
       await waitForRender();
       expect(clicks).toEqual(["btn2"]);
 
       // Shift+Tab to go backward to first
-      term.sendInput("\x1b[Z");
+      term.sendInput(SHIFT_TAB);
       await waitForRender();
-      term.sendInput("\r");
+      term.sendInput(ENTER);
       await waitForRender();
       expect(clicks).toEqual(["btn2", "btn1"]);
     });
@@ -1213,13 +1221,13 @@ describe("cel end-to-end", () => {
       await waitForRender();
 
       // Tab to focus, then Escape to unfocus
-      term.sendInput("\t");
+      term.sendInput(TAB);
       await waitForRender();
-      term.sendInput("\x1b");
+      term.sendInput(ESCAPE);
       await waitForRender();
 
       // Enter should do nothing — no element is focused
-      term.sendInput("\r");
+      term.sendInput(ENTER);
       await waitForRender();
       expect(clicked).toBe(false);
     });
@@ -1248,7 +1256,7 @@ describe("cel end-to-end", () => {
       await waitForRender();
 
       // Enter should activate the clicked element
-      term.sendInput("\r");
+      term.sendInput(ENTER);
       await waitForRender();
       expect(clicked).toBe(true);
     });
@@ -1270,7 +1278,7 @@ describe("cel end-to-end", () => {
       );
       await waitForRender();
 
-      term.sendInput("\t");
+      term.sendInput(TAB);
       await waitForRender();
       expect(events).toEqual(["focus"]);
     });
@@ -1301,12 +1309,12 @@ describe("cel end-to-end", () => {
       await waitForRender();
 
       // Tab to first
-      term.sendInput("\t");
+      term.sendInput(TAB);
       await waitForRender();
       expect(events).toEqual(["focus1"]);
 
       // Tab to second — first should get onBlur
-      term.sendInput("\t");
+      term.sendInput(TAB);
       await waitForRender();
       expect(events).toEqual(["focus1", "blur1", "focus2"]);
     });
@@ -1328,7 +1336,7 @@ describe("cel end-to-end", () => {
       await waitForRender();
 
       // Tab to focus the TextInput
-      term.sendInput("\t");
+      term.sendInput(TAB);
       await waitForRender();
 
       // Type a character
@@ -1350,13 +1358,13 @@ describe("cel end-to-end", () => {
       await waitForRender();
 
       // Tab to first, Tab to second, Tab wraps to first
-      term.sendInput("\t");
+      term.sendInput(TAB);
       await waitForRender();
-      term.sendInput("\t");
+      term.sendInput(TAB);
       await waitForRender();
-      term.sendInput("\t");
+      term.sendInput(TAB);
       await waitForRender();
-      term.sendInput("\r");
+      term.sendInput(ENTER);
       await waitForRender();
       expect(clicks).toEqual(["btn1"]);
     });
@@ -1389,15 +1397,15 @@ describe("cel end-to-end", () => {
       await waitForRender();
 
       // Tab to first (controlled)
-      term.sendInput("\t");
+      term.sendInput(TAB);
       await waitForRender();
       expect(controlledFocused).toBe(true);
 
       // Tab to second (uncontrolled), Enter to activate
-      term.sendInput("\t");
+      term.sendInput(TAB);
       await waitForRender();
       expect(controlledFocused).toBe(false);
-      term.sendInput("\r");
+      term.sendInput(ENTER);
       await waitForRender();
       expect(clicks).toEqual(["uncontrolled"]);
     });
@@ -1426,7 +1434,7 @@ describe("cel end-to-end", () => {
       expect(buf.get(0, 0).bgColor).toBe("black");
 
       // Tab to focus
-      term.sendInput("\t");
+      term.sendInput(TAB);
       await waitForRender();
 
       // After focus — focusStyle bgColor
@@ -1460,14 +1468,14 @@ describe("cel end-to-end", () => {
       await waitForRender();
 
       // Tab to first
-      term.sendInput("\t");
+      term.sendInput(TAB);
       await waitForRender();
       let buf = cel._getBuffer()!;
       expect(buf.get(0, 0).bgColor).toBe("cyan");
       expect(buf.get(0, 1).bgColor).toBe("black");
 
       // Tab to second — first loses focusStyle, second gains it
-      term.sendInput("\t");
+      term.sendInput(TAB);
       await waitForRender();
       buf = cel._getBuffer()!;
       expect(buf.get(0, 0).bgColor).toBe("black");
@@ -1496,7 +1504,7 @@ describe("cel end-to-end", () => {
       expect(buf.get(0, 0).fgColor).toBe("white");
 
       // Tab to focus
-      term.sendInput("\t");
+      term.sendInput(TAB);
       await waitForRender();
 
       // After focus — Text inherits black from focusStyle
@@ -1531,7 +1539,7 @@ describe("cel end-to-end", () => {
       expect(buf.get(0, 0).bgColor).toBe("cyan");
 
       // Escape to blur
-      term.sendInput("\x1b");
+      term.sendInput(ESCAPE);
       await waitForRender();
 
       // focused=false — normal style

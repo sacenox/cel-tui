@@ -550,6 +550,12 @@ function handleKeyEvent(key: string, rawData?: string): void {
         case "tab":
           newState = insertChar(editState, "\t");
           break;
+        case "space":
+          newState = insertChar(editState, " ");
+          break;
+        case "plus":
+          newState = insertChar(editState, "+");
+          break;
         default:
           // Single printable character — use raw data to preserve case
           if (key.length === 1 && rawData && rawData.length === 1) {
@@ -675,6 +681,9 @@ export const cel = {
    * Initialize the framework with a terminal implementation.
    * Must be called before {@link cel.viewport}.
    *
+   * Enables the Kitty keyboard protocol (level 1) via the terminal,
+   * enters raw mode, and starts mouse tracking.
+   *
    * @param term - Terminal to render to (ProcessTerminal or MockTerminal).
    */
   init(term: Terminal): void {
@@ -707,6 +716,9 @@ export const cel = {
 
   /**
    * Stop the framework and restore terminal state.
+   *
+   * Pops the Kitty keyboard protocol mode, disables mouse tracking,
+   * and restores the terminal to its previous state.
    */
   stop(): void {
     terminal?.stop();

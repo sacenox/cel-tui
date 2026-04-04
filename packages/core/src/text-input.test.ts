@@ -4,6 +4,12 @@ import { MockTerminal } from "./terminal.js";
 import { VStack } from "./primitives/stacks.js";
 import { Text } from "./primitives/text.js";
 import { TextInput } from "./primitives/text-input.js";
+import { kittyEncode } from "./test-helpers.js";
+
+const ENTER = kittyEncode("enter");
+const BACKSPACE = kittyEncode("backspace");
+const CTRL_S = kittyEncode("ctrl+s");
+const LEFT = kittyEncode("left");
 
 describe("TextInput integration", () => {
   let term: MockTerminal;
@@ -86,7 +92,7 @@ describe("TextInput integration", () => {
     await waitForRender();
 
     // Press backspace
-    term.sendInput("\x7f");
+    term.sendInput(BACKSPACE);
     await waitForRender();
 
     expect(value).toBe("ab");
@@ -109,7 +115,7 @@ describe("TextInput integration", () => {
     await waitForRender();
 
     // Press enter
-    term.sendInput("\r");
+    term.sendInput(ENTER);
     await waitForRender();
 
     expect(value).toBe("ab\n");
@@ -136,7 +142,7 @@ describe("TextInput integration", () => {
     );
     await waitForRender();
 
-    term.sendInput("\r");
+    term.sendInput(ENTER);
     await waitForRender();
 
     expect(submitted).toBe(true);
@@ -165,7 +171,7 @@ describe("TextInput integration", () => {
     await waitForRender();
 
     // Enter should insert newline (not submit)
-    term.sendInput("\r");
+    term.sendInput(ENTER);
     await waitForRender();
     expect(value).toBe("hi\n");
     expect(submitted).toBe(false);
@@ -196,7 +202,7 @@ describe("TextInput integration", () => {
     await waitForRender();
 
     // Ctrl+S should bubble up
-    term.sendInput("\x13");
+    term.sendInput(CTRL_S);
     await waitForRender();
 
     expect(receivedKey).toBe("ctrl+s");
@@ -223,11 +229,11 @@ describe("TextInput integration", () => {
     await waitForRender();
 
     // Move cursor left 3 times (from end of "abcdef")
-    term.sendInput("\x1b[D"); // left
+    term.sendInput(LEFT); // left
     await waitForRender();
-    term.sendInput("\x1b[D"); // left
+    term.sendInput(LEFT); // left
     await waitForRender();
-    term.sendInput("\x1b[D"); // left
+    term.sendInput(LEFT); // left
     await waitForRender();
 
     // Now type "X" — should insert at position 3 (after "abc")
@@ -259,7 +265,7 @@ describe("TextInput integration", () => {
 
     // Press enter to add line4 — cursor is now on line 4 (index 3)
     // which is below the 3-row viewport
-    term.sendInput("\r");
+    term.sendInput(ENTER);
     await waitForRender();
 
     // The buffer should show the cursor line (line4 area)

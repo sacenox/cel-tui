@@ -197,7 +197,7 @@ mySelect.reset(); // clear filter/highlight programmatically
 - **`repeat: "fill"` in HStack** gets width 0 (intrinsic width is 0). Workaround: wrap in `VStack({ flex: 1 }, [Text(" ", { repeat: "fill" })])`.
 - **Crash cleanup** — terminal state is restored on SIGINT, SIGTERM, uncaughtException.
 - **Always call `cel.stop()` before `process.exit()`** — restores raw mode, mouse tracking, and alternate screen.
-- **Alt key combos** (`alt+x`, `alt+up`) are not yet implemented in key parsing. Use `ctrl+` modifiers instead.
+- **Kitty keyboard protocol required** — the framework requires the Kitty keyboard protocol (level 1). All modifier combos (`alt+x`, `ctrl+plus`, `shift+enter`) are fully supported. The terminal must support this protocol (Kitty, WezTerm, Ghostty, foot, Alacritty, Windows Terminal). macOS Terminal.app and older xterm are not supported.
 - **Button limitations** — `Button` from `@cel-tui/components` does not forward `focusStyle`, container sizing, or all style props. Use `HStack` + `Text` directly when you need full control.
 
 ## Composing Components

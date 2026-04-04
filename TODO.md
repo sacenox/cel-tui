@@ -20,12 +20,10 @@ Remaining work, known bugs, and planned improvements.
 
 ## Not Yet Implemented
 
-- ❌ Alt key combos (`alt+x`) — `parseKey` doesn't handle ESC-prefixed sequences as alt modifiers. The spec lists `"alt+up"` as a valid key format.
-- ❌ `"plus"` as a named key — the spec mentions `"ctrl+plus"` but `+` is the modifier separator and needs special handling.
 - ❌ Bracketed paste mode support
-- ❌ Kitty keyboard protocol detection
 
 ## Future Enhancements
 
 - 💡 Additional example apps (chat UI, text editor from spec reference examples)
 - 💡 `overflow: "hidden"` as explicit prop (currently all containers clip by default, which matches the spec's default behavior, but the prop value is not checked)
+- 💡 Higher Kitty protocol levels — key-release events (level 2), associated text (level 3), and full event types (level 4) for advanced input patterns (games, physical key layout awareness)

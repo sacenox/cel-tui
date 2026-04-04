@@ -11,7 +11,7 @@ export interface Terminal {
   get columns(): number;
   /** Terminal height in rows. */
   get rows(): number;
-  /** Enter raw mode, enable mouse tracking, hide cursor. */
+  /** Enter raw mode, enable Kitty keyboard protocol, enable mouse tracking, hide cursor. */
   start(onInput: (data: string) => void, onResize: () => void): void;
   /** Restore terminal state. */
   stop(): void;
@@ -23,6 +23,9 @@ export interface Terminal {
 
 /**
  * Real terminal using process.stdin/stdout.
+ *
+ * Enables the Kitty keyboard protocol (level 1) for unambiguous key input,
+ * SGR mouse tracking, and raw mode. All modes are restored on stop/crash.
  */
 export class ProcessTerminal implements Terminal {
   private wasRaw = false;
@@ -61,6 +64,8 @@ export class ProcessTerminal implements Terminal {
     process.stdin.on("data", onInput);
     process.stdout.on("resize", this.resizeHandler);
 
+    // Enable Kitty keyboard protocol level 1 (disambiguate) with push flag
+    this.write("\x1b[>1u");
     // Enable mouse tracking (normal mode) + SGR encoding
     this.write("\x1b[?1000h\x1b[?1006h");
     this.hideCursor();
@@ -95,6 +100,8 @@ export class ProcessTerminal implements Terminal {
 
     // Disable mouse tracking + SGR encoding
     this.write("\x1b[?1006l\x1b[?1000l");
+    // Pop Kitty keyboard protocol mode
+    this.write("\x1b[<u");
     this.showCursor();
 
     if (this.resizeHandler) {

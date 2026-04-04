@@ -39,6 +39,7 @@ State is fully external to the framework. Use any state management approach — 
 | Layering                   | Multiple viewport layers, composited bottom-to-top        |
 | Mouse/scroll hit detection | Pointer-driven, topmost layer first, innermost node wins  |
 | Focus management           | Keyboard-driven, for `TextInput` and clickable containers |
+| Keyboard protocol          | Kitty keyboard protocol (required), unambiguous key input |
 
 ---
 
@@ -312,6 +313,24 @@ When this element receives focus, the container background becomes cyan and desc
 
 Key events are routed through the focus and layer system, then bubble up the tree.
 
+### Kitty Keyboard Protocol
+
+cel-tui **requires** the [Kitty keyboard protocol](https://sw.kovidgoyal.net/kitty/keyboard-protocol/) for key input. This is a hard dependency — the framework will not function correctly without it.
+
+**Why:** Legacy terminal key encoding is fundamentally ambiguous. `Ctrl+I` and `Tab` produce the same byte. `Ctrl+M` and `Enter` are indistinguishable. Alt combos use an ESC prefix that's ambiguous with the Escape key itself. There is no standard encoding for `Ctrl++`, `Shift+Enter`, or many other combinations. The Kitty protocol solves all of this with an unambiguous, structured encoding where every key event includes explicit modifier flags.
+
+**Protocol level:** The framework uses **level 1** (disambiguate escape codes). This provides unambiguous key identification with explicit modifier reporting for all keys. Higher levels are not currently used.
+
+**Lifecycle:**
+
+1. `cel.init()` enables the Kitty keyboard protocol (`CSI > 1 u`) and sets a push flag so the mode is restored on exit
+2. All key input is parsed from the Kitty `CSI unicode-codepoint ; modifiers u` format, with fallback CSI parsing for functional keys (`CSI 1 ; modifiers <A-H>` arrows, `CSI number ; modifiers ~` function keys, etc.)
+3. `cel.stop()` pops the keyboard mode (`CSI < u`), restoring the terminal's previous state
+
+**Supported terminals:** Kitty, WezTerm, Ghostty, foot, Alacritty, Windows Terminal, and others. macOS Terminal.app and older xterm versions do not support this protocol.
+
+> **Future enhancement:** Higher protocol levels enable key-release events (`level 2`), associated text reporting (`level 3`), and full key event types (`level 4`). These would enable held-key detection for game-like UIs, distinguishing physical key layout from logical input, and other advanced input patterns. The framework may adopt higher levels in the future.
+
 ### Key Event Flow
 
 1. **Topmost layer** receives the key event
@@ -333,6 +352,7 @@ All lowercase, modifiers joined by `+` in canonical order `ctrl+alt+shift+<key>`
 "alt+up"
 "f1"
 "ctrl+plus"
+"shift+enter"
 ```
 
 **Modifiers:** `ctrl`, `alt`, `shift`
@@ -342,6 +362,8 @@ All lowercase, modifiers joined by `+` in canonical order `ctrl+alt+shift+<key>`
 **Printable characters:** lowercase letter or character itself — `"a"`, `"1"`, `"/"`
 
 The framework normalizes modifier order, so `"shift+ctrl+s"` and `"ctrl+shift+s"` both match.
+
+Because the Kitty protocol provides explicit modifier flags, all modifier combinations are fully supported — including `alt+<key>`, `ctrl+plus`, `shift+enter`, and other combos that are ambiguous or impossible in legacy terminal encoding.
 
 ### Activation
 
