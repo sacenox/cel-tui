@@ -37,6 +37,7 @@ let renderScheduled = false;
 let prevBuffer: CellBuffer | null = null;
 let currentBuffer: CellBuffer | null = null;
 let currentLayouts: LayoutNode[] = [];
+let lastFocusedIndex = -1;
 
 function doRender(): void {
   renderScheduled = false;
@@ -157,8 +158,16 @@ function findFocusedElement(): LayoutNode | null {
 function changeFocus(target: LayoutNode | null): void {
   const current = findFocusedElement();
 
-  // Blur current
+  // Blur current — save position for Tab/Shift+Tab continuity
   if (current && current !== target) {
+    const topLayer = currentLayouts[currentLayouts.length - 1];
+    if (topLayer) {
+      const focusables = collectFocusable(topLayer);
+      let idx = focusables.indexOf(current);
+      if (idx === -1)
+        idx = focusables.findIndex((f) => f.node === current.node);
+      lastFocusedIndex = idx;
+    }
     const props =
       current.node.type === "textinput"
         ? current.node.props
@@ -170,8 +179,9 @@ function changeFocus(target: LayoutNode | null): void {
     }
   }
 
-  // Focus new target
+  // Focus new target — clear saved position
   if (target && target !== current) {
+    lastFocusedIndex = -1;
     const props =
       target.node.type === "textinput"
         ? target.node.props
@@ -329,6 +339,16 @@ function handleKeyEvent(key: string, rawData?: string): void {
       // If current not found in focusables list, search by identity
       if (currentIdx === -1 && current) {
         currentIdx = focusables.findIndex((f) => f.node === current.node);
+      }
+
+      // If still not found, use the last focused element's position
+      // so Tab/Shift+Tab continues from where focus was lost (e.g. after Escape)
+      if (
+        currentIdx === -1 &&
+        lastFocusedIndex >= 0 &&
+        lastFocusedIndex < focusables.length
+      ) {
+        currentIdx = lastFocusedIndex;
       }
 
       let nextIdx: number;
@@ -584,6 +604,7 @@ export const cel = {
     currentBuffer = null;
     currentLayouts = [];
     renderScheduled = false;
+    lastFocusedIndex = -1;
   },
 
   /** @internal */

@@ -751,6 +751,119 @@ describe("cel end-to-end", () => {
       await waitForRender();
       expect(btnFocused).toBe(true);
     });
+
+    test("Escape then Tab advances past the element that was unfocused", async () => {
+      const term = setup(20, 5);
+      let focused: string | null = "ti";
+
+      cel.viewport(() =>
+        VStack({ width: 20, height: 5 }, [
+          TextInput({
+            value: "text",
+            focused: focused === "ti",
+            onChange: () => {},
+            onFocus: () => {
+              focused = "ti";
+            },
+            onBlur: () => {
+              if (focused === "ti") focused = null;
+            },
+          }),
+          HStack(
+            {
+              onClick: () => {},
+              focused: focused === "btn",
+              onFocus: () => {
+                focused = "btn";
+              },
+              onBlur: () => {
+                if (focused === "btn") focused = null;
+              },
+            },
+            [Text("Btn")],
+          ),
+        ]),
+      );
+      await waitForRender();
+      expect(focused as string | null).toBe("ti");
+
+      // Escape to unfocus TextInput
+      term.sendInput("\x1b");
+      await waitForRender();
+      expect(focused as string | null).toBe(null);
+
+      // Tab should go FORWARD to the button (next after TextInput),
+      // not back to the TextInput
+      term.sendInput("\t");
+      await waitForRender();
+      expect(focused as string | null).toBe("btn");
+    });
+
+    test("Escape then Shift+Tab goes backward from the unfocused element", async () => {
+      const term = setup(20, 5);
+      let focused: string | null = null;
+
+      cel.viewport(() =>
+        VStack({ width: 20, height: 5 }, [
+          HStack(
+            {
+              onClick: () => {},
+              focused: focused === "a",
+              onFocus: () => {
+                focused = "a";
+              },
+              onBlur: () => {
+                if (focused === "a") focused = null;
+              },
+            },
+            [Text("A")],
+          ),
+          HStack(
+            {
+              onClick: () => {},
+              focused: focused === "b",
+              onFocus: () => {
+                focused = "b";
+              },
+              onBlur: () => {
+                if (focused === "b") focused = null;
+              },
+            },
+            [Text("B")],
+          ),
+          HStack(
+            {
+              onClick: () => {},
+              focused: focused === "c",
+              onFocus: () => {
+                focused = "c";
+              },
+              onBlur: () => {
+                if (focused === "c") focused = null;
+              },
+            },
+            [Text("C")],
+          ),
+        ]),
+      );
+      await waitForRender();
+
+      // Tab to B
+      term.sendInput("\t"); // → A
+      await waitForRender();
+      term.sendInput("\t"); // → B
+      await waitForRender();
+      expect(focused as string | null).toBe("b");
+
+      // Escape, then Shift+Tab should go backward to A
+      term.sendInput("\x1b");
+      await waitForRender();
+      expect(focused as string | null).toBe(null);
+
+      term.sendInput("\x1b[Z"); // Shift+Tab
+      await waitForRender();
+      expect(focused as string | null).toBe("a");
+    });
   });
 
   describe("TextInput mouse wheel scroll", () => {
