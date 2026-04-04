@@ -276,6 +276,68 @@ describe("cel end-to-end", () => {
 
       expect(scrollOffset).toBe(3);
     });
+
+    test("uncontrolled scroll works without onScroll", async () => {
+      const term = setup(20, 5);
+      cel.viewport(() =>
+        VStack(
+          {
+            width: 20,
+            height: 5,
+            overflow: "scroll",
+          },
+          Array.from({ length: 10 }, (_, i) => Text(`line ${i + 1}`)),
+        ),
+      );
+      await waitForRender();
+
+      // Before scroll, line 1 should be visible at row 0
+      const buf1 = cel._getBuffer()!;
+      expect(buf1.get(0, 0).char).toBe("l"); // "line 1"
+
+      // SGR scroll down at (3, 2): ESC [ < 65 ; 4 ; 3 M
+      term.sendInput("\x1b[<65;4;3M");
+      await waitForRender();
+
+      // After scroll by 1, line 2 should now be at row 0
+      const buf2 = cel._getBuffer()!;
+      // Read first 6 chars of row 0
+      let row0 = "";
+      for (let x = 0; x < 6; x++) row0 += buf2.get(x, 0).char;
+      expect(row0).toBe("line 2");
+    });
+
+    test("uncontrolled scroll clamps at max offset", async () => {
+      const term = setup(20, 3);
+      cel.viewport(() =>
+        VStack(
+          {
+            width: 20,
+            height: 3,
+            overflow: "scroll",
+          },
+          // 5 items in 3-row viewport → max offset = 2
+          Array.from({ length: 5 }, (_, i) => Text(`item ${i + 1}`)),
+        ),
+      );
+      await waitForRender();
+
+      // Scroll down 10 times — should clamp at 2
+      for (let i = 0; i < 10; i++) {
+        term.sendInput("\x1b[<65;4;2M");
+        await waitForRender();
+      }
+
+      // Row 0 should show item 3 (offset=2), row 2 should show item 5
+      const buf = cel._getBuffer()!;
+      let row0 = "";
+      for (let x = 0; x < 6; x++) row0 += buf.get(x, 0).char;
+      expect(row0).toBe("item 3");
+
+      let row2 = "";
+      for (let x = 0; x < 6; x++) row2 += buf.get(x, 2).char;
+      expect(row2).toBe("item 5");
+    });
   });
 
   describe("focus system", () => {

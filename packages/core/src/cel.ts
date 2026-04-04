@@ -16,8 +16,6 @@ import {
   setTextInputCursor,
   getTextInputScroll,
   setTextInputScroll,
-  getContainerScroll,
-  setContainerScroll,
 } from "./paint.js";
 import {
   insertChar,
@@ -48,6 +46,17 @@ let frameworkFocusIndex = -1;
 
 /** The node whose props were stamped with `focused: true` during the last paint. */
 let stampedNode: LayoutNode | null = null;
+
+/**
+ * Uncontrolled scroll offsets, keyed by structural tree path.
+ * The path is a string like "0/2/1" representing the DFS child indices
+ * from the layer root to the scrollable container. This survives re-renders
+ * because the structural position is the same even with new props objects.
+ */
+const uncontrolledScrollOffsets = new Map<string, number>();
+
+/** Nodes whose props were stamped with scrollOffset during the last paint. */
+let stampedScrollNodes: { node: Node; key: string }[] = [];
 
 function doRender(): void {
   renderScheduled = false;
@@ -81,8 +90,9 @@ function doRender(): void {
     currentLayouts.push(layoutTree);
   }
 
-  // Stamp uncontrolled focus before painting so focusStyle and cursor work
+  // Stamp uncontrolled focus and scroll before painting
   stampUncontrolledFocus();
+  stampUncontrolledScroll();
 
   // Paint each layer into the buffer
   for (const layoutTree of currentLayouts) {
@@ -91,6 +101,7 @@ function doRender(): void {
 
   // Unstamp after paint so input handlers see clean props
   unstampUncontrolledFocus();
+  unstampUncontrolledScroll();
 
   // Emit to terminal — differential when possible
   if (prevBuffer) {
@@ -253,6 +264,75 @@ function unstampUncontrolledFocus(): void {
 }
 
 /**
+ * Compute the structural tree path from a layer root to a target LayoutNode.
+ * Returns a string like "0/2/1" or null if target is not in the tree.
+ */
+function computeTreePath(root: LayoutNode, target: LayoutNode): string | null {
+  if (root === target) return "";
+  for (let i = 0; i < root.children.length; i++) {
+    const sub = computeTreePath(root.children[i]!, target);
+    if (sub !== null) return sub === "" ? String(i) : `${i}/${sub}`;
+  }
+  return null;
+}
+
+/**
+ * Get the full path key for a scrollable node, prefixed by layer index.
+ */
+function getScrollPathKey(target: LayoutNode): string | null {
+  for (let i = 0; i < currentLayouts.length; i++) {
+    const path = computeTreePath(currentLayouts[i]!, target);
+    if (path !== null) return `L${i}:${path}`;
+  }
+  return null;
+}
+
+/**
+ * Stamp `scrollOffset` on uncontrolled scrollable containers' props
+ * before painting, so paint reads the correct offset.
+ */
+function stampUncontrolledScroll(): void {
+  stampedScrollNodes = [];
+  if (uncontrolledScrollOffsets.size === 0) return;
+  for (let i = 0; i < currentLayouts.length; i++) {
+    walkAndStampScroll(currentLayouts[i]!, `L${i}:`);
+  }
+}
+
+function walkAndStampScroll(ln: LayoutNode, pathKey: string): void {
+  const node = ln.node;
+  if (node.type === "vstack" || node.type === "hstack") {
+    if (
+      node.props.overflow === "scroll" &&
+      node.props.scrollOffset === undefined &&
+      !node.props.onScroll
+    ) {
+      const offset = uncontrolledScrollOffsets.get(pathKey);
+      if (offset !== undefined && offset !== 0) {
+        (node.props as any).scrollOffset = offset;
+        stampedScrollNodes.push({ node, key: pathKey });
+      }
+    }
+  }
+  for (let i = 0; i < ln.children.length; i++) {
+    // Keys match getScrollPathKey format: "L0:" for root, "L0:2" for child 2, "L0:2/1" for grandchild
+    const childKey = pathKey.endsWith(":")
+      ? `${pathKey}${i}`
+      : `${pathKey}/${i}`;
+    walkAndStampScroll(ln.children[i]!, childKey);
+  }
+}
+
+function unstampUncontrolledScroll(): void {
+  for (const { node } of stampedScrollNodes) {
+    if (node.type === "vstack" || node.type === "hstack") {
+      delete (node.props as any).scrollOffset;
+    }
+  }
+  stampedScrollNodes = [];
+}
+
+/**
  * Blur the currently focused element and focus a new one.
  * Manages both controlled (via onFocus/onBlur callbacks) and
  * uncontrolled (via frameworkFocusIndex) focus.
@@ -383,7 +463,7 @@ function handleMouseEvent(event: MouseEvent): void {
           cel.render();
         } else {
           const props = target.node.type !== "text" ? target.node.props : null;
-          if (props && "onScroll" in props) {
+          if (props && (props as any).overflow === "scroll") {
             if (props.onScroll) {
               // Controlled scroll: notify app.
               // Use batch accumulator if available (multiple events in one chunk),
@@ -399,10 +479,16 @@ function handleMouseEvent(event: MouseEvent): void {
               batchScrollOffsets?.set(props, newOffset);
               props.onScroll(newOffset);
             } else {
-              // Uncontrolled scroll: framework manages state
-              const current = getContainerScroll(props);
-              const clamped = Math.max(0, Math.min(maxOffset, current + delta));
-              setContainerScroll(props, clamped);
+              // Uncontrolled scroll: framework manages state via path key
+              const pathKey = getScrollPathKey(target);
+              if (pathKey !== null) {
+                const current = uncontrolledScrollOffsets.get(pathKey) ?? 0;
+                const clamped = Math.max(
+                  0,
+                  Math.min(maxOffset, current + delta),
+                );
+                uncontrolledScrollOffsets.set(pathKey, clamped);
+              }
             }
             cel.render();
           }
@@ -731,6 +817,8 @@ export const cel = {
     lastFocusedIndex = -1;
     frameworkFocusIndex = -1;
     stampedNode = null;
+    uncontrolledScrollOffsets.clear();
+    stampedScrollNodes = [];
   },
 
   /** @internal */
