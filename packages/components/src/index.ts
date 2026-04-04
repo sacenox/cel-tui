@@ -26,3 +26,12 @@ export {
   type SelectItem,
   type SelectInstance,
 } from "./select.js";
+export {
+  Markdown,
+  tokenize,
+  parseInline,
+  type MarkdownProps,
+  type MarkdownTheme,
+  type BlockToken,
+  type InlineSpan,
+} from "./markdown.js";

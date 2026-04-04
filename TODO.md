@@ -24,6 +24,8 @@ Remaining work, known bugs, and planned improvements.
 
 ## Not Yet Implemented
 
+- ❌ **`Markdown` component** — Depends on yoctomarkdown exposing an ANSI-free token API (`BlockToken`/`InlineSpan` types). Once available, the `Markdown(content, props?)` component in `@cel-tui/components` maps tokens to cel-tui Nodes. See `packages/components/src/markdown.ts`. Tracked upstream in yoctomarkdown.
+
 - ❌ Bracketed paste mode support
 
 ## Future Enhancements
