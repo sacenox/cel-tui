@@ -810,8 +810,8 @@ cel.viewport(() =>
           width: 20,
           overflow: "scroll",
           scrollOffset: sidebarScroll,
-          onScroll: (o) => {
-            sidebarScroll = o;
+          onScroll: (newOffset) => {
+            sidebarScroll = newOffset;
           },
         },
         [

@@ -16,6 +16,10 @@ Remaining work, known bugs, and planned improvements.
 
 - 🔧 **Controlled-focus TextInput traps Tab traversal** — When a controlled-focus TextInput (`focused` prop provided) is the first focusable element, Tab from unfocused state always focuses it. Once focused, Tab is consumed as an editing key. Escape unfocuses it, but the next Tab re-focuses it again — the user can never Tab past it to reach subsequent focusable elements. Visible in `examples/pet.ts` on the create screen: the name TextInput prevents keyboard access to the Create Pet button. Possible fixes: (1) make Escape+Tab advance past the previously-focused element, (2) let controlled-focus elements participate differently in traversal ordering, or (3) add a dedicated "skip" key.
 
+- 🔧 **Scrollbar thumb position ignores padding** — `paintScrollbar` in `paint.ts` computes `maxOffset = contentHeight - rect.height` without accounting for container padding, while the scroll clamping logic uses `contentHeight + padY - rect.height`. For padded scrollable containers the thumb position is slightly off.
+
+- 🔧 **Duplicate max scroll offset calculation** — `getMaxScrollOffset` in `cel.ts` and `computeMaxScrollOffset` in `paint.ts` implement the same logic. Should be extracted to a shared function.
+
 ---
 
 ## API Improvements
@@ -26,8 +30,10 @@ Remaining work, known bugs, and planned improvements.
 
 - ❌ Bracketed paste mode support
 
+- ❌ **Markdown inline styling** — The `Markdown` component renders block-level styling (headings, code blocks, lists, blockquotes, HR) but strips inline formatting (`**bold**`, `*italic*`, `` `code` ``, `[links](url)`) to plain text. Rendering inline styles requires either framework support for styled spans within `Text` content (e.g., ANSI-in-content parsing in paint.ts) or pre-computed line breaking with width knowledge. See `packages/components/src/markdown.ts`.
+
 ## Future Enhancements
 
-- 💡 Additional example apps (chat UI, text editor from spec reference examples)
+- 💡 Additional example apps (text editor from spec reference example)
 - 💡 `overflow: "hidden"` as explicit prop (currently all containers clip by default, which matches the spec's default behavior, but the prop value is not checked)
 - 💡 Higher Kitty protocol levels — key-release events (level 2), associated text (level 3), and full event types (level 4) for advanced input patterns (games, physical key layout awareness)
