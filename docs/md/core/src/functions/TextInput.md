@@ -8,7 +8,7 @@
 
 > **TextInput**(`props`): [`TextInputNode`](../../../types/src/interfaces/TextInputNode.md)
 
-Defined in: [core/src/primitives/text-input.ts:40](https://github.com/sacenox/cel-tui/blob/c22a4594bf50c6f4704e9f084926eb0b2ffdc459/packages/core/src/primitives/text-input.ts#L40)
+Defined in: [core/src/primitives/text-input.ts:40](https://github.com/sacenox/cel-tui/blob/3f42b8f9f04e894bda687c40d5c606614db01a42/packages/core/src/primitives/text-input.ts#L40)
 
 Create a multi-line editable text container.
 

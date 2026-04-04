@@ -8,7 +8,7 @@
 
 > **SizeValue** = `number` \| `` `${number}%` ``
 
-Defined in: [types/src/index.ts:52](https://github.com/sacenox/cel-tui/blob/c22a4594bf50c6f4704e9f084926eb0b2ffdc459/packages/types/src/index.ts#L52)
+Defined in: [types/src/index.ts:53](https://github.com/sacenox/cel-tui/blob/3f42b8f9f04e894bda687c40d5c606614db01a42/packages/types/src/index.ts#L53)
 
 A size value expressed as a fixed cell count or a percentage string.
 

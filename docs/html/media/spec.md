@@ -62,7 +62,7 @@ HStack(props, children);
 
 ### Container Props
 
-Shared by both VStack and HStack:
+Shared by both VStack and HStack. Containers also accept styling props (see [Styling](#styling)).
 
 | Prop             | Type                         | Description                                     |
 | ---------------- | ---------------------------- | ----------------------------------------------- |
@@ -86,6 +86,7 @@ Shared by both VStack and HStack:
 | `focused`        | `boolean`                    | Whether this element is focused (controlled)    |
 | `onFocus`        | `() => void`                 | Called when element receives focus              |
 | `onBlur`         | `() => void`                 | Called when element loses focus                 |
+| `focusStyle`     | `StyleProps`                 | Style overrides applied when focused            |
 | `onKeyPress`     | `(key: string) => void`      | Called on key event (bubbles up from focus)     |
 
 ### Sizing
@@ -225,7 +226,7 @@ Native terminal text selection (click-drag to highlight/copy) is handled by the 
 
 ## Focus Model
 
-Focus is **keyboard-driven** and separate from scroll. Focus state is **controlled** — the app owns which element is focused.
+Focus is **keyboard-driven** and separate from scroll. It supports both **uncontrolled** and **controlled** modes, determined by whether `focused` is provided. This mirrors the scroll model.
 
 - Focus is for interactive widgets (TextInput) and clickable containers (with `onClick`)
 - Scroll does not require focus
@@ -243,6 +244,67 @@ Focus is implicit — no `focusable` prop needed for the common case:
 **Escape** unfocuses the current element. **Tab / Shift+Tab** moves focus to the next/previous focusable element in document order (depth-first tree traversal).
 
 When a TextInput is focused, text-editing keys (printable characters, arrows, backspace, Tab) go to the input. Modifier combos (e.g., `ctrl+s`) are not consumed by TextInput and bubble up. Press Escape to leave the input, then Tab to traverse.
+
+### Uncontrolled Focus
+
+**Uncontrolled** (default) — the framework manages focus internally. Tab, Shift+Tab, Escape, and mouse clicks just work with no app-side state:
+
+```ts
+HStack({ onClick: handleAction }, [Text("[ Action ]", { bold: true })]);
+```
+
+The framework tracks which element is focused. `onFocus` and `onBlur` are optional notification callbacks — they fire when focus changes but are not required for focus to work:
+
+```ts
+HStack(
+  {
+    onClick: handleAction,
+    onFocus: () => addLog("button focused"),
+    onBlur: () => addLog("button blurred"),
+  },
+  [Text("[ Action ]", { bold: true })],
+);
+```
+
+### Controlled Focus
+
+**Controlled** — when `focused` is explicitly provided, the app owns the focus state. The framework calls `onFocus` and `onBlur` but does not move focus until the app updates `focused`:
+
+```ts
+TextInput({
+  value: text,
+  onChange: handleChange,
+  focused: isEditorFocused,
+  onFocus: () => {
+    isEditorFocused = true;
+  },
+  onBlur: () => {
+    isEditorFocused = false;
+  },
+});
+```
+
+Only one element can be focused at a time. In controlled mode, the app is responsible for ensuring this — if multiple elements set `focused: true`, the first in document order wins.
+
+### Focus Style
+
+The `focusStyle` prop provides visual feedback when an element is focused. It accepts a `StyleProps` object whose values override the element's normal styles while focused:
+
+```ts
+HStack(
+  {
+    onClick: handleAction,
+    bgColor: "black",
+    fgColor: "white",
+    focusStyle: { bgColor: "cyan", fgColor: "black" },
+  },
+  [Text("[ Action ]", { bold: true })],
+);
+```
+
+When this element receives focus, the container background becomes cyan and descendant Text nodes that don't set their own `fgColor` inherit black instead of white. When focus leaves, the normal styles resume.
+
+`focusStyle` works in both uncontrolled and controlled modes.
 
 ---
 
@@ -288,26 +350,6 @@ When a clickable container is focused, **Enter** fires its `onClick`.
 
 Clicking a focusable element also focuses it. This bridges the keyboard and mouse models — click a TextInput to start typing, click a button to focus it.
 
-### Controlled Focus
-
-The app owns focus state via `focused`, `onFocus`, and `onBlur` props on focusable elements:
-
-```ts
-TextInput({
-  value: text,
-  onChange: handleChange,
-  focused: isFocused,
-  onFocus: () => {
-    isFocused = true;
-  },
-  onBlur: () => {
-    isFocused = false;
-  },
-});
-```
-
-Only one element can be focused at a time. The app is responsible for ensuring this — if multiple elements set `focused: true`, the first in document order wins.
-
 ---
 
 ## Layering
@@ -344,11 +386,25 @@ cel.viewport(() => [
       onClick: dismissModal,
     },
     [
-      VStack({ width: 40, height: 15 }, [
+      VStack({ width: 40, height: 15, bgColor: "black" }, [
         Text("Are you sure?"),
         HStack({ gap: 1 }, [
-          HStack({ onClick: handleYes }, [Text("[Yes]")]),
-          HStack({ onClick: handleNo }, [Text("[No]")]),
+          HStack(
+            {
+              onClick: handleYes,
+              bgColor: "brightBlack",
+              focusStyle: { bgColor: "green" },
+            },
+            [Text(" Yes ", { bold: true })],
+          ),
+          HStack(
+            {
+              onClick: handleNo,
+              bgColor: "brightBlack",
+              focusStyle: { bgColor: "red" },
+            },
+            [Text(" No ", { bold: true })],
+          ),
         ]),
       ]),
     ],
@@ -380,7 +436,7 @@ Text(content: string, props?: TextProps)
 | `repeat` | `number \| "fill"` | Repeat content N times or fill width |
 | `wrap`   | `"none" \| "word"` | Wrapping mode (default: `"none"`)    |
 
-Text also accepts the shared styling props (see Styling Props below).
+Text also accepts styling props (see [Styling](#styling)).
 
 #### Repeat
 
@@ -404,7 +460,7 @@ Whitespace is always preserved. `\n` in content produces explicit line breaks.
 
 ### TextInput
 
-Multi-line editable text container. Accepts all container props but has no children — its content is the editable `value`. Scroll is always uncontrolled (framework-managed: follows cursor and responds to mouse wheel).
+Multi-line editable text container. Accepts container props and styling props but has no children — its content is the editable `value`. Scroll is always uncontrolled (framework-managed: follows cursor and responds to mouse wheel).
 
 ```ts
 TextInput(props: TextInputProps)
@@ -412,7 +468,7 @@ TextInput(props: TextInputProps)
 
 #### Props
 
-Container sizing props (`width`, `height`, `flex`, `min*`, `max*`, `padding`), focus props, and:
+Container sizing props (`width`, `height`, `flex`, `min*`, `max*`, `padding`), focus props (`focused`, `onFocus`, `onBlur`, `focusStyle`), styling props, and:
 
 | Prop          | Type                      | Description                                        |
 | ------------- | ------------------------- | -------------------------------------------------- |
@@ -421,13 +477,8 @@ Container sizing props (`width`, `height`, `flex`, `min*`, `max*`, `padding`), f
 | `onSubmit`    | `() => void`              | Called on submit key                               |
 | `submitKey`   | `string`                  | Key combo that fires onSubmit (default: `"enter"`) |
 | `placeholder` | `Text`                    | Text node shown when value is empty                |
-| `focused`     | `boolean`                 | Whether this input is focused (controlled)         |
-| `onFocus`     | `() => void`              | Called when input receives focus                   |
-| `onBlur`      | `() => void`              | Called when input loses focus                      |
 
 Word-wrap is always on. Cursor position is framework-managed.
-
-TextInput also accepts the shared styling props (see Styling Props below).
 
 #### Growing / Shrinking Pattern
 
@@ -449,9 +500,9 @@ TextInput({
 
 ---
 
-### Styling Props
+## Styling
 
-Shared by Text and TextInput:
+### Style Props
 
 | Prop        | Type      | Description      |
 | ----------- | --------- | ---------------- |
@@ -462,6 +513,55 @@ Shared by Text and TextInput:
 | `bgColor`   | `Color`   | Background color |
 
 **Colors:** ANSI base 16 — `"black"`, `"red"`, `"green"`, `"yellow"`, `"blue"`, `"magenta"`, `"cyan"`, `"white"`, and their bright variants (`"brightRed"`, `"brightGreen"`, etc.).
+
+Style props are accepted by Text, TextInput, and containers (VStack, HStack).
+
+### Style Inheritance
+
+Containers propagate their styles to descendants. A child node inherits the nearest ancestor's style values, unless it sets a value explicitly. Explicit props always win.
+
+```ts
+VStack({ fgColor: "white", bgColor: "black" }, [
+  Text("inherits white on black"),
+  Text("explicit green on black", { fgColor: "green" }),
+  VStack({ fgColor: "cyan" }, [
+    Text("inherits cyan on black"),
+    Text("explicit red on black", { fgColor: "red" }),
+  ]),
+]);
+```
+
+Resolution order for each style prop: **node's own prop → nearest ancestor → terminal default**.
+
+### Container Background
+
+When a container has `bgColor` (explicitly or via inheritance), the framework fills the container's rect with that color before painting children. This provides solid backgrounds for panels, modals, and sidebars without manual fill workarounds.
+
+```ts
+VStack({ bgColor: "blue", fgColor: "white", padding: { x: 1 } }, [
+  Text("Status bar content"),
+  Text(" ", { repeat: "fill" }),
+  Text("Right side"),
+]);
+```
+
+### Focus Style
+
+The `focusStyle` prop on containers and TextInput overrides styles while the element is focused. Overridden values participate in inheritance — descendants see the focused values as their inherited defaults.
+
+```ts
+HStack(
+  {
+    onClick: handleSend,
+    bgColor: "brightBlack",
+    fgColor: "white",
+    focusStyle: { bgColor: "cyan", fgColor: "black" },
+  },
+  [Text(" Send ", { bold: true })],
+);
+```
+
+When focused: background is cyan, Text inherits `fgColor: "black"`. When not focused: background is brightBlack, Text inherits `fgColor: "white"`.
 
 ---
 
@@ -576,6 +676,7 @@ cel.viewport(() =>
   VStack(
     {
       height: "100%",
+      fgColor: "white",
       onKeyPress: (key) => {
         if (key === "ctrl+q") process.exit();
       },
@@ -615,6 +716,14 @@ cel.viewport(() =>
           placeholder: Text("type a message...", { fgColor: "brightBlack" }),
           onSubmit: handleSend,
         }),
+        HStack(
+          {
+            onClick: handleSend,
+            bgColor: "brightBlack",
+            focusStyle: { bgColor: "cyan", fgColor: "black" },
+          },
+          [Text("[Send]", { bold: true })],
+        ),
       ]),
     ],
   ),
@@ -691,7 +800,7 @@ cel.viewport(() =>
           Text(" ", { repeat: "fill" }),
         ]),
 
-        // Editor
+        // Editor — controlled focus (app manages when editor is focused)
         TextInput({
           flex: 1,
           value: activeFile.content,
@@ -706,31 +815,14 @@ cel.viewport(() =>
         }),
 
         // Status bar
-        HStack({ height: 1 }, [
-          Text(` ${activeFile.name}`, { fgColor: "white", bgColor: "blue" }),
-          Text(`  Ln ${cursor.line}, Col ${cursor.col}`, {
-            fgColor: "white",
-            bgColor: "blue",
-          }),
-          Text(" ", { repeat: "fill", bgColor: "blue" }),
-          Text(`TypeScript  ✓ `, { fgColor: "white", bgColor: "blue" }),
+        HStack({ height: 1, bgColor: "blue", fgColor: "white" }, [
+          Text(` ${activeFile.name}`),
+          Text(`  Ln ${cursor.line}, Col ${cursor.col}`),
+          Text(" ", { repeat: "fill" }),
+          Text(`TypeScript  ✓ `),
         ]),
       ]),
     ],
   ),
 );
 ```
-
----
-
-## Open Questions
-
-- [x] `Text` styling props and text wrapping
-- [x] `TextInput` props, cursor, and submit behavior
-- [x] Focus traversal and keybinding model
-- [x] Controlled vs uncontrolled scroll position
-- [x] Layering for interactive components, like modals and autocomplete interactions.
-- [x] Clickable areas/containers. Could be it's own primitive or a prop in the containers.
-- [x] Rounding strategy for fractional cell division
-- [x] Handling different width characters and ANSI escapes sequences when computing sizes.
-- [x] Flicker free rendering strategy. Reactive or FPS based? Diff rendering?

@@ -6,7 +6,7 @@
 
 # Class: MockTerminal
 
-Defined in: [core/src/terminal.ts:135](https://github.com/sacenox/cel-tui/blob/c22a4594bf50c6f4704e9f084926eb0b2ffdc459/packages/core/src/terminal.ts#L135)
+Defined in: [core/src/terminal.ts:135](https://github.com/sacenox/cel-tui/blob/3f42b8f9f04e894bda687c40d5c606614db01a42/packages/core/src/terminal.ts#L135)
 
 In-memory terminal for testing.
 
@@ -23,7 +23,7 @@ fixed dimensions. No real I/O.
 
 > **new MockTerminal**(`columns?`, `rows?`): `MockTerminal`
 
-Defined in: [core/src/terminal.ts:143](https://github.com/sacenox/cel-tui/blob/c22a4594bf50c6f4704e9f084926eb0b2ffdc459/packages/core/src/terminal.ts#L143)
+Defined in: [core/src/terminal.ts:143](https://github.com/sacenox/cel-tui/blob/3f42b8f9f04e894bda687c40d5c606614db01a42/packages/core/src/terminal.ts#L143)
 
 #### Parameters
 
@@ -45,7 +45,7 @@ Defined in: [core/src/terminal.ts:143](https://github.com/sacenox/cel-tui/blob/c
 
 > **output**: `string` = `""`
 
-Defined in: [core/src/terminal.ts:137](https://github.com/sacenox/cel-tui/blob/c22a4594bf50c6f4704e9f084926eb0b2ffdc459/packages/core/src/terminal.ts#L137)
+Defined in: [core/src/terminal.ts:137](https://github.com/sacenox/cel-tui/blob/3f42b8f9f04e894bda687c40d5c606614db01a42/packages/core/src/terminal.ts#L137)
 
 All output written to the terminal.
 
@@ -57,7 +57,7 @@ All output written to the terminal.
 
 > **get** **columns**(): `number`
 
-Defined in: [core/src/terminal.ts:148](https://github.com/sacenox/cel-tui/blob/c22a4594bf50c6f4704e9f084926eb0b2ffdc459/packages/core/src/terminal.ts#L148)
+Defined in: [core/src/terminal.ts:148](https://github.com/sacenox/cel-tui/blob/3f42b8f9f04e894bda687c40d5c606614db01a42/packages/core/src/terminal.ts#L148)
 
 Terminal width in columns.
 
@@ -77,7 +77,7 @@ Terminal width in columns.
 
 > **get** **rows**(): `number`
 
-Defined in: [core/src/terminal.ts:152](https://github.com/sacenox/cel-tui/blob/c22a4594bf50c6f4704e9f084926eb0b2ffdc459/packages/core/src/terminal.ts#L152)
+Defined in: [core/src/terminal.ts:152](https://github.com/sacenox/cel-tui/blob/3f42b8f9f04e894bda687c40d5c606614db01a42/packages/core/src/terminal.ts#L152)
 
 Terminal height in rows.
 
@@ -95,7 +95,7 @@ Terminal height in rows.
 
 > **clearOutput**(): `void`
 
-Defined in: [core/src/terminal.ts:191](https://github.com/sacenox/cel-tui/blob/c22a4594bf50c6f4704e9f084926eb0b2ffdc459/packages/core/src/terminal.ts#L191)
+Defined in: [core/src/terminal.ts:191](https://github.com/sacenox/cel-tui/blob/3f42b8f9f04e894bda687c40d5c606614db01a42/packages/core/src/terminal.ts#L191)
 
 Clear captured output.
 
@@ -109,7 +109,7 @@ Clear captured output.
 
 > **hideCursor**(): `void`
 
-Defined in: [core/src/terminal.ts:170](https://github.com/sacenox/cel-tui/blob/c22a4594bf50c6f4704e9f084926eb0b2ffdc459/packages/core/src/terminal.ts#L170)
+Defined in: [core/src/terminal.ts:170](https://github.com/sacenox/cel-tui/blob/3f42b8f9f04e894bda687c40d5c606614db01a42/packages/core/src/terminal.ts#L170)
 
 Hide the terminal cursor.
 
@@ -127,7 +127,7 @@ Hide the terminal cursor.
 
 > **sendInput**(`data`): `void`
 
-Defined in: [core/src/terminal.ts:179](https://github.com/sacenox/cel-tui/blob/c22a4594bf50c6f4704e9f084926eb0b2ffdc459/packages/core/src/terminal.ts#L179)
+Defined in: [core/src/terminal.ts:179](https://github.com/sacenox/cel-tui/blob/3f42b8f9f04e894bda687c40d5c606614db01a42/packages/core/src/terminal.ts#L179)
 
 Simulate keyboard input.
 
@@ -147,7 +147,7 @@ Simulate keyboard input.
 
 > **setSize**(`columns`, `rows`): `void`
 
-Defined in: [core/src/terminal.ts:184](https://github.com/sacenox/cel-tui/blob/c22a4594bf50c6f4704e9f084926eb0b2ffdc459/packages/core/src/terminal.ts#L184)
+Defined in: [core/src/terminal.ts:184](https://github.com/sacenox/cel-tui/blob/3f42b8f9f04e894bda687c40d5c606614db01a42/packages/core/src/terminal.ts#L184)
 
 Simulate terminal resize.
 
@@ -171,7 +171,7 @@ Simulate terminal resize.
 
 > **showCursor**(): `void`
 
-Defined in: [core/src/terminal.ts:174](https://github.com/sacenox/cel-tui/blob/c22a4594bf50c6f4704e9f084926eb0b2ffdc459/packages/core/src/terminal.ts#L174)
+Defined in: [core/src/terminal.ts:174](https://github.com/sacenox/cel-tui/blob/3f42b8f9f04e894bda687c40d5c606614db01a42/packages/core/src/terminal.ts#L174)
 
 Show the terminal cursor.
 
@@ -189,7 +189,7 @@ Show the terminal cursor.
 
 > **start**(`onInput`, `onResize`): `void`
 
-Defined in: [core/src/terminal.ts:160](https://github.com/sacenox/cel-tui/blob/c22a4594bf50c6f4704e9f084926eb0b2ffdc459/packages/core/src/terminal.ts#L160)
+Defined in: [core/src/terminal.ts:160](https://github.com/sacenox/cel-tui/blob/3f42b8f9f04e894bda687c40d5c606614db01a42/packages/core/src/terminal.ts#L160)
 
 Enter raw mode, enable mouse tracking, hide cursor.
 
@@ -217,7 +217,7 @@ Enter raw mode, enable mouse tracking, hide cursor.
 
 > **stop**(): `void`
 
-Defined in: [core/src/terminal.ts:165](https://github.com/sacenox/cel-tui/blob/c22a4594bf50c6f4704e9f084926eb0b2ffdc459/packages/core/src/terminal.ts#L165)
+Defined in: [core/src/terminal.ts:165](https://github.com/sacenox/cel-tui/blob/3f42b8f9f04e894bda687c40d5c606614db01a42/packages/core/src/terminal.ts#L165)
 
 Restore terminal state.
 
@@ -235,7 +235,7 @@ Restore terminal state.
 
 > **write**(`data`): `void`
 
-Defined in: [core/src/terminal.ts:156](https://github.com/sacenox/cel-tui/blob/c22a4594bf50c6f4704e9f084926eb0b2ffdc459/packages/core/src/terminal.ts#L156)
+Defined in: [core/src/terminal.ts:156](https://github.com/sacenox/cel-tui/blob/3f42b8f9f04e894bda687c40d5c606614db01a42/packages/core/src/terminal.ts#L156)
 
 Write a string to the terminal output.
 
