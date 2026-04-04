@@ -192,7 +192,8 @@ describe("cel end-to-end", () => {
               scrollOffset = offset;
             },
           },
-          [Text("scrollable")],
+          // Enough content to exceed viewport (5 rows)
+          Array.from({ length: 10 }, (_, i) => Text(`line ${i + 1}`)),
         ),
       );
       await waitForRender();
@@ -235,6 +236,35 @@ describe("cel end-to-end", () => {
       // 3 scroll-down events batched in one data chunk (as real terminals do)
       term.sendInput("\x1b[<65;4;3M\x1b[<65;4;3M\x1b[<65;4;3M");
       await waitForRender();
+
+      expect(scrollOffset).toBe(3);
+    });
+
+    test("scroll clamps at max offset (no blank space past content)", async () => {
+      const term = setup(20, 5);
+      let scrollOffset = 0;
+      cel.viewport(() =>
+        VStack(
+          {
+            width: 20,
+            height: 5,
+            overflow: "scroll",
+            scrollOffset: scrollOffset,
+            onScroll: (offset) => {
+              scrollOffset = offset;
+            },
+          },
+          // 8 items in 5-row viewport → max offset = 3
+          Array.from({ length: 8 }, (_, i) => Text(`item ${i + 1}`)),
+        ),
+      );
+      await waitForRender();
+
+      // Scroll down 10 times — should clamp at 3
+      for (let i = 0; i < 10; i++) {
+        term.sendInput("\x1b[<65;4;3M");
+        await waitForRender();
+      }
 
       expect(scrollOffset).toBe(3);
     });

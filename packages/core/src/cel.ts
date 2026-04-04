@@ -27,6 +27,7 @@ import {
   type EditState,
 } from "./text-edit.js";
 import type { Terminal } from "./terminal.js";
+import { visibleWidth } from "./width.js";
 
 type RenderFn = () => Node | Node[];
 
@@ -183,6 +184,44 @@ function changeFocus(target: LayoutNode | null): void {
   }
 }
 
+/**
+ * Compute the maximum scroll offset for a scrollable container or TextInput.
+ * Returns 0 if content fits within the viewport.
+ */
+function getMaxScrollOffset(target: LayoutNode): number {
+  const { rect, children } = target;
+
+  // TextInput: compute content height from wrapped text value
+  if (target.node.type === "textinput") {
+    const w = rect.width;
+    const value = target.node.props.value;
+    let lineCount = 0;
+    for (const rawLine of value.split("\n")) {
+      const lw = visibleWidth(rawLine);
+      lineCount += w > 0 && lw > w ? Math.ceil(lw / w) : 1;
+    }
+    return Math.max(0, lineCount - rect.height);
+  }
+
+  const isVertical = target.node.type === "vstack";
+
+  if (isVertical) {
+    let contentHeight = 0;
+    for (const child of children) {
+      const childBottom = child.rect.y + child.rect.height - rect.y;
+      if (childBottom > contentHeight) contentHeight = childBottom;
+    }
+    return Math.max(0, contentHeight - rect.height);
+  } else {
+    let contentWidth = 0;
+    for (const child of children) {
+      const childRight = child.rect.x + child.rect.width - rect.x;
+      if (childRight > contentWidth) contentWidth = childRight;
+    }
+    return Math.max(0, contentWidth - rect.width);
+  }
+}
+
 function handleMouseEvent(event: MouseEvent): void {
   // Hit test on topmost layer first
   for (let i = currentLayouts.length - 1; i >= 0; i--) {
@@ -209,12 +248,14 @@ function handleMouseEvent(event: MouseEvent): void {
       const target = findScrollTarget(path);
       if (target) {
         const delta = event.type === "scroll-up" ? -1 : 1;
+        const maxOffset = getMaxScrollOffset(target);
 
         if (target.node.type === "textinput") {
           // TextInput scroll is always framework-managed
           const tiProps = target.node.props;
           const current = getTextInputScroll(tiProps);
-          setTextInputScroll(tiProps, Math.max(0, current + delta));
+          const clamped = Math.max(0, Math.min(maxOffset, current + delta));
+          setTextInputScroll(tiProps, clamped);
           cel.render();
         } else {
           const props = target.node.type !== "text" ? target.node.props : null;
@@ -227,13 +268,17 @@ function handleMouseEvent(event: MouseEvent): void {
                 batchScrollOffsets?.get(props) ??
                 (props as any).scrollOffset ??
                 0;
-              const newOffset = Math.max(0, baseOffset + delta);
+              const newOffset = Math.max(
+                0,
+                Math.min(maxOffset, baseOffset + delta),
+              );
               batchScrollOffsets?.set(props, newOffset);
               props.onScroll(newOffset);
             } else {
               // Uncontrolled scroll: framework manages state
               const current = getContainerScroll(props);
-              setContainerScroll(props, Math.max(0, current + delta));
+              const clamped = Math.max(0, Math.min(maxOffset, current + delta));
+              setContainerScroll(props, clamped);
             }
             cel.render();
           }
