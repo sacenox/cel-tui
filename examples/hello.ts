@@ -9,6 +9,7 @@
  */
 
 import { cel, VStack, HStack, Text, ProcessTerminal } from "@cel-tui/core";
+import { Spacer } from "@cel-tui/components";
 
 const logo = [
   "╭─────────────────────╮",
@@ -27,6 +28,9 @@ const palette: Array<"cyan" | "magenta" | "yellow" | "green" | "blue" | "red"> =
 let colorIndex = 0;
 let tick = 0;
 
+const MIN_COLS = 38;
+const MIN_ROWS = 14;
+
 const spinnerFrames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 
 function clock(): string {
@@ -40,26 +44,58 @@ setInterval(() => {
   cel.render();
 }, 80);
 
+function quit() {
+  cel.stop();
+  process.exit();
+}
+
 cel.init(new ProcessTerminal());
 cel.viewport(() => {
+  const cols = process.stdout.columns || 80;
+  const rows = process.stdout.rows || 24;
+
+  if (cols < MIN_COLS || rows < MIN_ROWS) {
+    return VStack(
+      {
+        height: "100%",
+        justifyContent: "center",
+        alignItems: "center",
+        onKeyPress: (key) => {
+          if (key === "ctrl+q" || key === "ctrl+c") quit();
+        },
+      },
+      [
+        Text("┌─────────────────────────┐", { fgColor: "yellow" }),
+        Text("│  Terminal too small :(  │", { fgColor: "yellow" }),
+        Text("│                         │", { fgColor: "yellow" }),
+        Text("│  Please resize to at    │", { fgColor: "yellow" }),
+        Text(
+          `│  least ${String(MIN_COLS).padStart(3)}×${String(MIN_ROWS).padStart(2)} chars.   │`,
+          { fgColor: "yellow" },
+        ),
+        Text("│                         │", { fgColor: "yellow" }),
+        Text("│  Ctrl+Q to quit         │", { fgColor: "yellow" }),
+        Text("└─────────────────────────┘", { fgColor: "yellow" }),
+      ],
+    );
+  }
+
   const color = palette[colorIndex % palette.length]!;
   const spinner = spinnerFrames[tick % spinnerFrames.length]!;
 
   return VStack(
     {
       height: "100%",
-      justifyContent: "center",
       alignItems: "center",
+      overflow: "scroll",
       onKeyPress: (key) => {
-        if (key === "ctrl+q" || key === "ctrl+c") {
-          cel.stop();
-          process.exit();
-        }
+        if (key === "ctrl+q" || key === "ctrl+c") quit();
         colorIndex++;
         cel.render();
       },
     },
     [
+      Spacer(),
       // Logo
       ...logo.map((line) => Text(line, { fgColor: color, bold: true })),
 
@@ -93,6 +129,7 @@ cel.viewport(() => {
         Text(" ctrl+q ", { bgColor: color, fgColor: "black", bold: true }),
         Text("quit", { fgColor: "brightBlack" }),
       ]),
+      Spacer(),
     ],
   );
 });

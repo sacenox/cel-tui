@@ -1,4 +1,4 @@
-import type { Color, TextInputProps } from "@cel-tui/types";
+import type { Color, StyleProps, TextInputProps } from "@cel-tui/types";
 import type { Cell } from "./cell-buffer.js";
 import { CellBuffer } from "./cell-buffer.js";
 import type { LayoutNode, Rect } from "./layout.js";
@@ -6,18 +6,21 @@ import { visibleWidth } from "./width.js";
 
 const segmenter = new Intl.Segmenter(undefined, { granularity: "grapheme" });
 
+/** Empty inherited style — no values set. */
+const EMPTY_STYLE: StyleProps = {};
+
 /**
  * Paint a laid-out tree into a cell buffer.
  *
  * Walks the {@link LayoutNode} tree and writes styled cells into the
  * buffer within each node's computed rect. Content is clipped at
- * rect boundaries.
+ * rect boundaries. Container styles are inherited by descendants.
  *
  * @param root - The root of the laid-out tree (from {@link layout}).
  * @param buf - Target cell buffer.
  */
 export function paint(root: LayoutNode, buf: CellBuffer): void {
-  paintLayoutNode(root, buf, root.rect);
+  paintLayoutNode(root, buf, root.rect, EMPTY_STYLE);
 }
 
 /**
@@ -36,10 +39,76 @@ function intersectRect(a: Rect, b: Rect): Rect {
   };
 }
 
+/**
+ * Resolve the effective style for a container, accounting for focusStyle.
+ * When the container is focused and has focusStyle, those values override
+ * the normal style props.
+ */
+function resolveContainerStyle(
+  props: { focused?: boolean; focusStyle?: StyleProps } & StyleProps,
+): StyleProps {
+  const isFocused = props.focused === true;
+  if (!isFocused || !props.focusStyle) {
+    return props;
+  }
+  return {
+    bold: props.focusStyle.bold ?? props.bold,
+    italic: props.focusStyle.italic ?? props.italic,
+    underline: props.focusStyle.underline ?? props.underline,
+    fgColor: props.focusStyle.fgColor ?? props.fgColor,
+    bgColor: props.focusStyle.bgColor ?? props.bgColor,
+  };
+}
+
+/**
+ * Merge a container's resolved style into the inherited style.
+ * Only values explicitly set on the container override inherited ones.
+ */
+function mergeInherited(
+  inherited: StyleProps,
+  resolved: StyleProps,
+): StyleProps {
+  return {
+    bold: resolved.bold ?? inherited.bold,
+    italic: resolved.italic ?? inherited.italic,
+    underline: resolved.underline ?? inherited.underline,
+    fgColor: resolved.fgColor ?? inherited.fgColor,
+    bgColor: resolved.bgColor ?? inherited.bgColor,
+  };
+}
+
+/**
+ * Fill a rectangle with opaque background cells, respecting the clip rect.
+ * Writes space characters with the given bgColor, making the container
+ * fully opaque. This ensures upper layers properly occlude lower layers.
+ */
+function fillBackground(
+  rect: Rect,
+  clipRect: Rect,
+  bgColor: Color,
+  buf: CellBuffer,
+): void {
+  const fill = intersectRect(rect, clipRect);
+  if (fill.width <= 0 || fill.height <= 0) return;
+  for (let y = fill.y; y < fill.y + fill.height; y++) {
+    for (let x = fill.x; x < fill.x + fill.width; x++) {
+      buf.set(x, y, {
+        char: " ",
+        fgColor: null,
+        bgColor,
+        bold: false,
+        italic: false,
+        underline: false,
+      });
+    }
+  }
+}
+
 function paintLayoutNode(
   ln: LayoutNode,
   buf: CellBuffer,
   clipRect: Rect,
+  inherited: StyleProps,
 ): void {
   const { node, rect } = ln;
 
@@ -47,17 +116,56 @@ function paintLayoutNode(
   const clipped = intersectRect(rect, clipRect);
   if (clipped.width <= 0 || clipped.height <= 0) return;
 
+  // Compute inherited style for this subtree
+  let childInherited = inherited;
+
   switch (node.type) {
-    case "text":
-      paintText(node.content, node.props, rect, clipped, buf);
+    case "text": {
+      // Resolve text styles: own props override inherited
+      const effective = {
+        fgColor: node.props.fgColor ?? inherited.fgColor,
+        bgColor: node.props.bgColor ?? inherited.bgColor,
+        bold: node.props.bold ?? inherited.bold,
+        italic: node.props.italic ?? inherited.italic,
+        underline: node.props.underline ?? inherited.underline,
+      };
+      paintText(
+        node.content,
+        { ...node.props, ...effective },
+        rect,
+        clipped,
+        buf,
+      );
       break;
-    case "textinput":
-      paintTextInput(node.props, rect, clipped, buf);
+    }
+    case "textinput": {
+      // TextInput: resolve own styles with inheritance
+      const tiResolved = resolveContainerStyle(node.props);
+      const tiEffective = mergeInherited(inherited, tiResolved);
+      const tiProps = {
+        ...node.props,
+        fgColor: node.props.fgColor ?? tiEffective.fgColor,
+        bgColor: node.props.bgColor ?? tiEffective.bgColor,
+        bold: node.props.bold ?? tiEffective.bold,
+        italic: node.props.italic ?? tiEffective.italic,
+        underline: node.props.underline ?? tiEffective.underline,
+      };
+      paintTextInput(tiProps, rect, clipped, buf);
       break;
+    }
     case "vstack":
-    case "hstack":
-      // Containers just paint their children
+    case "hstack": {
+      // Resolve container style (applies focusStyle if focused)
+      const resolved = resolveContainerStyle(node.props);
+      childInherited = mergeInherited(inherited, resolved);
+
+      // Fill container background
+      const effectiveBg = childInherited.bgColor;
+      if (effectiveBg) {
+        fillBackground(rect, clipped, effectiveBg, buf);
+      }
       break;
+    }
   }
 
   // Determine scroll offset for scrollable containers
@@ -74,9 +182,9 @@ function paintLayoutNode(
     if (isScrollable && scrollOffset !== 0) {
       // Paint child with shifted position
       const shifted = shiftLayoutNode(child, isVertical, -scrollOffset);
-      paintLayoutNode(shifted, buf, clipped);
+      paintLayoutNode(shifted, buf, clipped, childInherited);
     } else {
-      paintLayoutNode(child, buf, clipped);
+      paintLayoutNode(child, buf, clipped, childInherited);
     }
   }
 

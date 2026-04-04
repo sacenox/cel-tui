@@ -14,6 +14,7 @@ import {
   paint,
   getTextInputCursor,
   setTextInputCursor,
+  getTextInputScroll,
   setTextInputScroll,
   getContainerScroll,
   setContainerScroll,
@@ -26,6 +27,7 @@ import {
   type EditState,
 } from "./text-edit.js";
 import type { Terminal } from "./terminal.js";
+import { visibleWidth } from "./width.js";
 
 type RenderFn = () => Node | Node[];
 
@@ -35,6 +37,17 @@ let renderScheduled = false;
 let prevBuffer: CellBuffer | null = null;
 let currentBuffer: CellBuffer | null = null;
 let currentLayouts: LayoutNode[] = [];
+let lastFocusedIndex = -1;
+
+/**
+ * Framework-tracked focus index for uncontrolled focus.
+ * Points into the `collectFocusable()` list of the topmost layer.
+ * -1 means no uncontrolled element is focused.
+ */
+let frameworkFocusIndex = -1;
+
+/** The node whose props were stamped with `focused: true` during the last paint. */
+let stampedNode: LayoutNode | null = null;
 
 function doRender(): void {
   renderScheduled = false;
@@ -61,13 +74,23 @@ function doRender(): void {
   const tree = renderFn();
   const layers = Array.isArray(tree) ? tree : [tree];
 
-  // Layout and paint each layer into the buffer
+  // Layout each layer
   currentLayouts = [];
   for (const layer of layers) {
     const layoutTree = layout(layer, width, height);
     currentLayouts.push(layoutTree);
+  }
+
+  // Stamp uncontrolled focus before painting so focusStyle and cursor work
+  stampUncontrolledFocus();
+
+  // Paint each layer into the buffer
+  for (const layoutTree of currentLayouts) {
     paint(layoutTree, currentBuffer);
   }
+
+  // Unstamp after paint so input handlers see clean props
+  unstampUncontrolledFocus();
 
   // Emit to terminal — differential when possible
   if (prevBuffer) {
@@ -81,11 +104,28 @@ function doRender(): void {
 
 // --- Input handling ---
 
+// Regex for a single SGR mouse event (non-anchored, for scanning batched input)
+const SGR_MOUSE_RE = /\x1b\[<(\d+);(\d+);(\d+)([Mm])/g;
+
+// Tracks accumulated scroll offsets during a batch of mouse events.
+// Controlled scroll reads scrollOffset from props, which doesn't update until
+// re-render. Within a single data chunk containing multiple scroll events, we
+// need to remember the offset we already dispatched via onScroll.
+let batchScrollOffsets: Map<object, number> | null = null;
+
 function handleInput(data: string): void {
-  // Try to parse as mouse event
-  const mouse = parseMouseEvent(data);
-  if (mouse) {
-    handleMouseEvent(mouse);
+  // Terminals may batch multiple mouse events into one data chunk.
+  // Scan for all SGR mouse sequences and handle each one.
+  SGR_MOUSE_RE.lastIndex = 0;
+  let match = SGR_MOUSE_RE.exec(data);
+  if (match) {
+    batchScrollOffsets = new Map();
+    while (match) {
+      const mouse = parseSgrMatch(match);
+      if (mouse) handleMouseEvent(mouse);
+      match = SGR_MOUSE_RE.exec(data);
+    }
+    batchScrollOffsets = null;
     return;
   }
 
@@ -100,11 +140,11 @@ interface MouseEvent {
   y: number;
 }
 
-function parseMouseEvent(data: string): MouseEvent | null {
-  // SGR mouse mode: ESC [ < Cb ; Cx ; Cy M (press) or m (release)
-  const match = data.match(/^\x1b\[<(\d+);(\d+);(\d+)([Mm])$/);
-  if (!match) return null;
-
+/**
+ * Parse a single SGR mouse event from a RegExp match.
+ * Returns a MouseEvent for scroll and click events, null for unhandled buttons.
+ */
+function parseSgrMatch(match: RegExpExecArray): MouseEvent | null {
   const cb = parseInt(match[1]!, 10);
   const x = parseInt(match[2]!, 10) - 1; // 1-indexed → 0-indexed
   const y = parseInt(match[3]!, 10) - 1;
@@ -121,25 +161,117 @@ function parseMouseEvent(data: string): MouseEvent | null {
 }
 
 /**
+ * Check if a focusable element uses controlled focus (explicit `focused` prop).
+ */
+function isControlledFocus(ln: LayoutNode): boolean {
+  const node = ln.node;
+  if (node.type === "textinput") return node.props.focused !== undefined;
+  if (node.type === "vstack" || node.type === "hstack")
+    return node.props.focused !== undefined;
+  return false;
+}
+
+/**
  * Find the currently focused element across all layers.
- * Checks both TextInput (focused prop) and containers (focused prop).
+ * Checks controlled focus (`focused: true` in props) first,
+ * then falls back to framework-tracked uncontrolled focus.
  */
 function findFocusedElement(): LayoutNode | null {
+  // Controlled: scan tree for focused: true
   for (let i = currentLayouts.length - 1; i >= 0; i--) {
     const found = findFocusedInTree(currentLayouts[i]!);
     if (found) return found;
+  }
+  // Uncontrolled: check framework-tracked index
+  if (frameworkFocusIndex >= 0) {
+    const topLayer = currentLayouts[currentLayouts.length - 1];
+    if (topLayer) {
+      const focusables = collectFocusable(topLayer);
+      if (frameworkFocusIndex < focusables.length) {
+        return focusables[frameworkFocusIndex]!;
+      }
+    }
+    // Index out of bounds (tree changed) — clear
+    frameworkFocusIndex = -1;
   }
   return null;
 }
 
 /**
+ * Stamp `focused: true` on the framework-tracked focused node's props
+ * before painting, so that paint/focusStyle/cursor rendering picks it up.
+ * Only stamps if no controlled element is already focused.
+ * Must be followed by {@link unstampUncontrolledFocus} after paint.
+ */
+function stampUncontrolledFocus(): void {
+  stampedNode = null;
+  if (frameworkFocusIndex < 0) return;
+
+  // Don't stamp if a controlled element owns focus
+  for (let i = currentLayouts.length - 1; i >= 0; i--) {
+    if (findFocusedInTree(currentLayouts[i]!)) {
+      frameworkFocusIndex = -1;
+      return;
+    }
+  }
+
+  const topLayer = currentLayouts[currentLayouts.length - 1];
+  if (!topLayer) return;
+  const focusables = collectFocusable(topLayer);
+  if (frameworkFocusIndex >= focusables.length) {
+    frameworkFocusIndex = -1;
+    return;
+  }
+  const target = focusables[frameworkFocusIndex]!;
+  const node = target.node;
+  if (
+    node.type === "textinput" ||
+    node.type === "vstack" ||
+    node.type === "hstack"
+  ) {
+    (node.props as any).focused = true;
+    stampedNode = target;
+  }
+}
+
+/**
+ * Remove the `focused: true` stamp set by {@link stampUncontrolledFocus}.
+ * Called after paint so input handlers see the original props and can
+ * correctly distinguish controlled from uncontrolled elements.
+ */
+function unstampUncontrolledFocus(): void {
+  if (!stampedNode) return;
+  const node = stampedNode.node;
+  if (
+    node.type === "textinput" ||
+    node.type === "vstack" ||
+    node.type === "hstack"
+  ) {
+    delete (node.props as any).focused;
+  }
+  stampedNode = null;
+}
+
+/**
  * Blur the currently focused element and focus a new one.
+ * Manages both controlled (via onFocus/onBlur callbacks) and
+ * uncontrolled (via frameworkFocusIndex) focus.
  */
 function changeFocus(target: LayoutNode | null): void {
   const current = findFocusedElement();
 
-  // Blur current
+  // Blur current — save position for Tab/Shift+Tab continuity
   if (current && current !== target) {
+    const topLayer = currentLayouts[currentLayouts.length - 1];
+    if (topLayer) {
+      const focusables = collectFocusable(topLayer);
+      let idx = focusables.indexOf(current);
+      if (idx === -1)
+        idx = focusables.findIndex((f) => f.node === current.node);
+      lastFocusedIndex = idx;
+    }
+    // Always clear framework tracking on blur
+    frameworkFocusIndex = -1;
     const props =
       current.node.type === "textinput"
         ? current.node.props
@@ -151,8 +283,19 @@ function changeFocus(target: LayoutNode | null): void {
     }
   }
 
-  // Focus new target
+  // Focus new target — clear saved position
   if (target && target !== current) {
+    lastFocusedIndex = -1;
+    // Set or clear framework tracking based on controlled/uncontrolled
+    if (!isControlledFocus(target)) {
+      const topLayer = currentLayouts[currentLayouts.length - 1];
+      if (topLayer) {
+        const focusables = collectFocusable(topLayer);
+        frameworkFocusIndex = focusables.indexOf(target);
+      }
+    } else {
+      frameworkFocusIndex = -1;
+    }
     const props =
       target.node.type === "textinput"
         ? target.node.props
@@ -162,6 +305,44 @@ function changeFocus(target: LayoutNode | null): void {
     if (props && "onFocus" in props && props.onFocus) {
       props.onFocus();
     }
+  }
+}
+
+/**
+ * Compute the maximum scroll offset for a scrollable container or TextInput.
+ * Returns 0 if content fits within the viewport.
+ */
+function getMaxScrollOffset(target: LayoutNode): number {
+  const { rect, children } = target;
+
+  // TextInput: compute content height from wrapped text value
+  if (target.node.type === "textinput") {
+    const w = rect.width;
+    const value = target.node.props.value;
+    let lineCount = 0;
+    for (const rawLine of value.split("\n")) {
+      const lw = visibleWidth(rawLine);
+      lineCount += w > 0 && lw > w ? Math.ceil(lw / w) : 1;
+    }
+    return Math.max(0, lineCount - rect.height);
+  }
+
+  const isVertical = target.node.type === "vstack";
+
+  if (isVertical) {
+    let contentHeight = 0;
+    for (const child of children) {
+      const childBottom = child.rect.y + child.rect.height - rect.y;
+      if (childBottom > contentHeight) contentHeight = childBottom;
+    }
+    return Math.max(0, contentHeight - rect.height);
+  } else {
+    let contentWidth = 0;
+    for (const child of children) {
+      const childRight = child.rect.x + child.rect.width - rect.x;
+      if (childRight > contentWidth) contentWidth = childRight;
+    }
+    return Math.max(0, contentWidth - rect.width);
   }
 }
 
@@ -190,19 +371,41 @@ function handleMouseEvent(event: MouseEvent): void {
     if (event.type === "scroll-up" || event.type === "scroll-down") {
       const target = findScrollTarget(path);
       if (target) {
-        const props = target.node.type !== "text" ? target.node.props : null;
-        if (props && "onScroll" in props) {
-          const delta = event.type === "scroll-up" ? -1 : 1;
-          if (props.onScroll) {
-            // Controlled scroll: notify app
-            const offset = (props as any).scrollOffset ?? 0;
-            props.onScroll(Math.max(0, offset + delta));
-          } else {
-            // Uncontrolled scroll: framework manages state
-            const current = getContainerScroll(props);
-            setContainerScroll(props, Math.max(0, current + delta));
-          }
+        const delta = event.type === "scroll-up" ? -1 : 1;
+        const maxOffset = getMaxScrollOffset(target);
+
+        if (target.node.type === "textinput") {
+          // TextInput scroll is always framework-managed
+          const tiProps = target.node.props;
+          const current = getTextInputScroll(tiProps);
+          const clamped = Math.max(0, Math.min(maxOffset, current + delta));
+          setTextInputScroll(tiProps, clamped);
           cel.render();
+        } else {
+          const props = target.node.type !== "text" ? target.node.props : null;
+          if (props && "onScroll" in props) {
+            if (props.onScroll) {
+              // Controlled scroll: notify app.
+              // Use batch accumulator if available (multiple events in one chunk),
+              // otherwise read from props.
+              const baseOffset =
+                batchScrollOffsets?.get(props) ??
+                (props as any).scrollOffset ??
+                0;
+              const newOffset = Math.max(
+                0,
+                Math.min(maxOffset, baseOffset + delta),
+              );
+              batchScrollOffsets?.set(props, newOffset);
+              props.onScroll(newOffset);
+            } else {
+              // Uncontrolled scroll: framework manages state
+              const current = getContainerScroll(props);
+              const clamped = Math.max(0, Math.min(maxOffset, current + delta));
+              setContainerScroll(props, clamped);
+            }
+            cel.render();
+          }
         }
       }
       return;
@@ -232,33 +435,50 @@ function handleKeyEvent(key: string, rawData?: string): void {
   // --- Focus traversal keys ---
 
   // Tab / Shift+Tab: cycle through focusable elements
+  // Skip focus traversal when a TextInput is focused — Tab is an editing key
+  // that inserts \t. The user must Escape first, then Tab to traverse.
   if (key === "tab" || key === "shift+tab") {
-    const topLayer = currentLayouts[currentLayouts.length - 1];
-    if (!topLayer) return;
-    const focusables = collectFocusable(topLayer);
-    if (focusables.length === 0) return;
-
-    const current = findFocusedElement();
-    let currentIdx = current ? focusables.indexOf(current) : -1;
-
-    // If current not found in focusables list, search by identity
-    if (currentIdx === -1 && current) {
-      currentIdx = focusables.findIndex((f) => f.node === current.node);
-    }
-
-    let nextIdx: number;
-    if (key === "tab") {
-      nextIdx = currentIdx === -1 ? 0 : (currentIdx + 1) % focusables.length;
+    const focusedTI = findFocusedTextInput();
+    if (focusedTI) {
+      // Fall through to TextInput key routing below
     } else {
-      nextIdx =
-        currentIdx === -1
-          ? focusables.length - 1
-          : (currentIdx - 1 + focusables.length) % focusables.length;
-    }
+      const topLayer = currentLayouts[currentLayouts.length - 1];
+      if (!topLayer) return;
+      const focusables = collectFocusable(topLayer);
+      if (focusables.length === 0) return;
 
-    changeFocus(focusables[nextIdx]!);
-    cel.render();
-    return;
+      const current = findFocusedElement();
+      let currentIdx = current ? focusables.indexOf(current) : -1;
+
+      // If current not found in focusables list, search by identity
+      if (currentIdx === -1 && current) {
+        currentIdx = focusables.findIndex((f) => f.node === current.node);
+      }
+
+      // If still not found, use the last focused element's position
+      // so Tab/Shift+Tab continues from where focus was lost (e.g. after Escape)
+      if (
+        currentIdx === -1 &&
+        lastFocusedIndex >= 0 &&
+        lastFocusedIndex < focusables.length
+      ) {
+        currentIdx = lastFocusedIndex;
+      }
+
+      let nextIdx: number;
+      if (key === "tab") {
+        nextIdx = currentIdx === -1 ? 0 : (currentIdx + 1) % focusables.length;
+      } else {
+        nextIdx =
+          currentIdx === -1
+            ? focusables.length - 1
+            : (currentIdx - 1 + focusables.length) % focusables.length;
+      }
+
+      changeFocus(focusables[nextIdx]!);
+      cel.render();
+      return;
+    } // end: not a focused TextInput
   }
 
   // Escape: unfocus current element
@@ -395,22 +615,8 @@ function findPathTo(root: LayoutNode, target: LayoutNode): LayoutNode[] | null {
 }
 
 function findFocusedTextInput(): LayoutNode | null {
-  for (let i = currentLayouts.length - 1; i >= 0; i--) {
-    const found = findFocusedTextInputInTree(currentLayouts[i]!);
-    if (found) return found;
-  }
-  return null;
-}
-
-function findFocusedTextInputInTree(ln: LayoutNode): LayoutNode | null {
-  if (ln.node.type === "textinput" && ln.node.props.focused) {
-    return ln;
-  }
-  for (const child of ln.children) {
-    const found = findFocusedTextInputInTree(child);
-    if (found) return found;
-  }
-  return null;
+  const focused = findFocusedElement();
+  return focused && focused.node.type === "textinput" ? focused : null;
 }
 
 function findFocusedInTree(ln: LayoutNode): LayoutNode | null {
@@ -498,6 +704,9 @@ export const cel = {
     currentBuffer = null;
     currentLayouts = [];
     renderScheduled = false;
+    lastFocusedIndex = -1;
+    frameworkFocusIndex = -1;
+    stampedNode = null;
   },
 
   /** @internal */
