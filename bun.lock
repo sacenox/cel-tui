@@ -17,22 +17,32 @@
     },
     "packages/components": {
       "name": "@cel-tui/components",
-      "version": "0.0.1",
+      "version": "0.1.0",
       "dependencies": {
         "@cel-tui/core": "workspace:*",
         "@cel-tui/types": "workspace:*",
       },
+      "peerDependencies": {
+        "typescript": ">=5.0.0",
+      },
     },
     "packages/core": {
       "name": "@cel-tui/core",
-      "version": "0.0.1",
+      "version": "0.1.0",
       "dependencies": {
         "@cel-tui/types": "workspace:*",
+        "get-east-asian-width": "^1.5.0",
+      },
+      "peerDependencies": {
+        "typescript": ">=5.0.0",
       },
     },
     "packages/types": {
       "name": "@cel-tui/types",
-      "version": "0.0.1",
+      "version": "0.1.0",
+      "peerDependencies": {
+        "typescript": ">=5.0.0",
+      },
     },
   },
   "packages": {
