@@ -18,8 +18,6 @@ Remaining work, known bugs, and planned improvements.
 
 - ❌ **`VDivider` component** — Drawing a vertical divider requires `VStack({ width: 1, height: "100%" }, [Text("│", { repeat: "fill" })])`. A `VDivider({ char, fgColor })` component would match the existing horizontal `Divider` and reduce boilerplate.
 
-- ❌ **`onKeyPress` bubbling through component boundaries** — `findKeyPressHandler` returns the innermost handler and stops. Unhandled keys don't bubble to parent `onKeyPress` handlers. This means every stateful component with `onKeyPress` needs to manually forward unrecognized keys (e.g., `Select` accepts an `onKeyPress` prop and calls it for keys it doesn't consume). A framework-level fix — such as a "return false to keep bubbling" convention or a `consumed` return value from handlers — would eliminate this boilerplate and let components compose naturally without worrying about swallowing parent shortcuts.
-
 ## Not Yet Implemented
 
 - ❌ Alt key combos (`alt+x`) — `parseKey` doesn't handle ESC-prefixed sequences as alt modifiers. The spec lists `"alt+up"` as a valid key format.

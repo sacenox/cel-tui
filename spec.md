@@ -64,30 +64,30 @@ HStack(props, children);
 
 Shared by both VStack and HStack. Containers also accept styling props (see [Styling](#styling)).
 
-| Prop             | Type                         | Description                                     |
-| ---------------- | ---------------------------- | ----------------------------------------------- |
-| `width`          | `number \| string`           | Fixed cells or percentage (`"50%"`)             |
-| `height`         | `number \| string`           | Fixed cells or percentage (`"100%"`)            |
-| `flex`           | `number`                     | Flex grow factor, proportional to siblings      |
-| `minWidth`       | `number`                     | Minimum width constraint                        |
-| `maxWidth`       | `number`                     | Maximum width constraint                        |
-| `minHeight`      | `number`                     | Minimum height constraint                       |
-| `maxHeight`      | `number`                     | Maximum height constraint                       |
-| `padding`        | `{ x?: number, y?: number }` | Internal padding (cells)                        |
-| `gap`            | `number`                     | Spacing between children (cells)                |
-| `justifyContent` | `string`                     | Distribute children along the main axis         |
-| `alignItems`     | `string`                     | Align children along the cross axis             |
-| `overflow`       | `"hidden" \| "scroll"`       | Content overflow behavior (default: `"hidden"`) |
-| `scrollbar`      | `boolean`                    | Show scrollbar indicator                        |
-| `scrollOffset`   | `number`                     | Scroll position in cells (controlled)           |
-| `onScroll`       | `(offset: number) => void`   | Called on scroll input                          |
-| `onClick`        | `() => void`                 | Called on mouse click or Enter when focused     |
-| `focusable`      | `boolean`                    | Opt out of focus (default: `true` if `onClick`) |
-| `focused`        | `boolean`                    | Whether this element is focused (controlled)    |
-| `onFocus`        | `() => void`                 | Called when element receives focus              |
-| `onBlur`         | `() => void`                 | Called when element loses focus                 |
-| `focusStyle`     | `StyleProps`                 | Style overrides applied when focused            |
-| `onKeyPress`     | `(key: string) => void`      | Called on key event (bubbles up from focus)     |
+| Prop             | Type                               | Description                                         |
+| ---------------- | ---------------------------------- | --------------------------------------------------- |
+| `width`          | `number \| string`                 | Fixed cells or percentage (`"50%"`)                 |
+| `height`         | `number \| string`                 | Fixed cells or percentage (`"100%"`)                |
+| `flex`           | `number`                           | Flex grow factor, proportional to siblings          |
+| `minWidth`       | `number`                           | Minimum width constraint                            |
+| `maxWidth`       | `number`                           | Maximum width constraint                            |
+| `minHeight`      | `number`                           | Minimum height constraint                           |
+| `maxHeight`      | `number`                           | Maximum height constraint                           |
+| `padding`        | `{ x?: number, y?: number }`       | Internal padding (cells)                            |
+| `gap`            | `number`                           | Spacing between children (cells)                    |
+| `justifyContent` | `string`                           | Distribute children along the main axis             |
+| `alignItems`     | `string`                           | Align children along the cross axis                 |
+| `overflow`       | `"hidden" \| "scroll"`             | Content overflow behavior (default: `"hidden"`)     |
+| `scrollbar`      | `boolean`                          | Show scrollbar indicator                            |
+| `scrollOffset`   | `number`                           | Scroll position in cells (controlled)               |
+| `onScroll`       | `(offset: number) => void`         | Called on scroll input                              |
+| `onClick`        | `() => void`                       | Called on mouse click or Enter when focused         |
+| `focusable`      | `boolean`                          | Opt out of focus (default: `true` if `onClick`)     |
+| `focused`        | `boolean`                          | Whether this element is focused (controlled)        |
+| `onFocus`        | `() => void`                       | Called when element receives focus                  |
+| `onBlur`         | `() => void`                       | Called when element loses focus                     |
+| `focusStyle`     | `StyleProps`                       | Style overrides applied when focused                |
+| `onKeyPress`     | `(key: string) => boolean \| void` | Key event handler. Return `false` to keep bubbling. |
 
 ### Sizing
 
@@ -317,8 +317,9 @@ Key events are routed through the focus and layer system, then bubble up the tre
 1. **Topmost layer** receives the key event
 2. If a **TextInput** is focused, it consumes text-editing keys (printable characters, arrows, backspace, Tab). Modifier combos pass through.
 3. If a **clickable container** is focused, Enter fires `onClick`. Other keys pass through.
-4. Unconsumed keys **bubble up** through ancestors — the nearest `onKeyPress` handler in the ancestor chain handles it.
-5. The root container's `onKeyPress` acts as the global key handler.
+4. Unconsumed keys **bubble up** through ancestors — each `onKeyPress` handler in the ancestor chain is called from innermost to root.
+5. A handler that returns `false` signals the key was **not consumed** — bubbling continues to the next ancestor. Any other return (`undefined`, `true`, or no return) **stops bubbling** (backward-compatible: existing `void` handlers consume by default).
+6. The root container's `onKeyPress` acts as the global key handler — it receives keys that bubble all the way up.
 
 ### Key Format
 

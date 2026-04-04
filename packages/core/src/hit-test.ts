@@ -95,22 +95,26 @@ export function findScrollTarget(path: LayoutNode[]): LayoutNode | null {
 }
 
 /**
- * Find the nearest ancestor with an `onKeyPress` handler.
- * Walks from deepest to root (bubbling).
+ * Collect all `onKeyPress` handlers along a path, ordered innermost-first
+ * (deepest to root) for bubbling dispatch.
  *
  * @param path - Path from root to current node.
- * @returns The handler and its layout node, or null.
+ * @returns Array of handlers ordered from deepest to root.
  */
-export function findKeyPressHandler(
+export function collectKeyPressHandlers(
   path: LayoutNode[],
-): { layoutNode: LayoutNode; handler: (key: string) => void } | null {
+): { layoutNode: LayoutNode; handler: (key: string) => boolean | void }[] {
+  const handlers: {
+    layoutNode: LayoutNode;
+    handler: (key: string) => boolean | void;
+  }[] = [];
   for (let i = path.length - 1; i >= 0; i--) {
     const props = getProps(path[i]!);
     if (props?.onKeyPress) {
-      return { layoutNode: path[i]!, handler: props.onKeyPress };
+      handlers.push({ layoutNode: path[i]!, handler: props.onKeyPress });
     }
   }
-  return null;
+  return handlers;
 }
 
 /**

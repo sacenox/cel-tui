@@ -45,17 +45,6 @@ const fruitSelect = Select({
     selected = value;
     cel.render();
   },
-  onKeyPress: (key) => {
-    if (key === "ctrl+q") {
-      cel.stop();
-      process.exit();
-    }
-    if (key === "ctrl+r") {
-      selected = "";
-      fruitSelect.reset();
-      cel.render();
-    }
-  },
   focusStyle: { fgColor: "white" },
 });
 
@@ -66,6 +55,17 @@ cel.viewport(() =>
       height: "100%",
       padding: { x: 2, y: 1 },
       fgColor: "white",
+      onKeyPress: (key) => {
+        if (key === "ctrl+q") {
+          cel.stop();
+          process.exit();
+        }
+        if (key === "ctrl+r") {
+          selected = "";
+          fruitSelect.reset();
+          cel.render();
+        }
+      },
     },
     [
       Text("Select Component Demo", { bold: true, fgColor: "cyan" }),

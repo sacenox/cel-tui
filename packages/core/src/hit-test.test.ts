@@ -4,7 +4,7 @@ import {
   hitTest,
   findClickHandler,
   findScrollTarget,
-  findKeyPressHandler,
+  collectKeyPressHandlers,
   collectFocusable,
 } from "./hit-test.js";
 import { VStack, HStack } from "./primitives/stacks.js";
@@ -130,24 +130,38 @@ describe("findScrollTarget", () => {
   });
 });
 
-describe("findKeyPressHandler", () => {
-  test("finds nearest ancestor with onKeyPress", () => {
+describe("collectKeyPressHandlers", () => {
+  test("collects handlers from deepest to root", () => {
+    const rootHandler = (_key: string) => {};
+    const midHandler = (_key: string) => {};
+    const node = VStack({ width: 20, height: 10, onKeyPress: rootHandler }, [
+      VStack({ onKeyPress: midHandler }, [Text("hello")]),
+    ]);
+    const ln = layout(node, 20, 10);
+    const path = hitTest(ln, 3, 0);
+    const handlers = collectKeyPressHandlers(path);
+    expect(handlers).toHaveLength(2);
+    expect(handlers[0]!.handler).toBe(midHandler);
+    expect(handlers[1]!.handler).toBe(rootHandler);
+  });
+
+  test("returns single handler when only root has onKeyPress", () => {
     const handler = (_key: string) => {};
     const node = VStack({ width: 20, height: 10, onKeyPress: handler }, [
       Text("hello"),
     ]);
     const ln = layout(node, 20, 10);
     const path = hitTest(ln, 3, 0);
-    const result = findKeyPressHandler(path);
-    expect(result).not.toBeNull();
-    expect(result!.handler).toBe(handler);
+    const handlers = collectKeyPressHandlers(path);
+    expect(handlers).toHaveLength(1);
+    expect(handlers[0]!.handler).toBe(handler);
   });
 
-  test("returns null when no onKeyPress in path", () => {
+  test("returns empty array when no onKeyPress in path", () => {
     const node = VStack({ width: 20, height: 10 }, [Text("hello")]);
     const ln = layout(node, 20, 10);
     const path = hitTest(ln, 3, 0);
-    expect(findKeyPressHandler(path)).toBeNull();
+    expect(collectKeyPressHandlers(path)).toEqual([]);
   });
 });
 

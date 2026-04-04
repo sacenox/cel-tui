@@ -62,13 +62,12 @@ export interface SelectProps {
    */
   highlightColor?: Color;
   /**
-   * Called for key events not consumed by the Select
-   * (e.g., modifier combos like `"ctrl+s"`).
-   * Use this to handle application-level shortcuts when the Select is focused.
+   * Called on key events that bubble up to the Select.
+   * Return `false` to keep bubbling to ancestors.
    *
-   * @param key - The unhandled key string.
+   * @param key - The key string.
    */
-  onKeyPress?: (key: string) => void;
+  onKeyPress?: (key: string) => boolean | void;
   /** Fixed width in cells or percentage. */
   width?: SizeValue;
   /** Fixed height in cells or percentage. */
@@ -241,6 +240,19 @@ export function Select(props: SelectProps): SelectInstance {
     focusStyle,
   } = props;
 
+  // Compose user's onKeyPress with internal handler.
+  // Internal handler runs first; if it returns false (unrecognized key),
+  // delegate to the user's handler for component-level interception.
+  // If the user's handler also returns false, the framework continues
+  // bubbling to ancestors automatically.
+  function composedKeyPress(key: string): boolean | void {
+    const result = handleKey(key);
+    if (result === false && userKeyPress) {
+      return userKeyPress(key);
+    }
+    return result;
+  }
+
   let query = "";
   let highlightIndex = 0;
   let scrollOffset = 0;
@@ -249,7 +261,7 @@ export function Select(props: SelectProps): SelectInstance {
     return prefixFilter(normalizeItems(rawItems), query);
   }
 
-  function handleKey(key: string): void {
+  function handleKey(key: string): boolean | void {
     switch (key) {
       case "enter": {
         const filtered = getFiltered();
@@ -305,8 +317,8 @@ export function Select(props: SelectProps): SelectInstance {
           scrollOffset = 0;
           cel.render();
         } else {
-          // Forward unrecognized keys to user callback
-          userKeyPress?.(key);
+          // Unrecognized key — let it bubble to ancestors
+          return false;
         }
         return;
     }
@@ -375,7 +387,7 @@ export function Select(props: SelectProps): SelectInstance {
 
     return VStack(
       {
-        onKeyPress: handleKey,
+        onKeyPress: composedKeyPress,
         focusable: focusable ?? true,
         focused,
         onFocus,
