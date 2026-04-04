@@ -8,6 +8,7 @@
  * Run: bun run examples/simple-scroll.ts
  */
 import { cel, VStack, HStack, Text, ProcessTerminal } from "@cel-tui/core";
+import { Divider, Spacer } from "@cel-tui/components";
 
 const MIN_COLS = 30;
 const MIN_ROWS = 8;
@@ -88,10 +89,10 @@ cel.viewport(() => {
     [
       HStack({ padding: { x: 1 } }, [
         Text("Scroll Test", { bold: true, fgColor: "cyan" }),
-        VStack({ flex: 1 }, []),
+        Spacer(),
         Text("uncontrolled", { fgColor: "brightBlack" }),
       ]),
-      Text("─", { repeat: "fill", fgColor: "brightBlack" }),
+      Divider({ fgColor: "brightBlack" }),
 
       VStack(
         { flex: 1, overflow: "scroll", scrollbar: true },
@@ -103,7 +104,7 @@ cel.viewport(() => {
         ),
       ),
 
-      Text("─", { repeat: "fill", fgColor: "brightBlack" }),
+      Divider({ fgColor: "brightBlack" }),
       HStack({ padding: { x: 1 } }, [
         Text("Mouse wheel to scroll · Ctrl+Q quit", {
           fgColor: "brightBlack",

@@ -129,9 +129,30 @@ send_key "ctrl+s"        # Modifier combo
 send_key "shift+tab"     # Reverse focus traversal
 ```
 
-**Limitations:** The helper lowercases all input, so uppercase letters aren't testable this way. Mouse events (SGR format) are unaffected — use `send-keys -H` with raw SGR hex as before.
+**Limitations:** The helper lowercases all input, so uppercase letters aren't testable this way.
 
 **Caveat:** tmux `send-keys -H` injects raw bytes one event at a time, but real terminals batch multiple mouse events into a single stdin chunk. Always verify mouse/scroll behavior in a real terminal, not just tmux.
+
+### Mouse Events Don't Work in tmux
+
+SGR mouse events (click, scroll) sent via `tmux send-keys -H` are **unreliable** and should not be used for testing. Even with correctly-formatted SGR press/release byte sequences and `mouse off` in tmux config, the injected bytes may not reach the application's stdin in a form the parser recognizes. This is a known tmux limitation with raw byte injection for mouse protocols.
+
+**Do not test mouse interactions (click, scroll) through tmux.** Use tmux only for:
+
+- Keyboard-driven testing via `send_key` helper
+- Visual inspection of rendered output via `tmux capture-pane -p`
+- Verifying layout, alignment, and text content
+
+Mouse and scroll behavior must be verified in a real interactive terminal.
+
+### tmux capture-pane Limitations
+
+`tmux capture-pane -p` captures **plain text only** — no colors or style attributes. This means:
+
+- You can verify text content, alignment, and layout structure
+- You **cannot** verify `fgColor`, `bgColor`, `bold`, `focusStyle` changes, or any visual styling
+
+To inspect colors, use `tmux capture-pane -e -p` (includes escape sequences) or verify styling through unit tests against the cell buffer.
 
 ## Spec
 
