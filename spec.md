@@ -724,7 +724,7 @@ cel.viewport(() =>
                 bold: msg.role === "user",
                 fgColor: msg.role === "user" ? "blue" : "green",
               }),
-              ...msg.blocks.map((block) => Text(`  ${block.content}`)),
+              Text(`  ${msg.content}`),
             ]),
           ),
         ],

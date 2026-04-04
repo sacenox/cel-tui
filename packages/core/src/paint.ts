@@ -325,11 +325,6 @@ function makeCell(
 /**
  * Paint a single line of text into the buffer using grapheme segmentation.
  * Correctly handles wide characters (CJK, emoji) by advancing the column
- * by the grapheme's visible width.
- */
-/**
- * Paint a single line of text into the buffer using grapheme segmentation.
- * Correctly handles wide characters (CJK, emoji) by advancing the column
  * by the grapheme's visible width. Respects the clip rect.
  */
 function paintLineGraphemes(
