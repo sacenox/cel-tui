@@ -499,7 +499,7 @@ describe("cel end-to-end", () => {
   });
 
   describe("onKeyPress bubbling", () => {
-    test("key bubbles from focused element up through ancestors", async () => {
+    test("void handler consumes key — no further bubbling (backward compat)", async () => {
       const term = setup(20, 5);
       const received: string[] = [];
 
@@ -517,6 +517,7 @@ describe("cel end-to-end", () => {
               {
                 onKeyPress: (key) => {
                   received.push("mid:" + key);
+                  // void return = consumed
                 },
               },
               [
@@ -534,12 +535,145 @@ describe("cel end-to-end", () => {
       );
       await waitForRender();
 
-      // Send a key — should bubble from focused btn through mid, then root
       term.sendInput("x");
       await waitForRender();
 
-      // Nearest ancestor with onKeyPress is "mid", so it handles first
+      // mid handler consumes (void return), root never sees the key
       expect(received).toEqual(["mid:x"]);
+    });
+
+    test("returning false continues bubbling to parent handlers", async () => {
+      const term = setup(20, 5);
+      const received: string[] = [];
+
+      cel.viewport(() =>
+        VStack(
+          {
+            width: 20,
+            height: 5,
+            onKeyPress: (key) => {
+              received.push("root:" + key);
+            },
+          },
+          [
+            VStack(
+              {
+                onKeyPress: (key) => {
+                  received.push("mid:" + key);
+                  return false; // not consumed — keep bubbling
+                },
+              },
+              [
+                HStack(
+                  {
+                    onClick: () => {},
+                    focused: true,
+                  },
+                  [Text("Focused Btn")],
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+      await waitForRender();
+
+      term.sendInput("x");
+      await waitForRender();
+
+      // mid returns false, so key continues to root
+      expect(received).toEqual(["mid:x", "root:x"]);
+    });
+
+    test("selective bubbling — consume some keys, pass others", async () => {
+      const term = setup(20, 5);
+      const received: string[] = [];
+
+      cel.viewport(() =>
+        VStack(
+          {
+            width: 20,
+            height: 5,
+            onKeyPress: (key) => {
+              received.push("root:" + key);
+            },
+          },
+          [
+            VStack(
+              {
+                onKeyPress: (key) => {
+                  received.push("mid:" + key);
+                  // Consume "a" but pass through everything else
+                  if (key === "a") return; // consumed
+                  return false; // not consumed
+                },
+              },
+              [
+                HStack(
+                  {
+                    onClick: () => {},
+                    focused: true,
+                  },
+                  [Text("Focused Btn")],
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+      await waitForRender();
+
+      term.sendInput("a");
+      await waitForRender();
+      expect(received).toEqual(["mid:a"]); // consumed by mid
+
+      received.length = 0;
+      term.sendInput("b");
+      await waitForRender();
+      expect(received).toEqual(["mid:b", "root:b"]); // passed through to root
+    });
+
+    test("all handlers return false — every handler in chain is called", async () => {
+      const term = setup(20, 5);
+      const received: string[] = [];
+
+      cel.viewport(() =>
+        VStack(
+          {
+            width: 20,
+            height: 5,
+            onKeyPress: (key) => {
+              received.push("root:" + key);
+              return false;
+            },
+          },
+          [
+            VStack(
+              {
+                onKeyPress: (key) => {
+                  received.push("mid:" + key);
+                  return false;
+                },
+              },
+              [
+                HStack(
+                  {
+                    onClick: () => {},
+                    focused: true,
+                  },
+                  [Text("Focused Btn")],
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+      await waitForRender();
+
+      term.sendInput("x");
+      await waitForRender();
+
+      expect(received).toEqual(["mid:x", "root:x"]);
     });
 
     test("key reaches root onKeyPress when no intermediate handlers", async () => {
@@ -606,7 +740,7 @@ describe("cel end-to-end", () => {
       expect(parentKey).toBe("ctrl+s");
     });
 
-    test("unfocused state bubbles from root only", async () => {
+    test("unfocused state routes key to root handler", async () => {
       const term = setup(20, 5);
       let rootKey = "";
 

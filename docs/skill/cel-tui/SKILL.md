@@ -22,13 +22,7 @@ bun add @cel-tui/components
 
 ## Core Pattern
 
-Every cel-tui app follows this pattern:
-
-1. Import primitives and `ProcessTerminal`
-2. Initialize with `cel.init(new ProcessTerminal())`
-3. Define state as plain variables (or any state approach)
-4. Set render function with `cel.viewport(() => tree)`
-5. Call `cel.render()` after state changes
+Every cel-tui app follows this structure:
 
 ```ts
 import {
@@ -71,163 +65,43 @@ cel.viewport(() =>
 );
 ```
 
+The steps: `cel.init(terminal)` → `cel.viewport(() => tree)` → mutate state + `cel.render()`.
+
 ## 4 Primitives
 
-| Primitive                 | Type                    | Description                                    |
-| ------------------------- | ----------------------- | ---------------------------------------------- |
-| `VStack(props, children)` | Container               | Vertical stack — children top to bottom        |
-| `HStack(props, children)` | Container               | Horizontal stack — children left to right      |
-| `Text(content, props?)`   | Leaf                    | Styled text, no children, fills parent width   |
-| `TextInput(props)`        | Container (no children) | Multi-line editable text, accepts sizing props |
+| Primitive                 | Type                    | Description                               |
+| ------------------------- | ----------------------- | ----------------------------------------- |
+| `VStack(props, children)` | Container               | Vertical stack — children top to bottom   |
+| `HStack(props, children)` | Container               | Horizontal stack — children left to right |
+| `Text(content, props?)`   | Leaf                    | Styled text, no children                  |
+| `TextInput(props)`        | Container (no children) | Multi-line editable text                  |
 
-## Sizing
+Containers accept sizing (`width`, `height`, `flex`, `"50%"`, `minWidth`/`maxWidth`), layout (`padding`, `gap`, `justifyContent`, `alignItems`), scroll (`overflow: "scroll"`, `scrollbar`), styling (`fgColor`, `bgColor`, `bold`, `focusStyle`), and interaction (`onClick`, `focusable`, `focused`, `onKeyPress`).
 
-Containers accept 4 sizing strategies:
-
-```ts
-VStack({}, []); // Intrinsic — size to fit content (default)
-VStack({ width: 30, height: 10 }, []); // Fixed — exact cell count
-VStack({ flex: 1 }, []); // Flex — proportional to siblings
-VStack({ width: "50%", height: "100%" }, []); // Percentage — relative to parent
-```
-
-Constraints: `minWidth`, `maxWidth`, `minHeight`, `maxHeight`.
-
-Text has no sizing props — parent controls the box, height is intrinsic (content + wrapping).
-
-TextInput accepts container sizing props (`flex`, `width`, `height`, `padding`, `maxHeight`, etc.).
-
-## Container Props
-
-```ts
-{
-  // Sizing
-  width, height,          // SizeValue (number | "50%")
-  flex,                   // number
-  minWidth, maxWidth,     // number
-  minHeight, maxHeight,   // number
-  padding,                // { x?: number, y?: number }
-  gap,                    // number (cells between children)
-  justifyContent,         // "start" | "end" | "center" | "space-between"
-  alignItems,             // "start" | "end" | "center" | "stretch"
-  overflow,               // "hidden" (default) | "scroll"
-  scrollbar,              // boolean
-  scrollOffset,           // number (controlled scroll)
-  onScroll,               // (offset: number) => void
-
-  // Styling (inherited by descendants)
-  bold, italic, underline,// boolean
-  fgColor, bgColor,       // Color (ANSI 16)
-  focusStyle,             // StyleProps — overrides when focused
-
-  // Interaction
-  onClick,                // () => void
-  focusable,              // boolean (default true if onClick set)
-  focused,                // boolean (controlled — omit for uncontrolled)
-  onFocus,                // () => void
-  onBlur,                 // () => void
-  onKeyPress,             // (key: string) => void
-}
-```
-
-## Text Props
-
-```ts
-Text("content", {
-  repeat: "fill" | number, // Repeat to fill width or N times
-  wrap: "none" | "word", // Default "none", hard-clips at edge
-  bold,
-  italic,
-  underline, // boolean
-  fgColor,
-  bgColor, // ANSI 16 Color
-});
-```
-
-Colors: `"black"`, `"red"`, `"green"`, `"yellow"`, `"blue"`, `"magenta"`, `"cyan"`, `"white"`, and bright variants (`"brightRed"`, etc.).
-
-## TextInput Props
-
-```ts
-TextInput({
-  value, // string (controlled)
-  onChange, // (value: string) => void
-  onSubmit, // () => void
-  submitKey, // string (default "enter")
-  placeholder, // Text() node shown when empty
-  // + all container props (sizing, styling, focus, etc.)
-});
-```
+Read [references/api.md](references/api.md) for the full props listing, sizing strategies, text props, and component reference.
 
 ## Common Patterns
 
-### Spacer (push items apart)
+### Spacer, divider, button
 
 ```ts
-HStack({ height: 1 }, [
-  Text("left"),
-  VStack({ flex: 1 }, []), // spacer
-  Text("right"),
-]);
-```
-
-### Horizontal divider
-
-```ts
+HStack({ height: 1 }, [Text("left"), VStack({ flex: 1 }, []), Text("right")]);
 Text("─", { repeat: "fill", fgColor: "brightBlack" });
-```
-
-### Button with focus style
-
-```ts
 HStack(
-  {
-    onClick: handleClick,
-    fgColor: "cyan",
-    focusStyle: { bgColor: "cyan", fgColor: "black" },
-  },
+  { onClick: handleClick, focusStyle: { bgColor: "cyan", fgColor: "black" } },
   [Text(" Send ", { bold: true })],
 );
-```
-
-### Growing text input (caps at maxHeight, then scrolls)
-
-```ts
-TextInput({
-  flex: 1,
-  maxHeight: 10,
-  value,
-  onChange: (v) => {
-    value = v;
-    cel.render();
-  },
-  submitKey: "ctrl+enter",
-});
 ```
 
 ### Scrollable list
 
 ```ts
-// Uncontrolled (framework manages scroll)
 VStack({ overflow: "scroll", scrollbar: true }, [...items]);
-
-// Controlled (app manages scroll)
-VStack(
-  {
-    overflow: "scroll",
-    scrollOffset: offset,
-    onScroll: (o) => {
-      offset = o;
-      cel.render();
-    },
-  },
-  [...items],
-);
 ```
 
 ### Layers (modals)
 
-Return an array from the render function. Layers composite bottom-to-top. Use `bgColor` for opaque modal backgrounds:
+Return an array from the render function — layers composite bottom-to-top:
 
 ```ts
 cel.viewport(() => [
@@ -235,15 +109,7 @@ cel.viewport(() => [
   ...(showModal
     ? [
         VStack(
-          {
-            height: "100%",
-            justifyContent: "center",
-            alignItems: "center",
-            onClick: () => {
-              showModal = false;
-              cel.render();
-            },
-          },
+          { height: "100%", justifyContent: "center", alignItems: "center" },
           [
             VStack({ width: 40, height: 10, bgColor: "black" }, [
               ...modalContent,
@@ -255,39 +121,21 @@ cel.viewport(() => [
 ]);
 ```
 
-### Global key bindings
-
-Put `onKeyPress` on the root container — it catches all keys not consumed by focused elements:
-
-```ts
-VStack({
-  height: "100%",
-  onKeyPress: (key) => {
-    if (key === "ctrl+q") { cel.stop(); process.exit(); }
-    if (key === "ctrl+s") saveFile();
-  },
-}, [...])
-```
-
 ### Focus
 
-Focus is **uncontrolled by default** — Tab/Shift+Tab/Escape/click just work:
+Focus is **uncontrolled by default** — Tab/Shift+Tab/Escape/click just work. Provide `focused` prop to opt into controlled mode:
 
 ```ts
-// Uncontrolled (default) — framework manages focus
+// Uncontrolled — framework manages focus
 HStack({ onClick: handleAction }, [Text("[ OK ]")]);
 
-// Controlled — app owns focus state (provide `focused` prop)
+// Controlled — app owns focus state
 TextInput({
-  value: text,
-  onChange: handleChange,
+  value,
+  onChange,
   focused: isFocused,
   onFocus: () => {
     isFocused = true;
-    cel.render();
-  },
-  onBlur: () => {
-    isFocused = false;
     cel.render();
   },
 });
@@ -304,37 +152,56 @@ VStack({ fgColor: "white", bgColor: "blue" }, [
 ]);
 ```
 
-## Key Format
-
-All lowercase, modifiers joined by `+`: `"ctrl+s"`, `"ctrl+shift+n"`, `"escape"`, `"enter"`, `"alt+up"`, `"f1"`. Framework normalizes modifier order.
-
-## Key Rules
-
-- **State is external** — framework has no state. Call `cel.render()` after changes.
-- **Text is a leaf** — no sizing props, no children. Parent controls the box.
-- **TextInput is a container** — accepts sizing props but no children.
-- **Style inheritance** — containers propagate styles (fgColor, bgColor, bold, etc.) to descendants. Explicit props on a node always override. Container `bgColor` fills the rect with opaque background.
-- **focusStyle** — `focusStyle: { bgColor, fgColor, ... }` on containers overrides styles when focused. Participates in inheritance.
-- **Uncontrolled focus by default** — Tab/Shift+Tab/Escape/click just work. Provide `focused` prop to opt into controlled mode.
-- **Escape unfocuses** the current element.
-- **Tab/Shift+Tab** traverses focusable elements in document order (wraps around). After Escape, traversal continues from the element that lost focus (not from the start).
-- **Enter** activates a focused clickable container (fires onClick).
-- **TextInput consumes editing keys** when focused (printable chars, arrows, backspace, delete). Modifier combos (ctrl+s) bubble up through ancestors via onKeyPress.
-- **Mouse click** on a focusable element fires onFocus (and onBlur on previous).
-- **Innermost wins** — for click, scroll, and key handlers.
-- **Differential rendering** — only changed cells are emitted after the first render.
-- **Crash cleanup** — terminal state is restored on SIGINT, SIGTERM, uncaughtException.
-
-## Pre-made Components
+### Select component
 
 ```ts
-import { Spacer, Divider, Button } from "@cel-tui/components";
+import { Select } from "@cel-tui/components";
 
-Spacer(); // VStack({ flex: 1 }, [])
-Divider(); // Text("─", { repeat: "fill" })
-Divider({ char: "═", fgColor: "brightBlack" });
-Button("[OK]", { onClick: handleOk });
-Button("✕", { onClick: handleClose, focusable: false });
+const mySelect = Select({
+  items: ["apple", "banana", "cherry"],
+  onSelect: (value) => {
+    chosen = value;
+    cel.render();
+  },
+});
+
+// ctrl+q lives on the root — Select returns false for unrecognized
+// keys, so they bubble up automatically.
+cel.viewport(() =>
+  VStack(
+    {
+      height: "100%",
+      onKeyPress: (key) => {
+        if (key === "ctrl+q") {
+          cel.stop();
+          process.exit();
+        }
+      },
+    },
+    [mySelect()],
+  ),
+);
+mySelect.reset(); // clear filter/highlight programmatically
 ```
 
-For the full specification, see the [cel-tui spec](https://raw.githubusercontent.com/sacenox/cel-tui/main/spec.md).
+## Gotchas
+
+- **State is external** — the framework has no state. Mutate variables then call `cel.render()`.
+- **Text is a pure leaf** — no sizing props, no children. Parent controls the box.
+- **TextInput consumes editing keys** when focused (printable chars, arrows, backspace). Modifier combos (`ctrl+s`) bubble up through ancestors via `onKeyPress`.
+- **Escape unfocuses** the current element. Tab/Shift+Tab traverses focusable elements (wraps around). After Escape, traversal continues from where focus was lost.
+- **Enter activates** a focused container's `onClick`. If no `onClick`, Enter reaches `onKeyPress`.
+- **`focusable: true`** without `onClick` makes a container keyboard-focusable (receives `onKeyPress` events via Tab). Used by stateful components like `Select`.
+- **Innermost handler wins** — for `onClick` and `onScroll`. For `onKeyPress`, keys **bubble up** through ancestors: return `false` from a handler to let the key continue to the next ancestor. Returning `void`/`undefined` consumes the key (stops bubbling). This is backward-compatible.
+- **Container `bgColor`** fills the rect with opaque background before painting children.
+- **`repeat: "fill"` in HStack** gets width 0 (intrinsic width is 0). Workaround: wrap in `VStack({ flex: 1 }, [Text(" ", { repeat: "fill" })])`.
+- **Crash cleanup** — terminal state is restored on SIGINT, SIGTERM, uncaughtException.
+- **Always call `cel.stop()` before `process.exit()`** — restores raw mode, mouse tracking, and alternate screen.
+- **Alt key combos** (`alt+x`, `alt+up`) are not yet implemented in key parsing. Use `ctrl+` modifiers instead.
+- **Button limitations** — `Button` from `@cel-tui/components` does not forward `focusStyle`, container sizing, or all style props. Use `HStack` + `Text` directly when you need full control.
+
+## Composing Components
+
+Stateless components are plain functions returning `Node` trees — prefer this pattern. When a component needs internal state across renders, use a factory function that returns a callable instance. Read [references/composing-components.md](references/composing-components.md) for full patterns and examples.
+
+For the full framework specification, see the [cel-tui spec](https://raw.githubusercontent.com/sacenox/cel-tui/main/spec.md).

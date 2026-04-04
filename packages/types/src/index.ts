@@ -198,12 +198,19 @@ export interface ContainerProps extends StyleProps {
    * (e.g., modifier combos like `"ctrl+s"`) bubble up through ancestors.
    * The root container's `onKeyPress` acts as the global key handler.
    *
+   * Return `false` to indicate the key was **not consumed** — it will
+   * continue bubbling to the next ancestor handler. Any other return
+   * value (`undefined`, `true`, or no return) means the key was consumed
+   * and bubbling stops. This is backward-compatible: existing `void`
+   * handlers consume by default.
+   *
    * Key format: all lowercase, modifiers joined by `+` in canonical
    * order `ctrl+alt+shift+<key>` (e.g., `"ctrl+s"`, `"alt+up"`, `"escape"`).
    *
    * @param key - Normalized key string.
+   * @returns `false` to keep bubbling, anything else to consume.
    */
-  onKeyPress?: (key: string) => void;
+  onKeyPress?: (key: string) => boolean | void;
 }
 
 /**

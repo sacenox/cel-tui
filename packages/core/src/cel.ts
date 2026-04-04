@@ -5,7 +5,7 @@ import {
   hitTest,
   findClickHandler,
   findScrollTarget,
-  findKeyPressHandler,
+  collectKeyPressHandlers,
   collectFocusable,
 } from "./hit-test.js";
 import { parseKey, isEditingKey, normalizeKey } from "./keys.js";
@@ -420,12 +420,11 @@ function findClickFocusTarget(path: LayoutNode[]): LayoutNode | null {
   for (let i = path.length - 1; i >= 0; i--) {
     const node = path[i]!.node;
     if (node.type === "textinput") return path[i]!;
-    if (
-      (node.type === "vstack" || node.type === "hstack") &&
-      node.props.onClick &&
-      node.props.focusable !== false
-    ) {
-      return path[i]!;
+    if (node.type === "vstack" || node.type === "hstack") {
+      const isFocusable =
+        node.props.focusable === true ||
+        (node.props.onClick != null && node.props.focusable !== false);
+      if (isFocusable) return path[i]!;
     }
   }
   return null;
@@ -578,11 +577,21 @@ function handleKeyEvent(key: string, rawData?: string): void {
     for (let i = currentLayouts.length - 1; i >= 0; i--) {
       const path = findPathTo(currentLayouts[i]!, focused);
       if (path) {
-        const handler = findKeyPressHandler(path);
-        if (handler) {
-          handler.handler(key);
-          cel.render();
-          return;
+        const handlers = collectKeyPressHandlers(path);
+        if (handlers.length > 0) {
+          let consumed = false;
+          for (const h of handlers) {
+            const result = h.handler(key);
+            if (result !== false) {
+              consumed = true;
+              break;
+            }
+            // result === false → key not consumed, keep bubbling
+          }
+          if (consumed || handlers.length > 0) {
+            cel.render();
+            return;
+          }
         }
       }
     }
@@ -592,9 +601,12 @@ function handleKeyEvent(key: string, rawData?: string): void {
   for (let i = currentLayouts.length - 1; i >= 0; i--) {
     const layoutRoot = currentLayouts[i]!;
     const path = [layoutRoot];
-    const handler = findKeyPressHandler(path);
-    if (handler) {
-      handler.handler(key);
+    const handlers = collectKeyPressHandlers(path);
+    if (handlers.length > 0) {
+      for (const h of handlers) {
+        const result = h.handler(key);
+        if (result !== false) break;
+      }
       cel.render();
       return;
     }
