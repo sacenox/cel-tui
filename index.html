@@ -1,288 +1,343 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" class="scroll-smooth">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>cel-tui — TypeScript TUI Framework</title>
-    <style>
-      :root {
-        --bg: #0d1117;
-        --fg: #c9d1d9;
-        --accent: #58a6ff;
-        --muted: #8b949e;
-        --surface: #161b22;
-        --border: #30363d;
-        --green: #3fb950;
+    <meta
+      name="description"
+      content="A TypeScript TUI framework built around a declarative functional API and ultra-fast rendering."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap"
+      rel="stylesheet"
+    />
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style type="text/tailwindcss">
+      @theme {
+        --color-term-bg: #0a0e14;
+        --color-term-surface: #0d1117;
+        --color-term-panel: #161b22;
+        --color-term-border: #21262d;
+        --color-term-fg: #b2b9c2;
+        --color-term-bright: #e6edf3;
+        --color-term-muted: #545d68;
+        --color-term-green: #3fb950;
+        --color-term-cyan: #58d1db;
+        --color-term-yellow: #d29922;
+        --color-term-red: #f85149;
+        --color-term-magenta: #bc8cff;
+        --color-term-blue: #58a6ff;
+        --font-mono:
+          "JetBrains Mono", ui-monospace, "Cascadia Code", "Source Code Pro",
+          Menlo, Consolas, "DejaVu Sans Mono", monospace;
       }
-      * {
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
+
+      ::selection {
+        background: color-mix(in srgb, var(--color-term-cyan) 30%, transparent);
+        color: var(--color-term-bright);
       }
-      body {
-        font-family:
-          -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial,
-          sans-serif;
-        background: var(--bg);
-        color: var(--fg);
-        line-height: 1.6;
-        padding: 2rem;
-        max-width: 720px;
-        margin: 0 auto;
+
+      /* scrollbar */
+      ::-webkit-scrollbar {
+        width: 6px;
       }
-      h1 {
-        font-size: 2rem;
-        margin-bottom: 0.25rem;
+      ::-webkit-scrollbar-track {
+        background: var(--color-term-bg);
       }
-      h1 span {
-        color: var(--accent);
-      }
-      .tagline {
-        color: var(--muted);
-        font-size: 1.1rem;
-        margin-bottom: 2rem;
-      }
-      h2 {
-        font-size: 1.25rem;
-        margin-top: 2rem;
-        margin-bottom: 0.75rem;
-        color: var(--fg);
-      }
-      p {
-        margin-bottom: 1rem;
-        color: var(--muted);
-      }
-      a {
-        color: var(--accent);
-        text-decoration: none;
-      }
-      a:hover {
-        text-decoration: underline;
-      }
-      pre {
-        background: var(--surface);
-        border: 1px solid var(--border);
-        border-radius: 6px;
-        padding: 1rem;
-        overflow-x: auto;
-        font-size: 0.875rem;
-        line-height: 1.5;
-        margin-bottom: 1.5rem;
-      }
-      code {
-        font-family:
-          "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
-        color: var(--fg);
-      }
-      .keyword {
-        color: #ff7b72;
-      }
-      .string {
-        color: #a5d6ff;
-      }
-      .func {
-        color: #d2a8ff;
-      }
-      .comment {
-        color: var(--muted);
-      }
-      .cards {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 0.75rem;
-        margin-bottom: 1.5rem;
-      }
-      .card {
-        background: var(--surface);
-        border: 1px solid var(--border);
-        border-radius: 6px;
-        padding: 1rem;
-      }
-      .card h3 {
-        font-size: 0.95rem;
-        margin-bottom: 0.25rem;
-      }
-      .card p {
-        font-size: 0.85rem;
-        margin-bottom: 0;
-      }
-      .links {
-        list-style: none;
-        margin-bottom: 1.5rem;
-      }
-      .links li {
-        padding: 0.5rem 0;
-        border-bottom: 1px solid var(--border);
-      }
-      .links li:last-child {
-        border-bottom: none;
-      }
-      .links a {
-        font-weight: 500;
-      }
-      .links .desc {
-        color: var(--muted);
-        font-size: 0.85rem;
-      }
-      .badge {
-        display: inline-block;
-        background: var(--green);
-        color: var(--bg);
-        font-size: 0.75rem;
-        font-weight: 600;
-        padding: 0.15rem 0.5rem;
+      ::-webkit-scrollbar-thumb {
+        background: var(--color-term-border);
         border-radius: 3px;
-        margin-left: 0.5rem;
-        vertical-align: middle;
       }
-      footer {
-        margin-top: 3rem;
-        padding-top: 1rem;
-        border-top: 1px solid var(--border);
-        color: var(--muted);
-        font-size: 0.85rem;
+      ::-webkit-scrollbar-thumb:hover {
+        background: var(--color-term-muted);
+      }
+
+      /* blinking cursor */
+      @keyframes blink {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0;
+        }
+      }
+      .cursor-blink {
+        animation: blink 1s step-end infinite;
+      }
+
+      /* subtle glow for accents */
+      .glow-green {
+        text-shadow: 0 0 8px
+          color-mix(in srgb, var(--color-term-green) 40%, transparent);
+      }
+      .glow-cyan {
+        text-shadow: 0 0 8px
+          color-mix(in srgb, var(--color-term-cyan) 40%, transparent);
+      }
+
+      /* scanline overlay */
+      .scanlines::after {
+        content: "";
+        position: fixed;
+        inset: 0;
+        background: repeating-linear-gradient(
+          0deg,
+          transparent,
+          transparent 2px,
+          rgba(0, 0, 0, 0.03) 2px,
+          rgba(0, 0, 0, 0.03) 4px
+        );
+        pointer-events: none;
+        z-index: 50;
+      }
+
+      /* markdown prose styling */
+      .prose-terminal h1 {
+        @apply text-2xl font-bold text-term-bright mb-2 mt-8 pb-2 border-b border-term-border;
+      }
+      .prose-terminal h2 {
+        @apply text-lg font-semibold text-term-cyan mt-8 mb-4 flex items-center gap-2;
+      }
+      .prose-terminal h2::before {
+        content: "##";
+        @apply text-term-muted text-sm font-normal;
+      }
+      .prose-terminal h3 {
+        @apply text-base font-semibold text-term-bright mt-6 mb-2;
+      }
+      .prose-terminal p {
+        @apply text-term-fg mb-4 leading-relaxed;
+      }
+      .prose-terminal a {
+        @apply text-term-blue underline decoration-term-blue/30 underline-offset-2
+          hover:decoration-term-blue/80 transition-colors;
+      }
+      .prose-terminal strong {
+        @apply text-term-bright font-semibold;
+      }
+      .prose-terminal ul,
+      .prose-terminal ol {
+        @apply mb-4 pl-6;
+      }
+      .prose-terminal li {
+        @apply text-term-fg mb-1;
+      }
+      .prose-terminal ul li::marker {
+        @apply text-term-muted;
+      }
+      .prose-terminal code {
+        @apply font-mono text-term-magenta bg-term-panel px-1.5 py-0.5 rounded text-sm;
+      }
+      .prose-terminal pre {
+        @apply bg-term-bg border border-term-border rounded-lg p-4 mb-4 overflow-x-auto;
+      }
+      .prose-terminal pre code {
+        @apply bg-transparent p-0 text-term-fg text-[13px] leading-relaxed;
+      }
+      .prose-terminal hr {
+        @apply border-term-border my-8;
+      }
+      .prose-terminal table {
+        @apply w-full mb-4 text-sm;
+      }
+      .prose-terminal thead {
+        @apply border-b border-term-border;
+      }
+      .prose-terminal th {
+        @apply text-left text-term-muted font-medium py-2 px-3;
+      }
+      .prose-terminal td {
+        @apply py-2 px-3 text-term-fg border-b border-term-border/50;
+      }
+      .prose-terminal td code {
+        @apply text-term-cyan bg-transparent p-0;
+      }
+      .prose-terminal img {
+        @apply rounded-lg my-4;
+      }
+      .prose-terminal blockquote {
+        @apply border-l-2 border-term-cyan/50 pl-4 my-4 text-term-muted italic;
+      }
+
+      /* hide the first h1 and its subtitle since the hero covers them */
+      .prose-terminal > h1:first-child {
+        @apply hidden;
+      }
+      .prose-terminal > h1:first-child + p {
+        @apply hidden;
       }
     </style>
   </head>
-  <body>
-    <h1><span>cel</span>-tui</h1>
-    <p class="tagline">
-      A TypeScript TUI framework built around a declarative functional API and
-      ultra-fast rendering.
-    </p>
 
-    <p>
-      A <strong>cel</strong> is the smallest unit of a terminal display — a
-      single character cell. Start from the smallest meaningful unit and build
-      up, with nothing wasted.
-    </p>
-
-    <h2>Quick Example</h2>
-    <pre><code><span class="keyword">import</span> { cel, VStack, Text, TextInput, ProcessTerminal } <span class="keyword">from</span> <span class="string">"@cel-tui/core"</span>;
-
-<span class="keyword">let</span> input = <span class="string">""</span>;
-
-cel.<span class="func">init</span>(<span class="keyword">new</span> <span class="func">ProcessTerminal</span>());
-cel.<span class="func">viewport</span>(() =>
-  <span class="func">VStack</span>({ height: <span class="string">"100%"</span> }, [
-    <span class="func">Text</span>(<span class="string">"Hello, cel-tui!"</span>, { bold: <span class="keyword">true</span>, fgColor: <span class="string">"cyan"</span> }),
-    <span class="func">Text</span>(<span class="string">"─"</span>, { repeat: <span class="string">"fill"</span> }),
-    <span class="func">TextInput</span>({
-      flex: 1,
-      value: input,
-      focused: <span class="keyword">true</span>,
-      onChange: (v) => { input = v; cel.<span class="func">render</span>(); },
-    }),
-  ])
-);</code></pre>
-
-    <h2>4 Primitives, That's It</h2>
-    <div class="cards">
-      <div class="card">
-        <h3><code>VStack</code></h3>
-        <p>Vertical stack — children top to bottom</p>
+  <body class="bg-term-bg font-mono text-term-fg antialiased scanlines">
+    <!-- top bar -->
+    <nav
+      class="sticky top-0 z-40 bg-term-bg/90 backdrop-blur-sm border-b border-term-border"
+    >
+      <div
+        class="max-w-4xl mx-auto px-4 sm:px-6 h-10 flex items-center justify-between"
+      >
+        <div class="flex items-center gap-3">
+          <span class="text-term-green font-bold glow-green">cel</span
+          ><span class="text-term-muted">-tui</span>
+          <span class="text-term-muted text-xs hidden sm:inline">·</span>
+          <span class="text-term-muted text-xs hidden sm:inline"
+            >TypeScript TUI Framework</span
+          >
+        </div>
+        <div class="flex items-center gap-4 text-xs">
+          <a
+            href="docs/html/index.html"
+            class="text-term-muted hover:text-term-cyan transition-colors"
+            >api docs</a
+          >
+          <a
+            href="https://www.npmjs.com/org/cel-tui"
+            class="text-term-muted hover:text-term-cyan transition-colors"
+            >npm</a
+          >
+          <a
+            href="https://github.com/sacenox/cel-tui"
+            class="text-term-muted hover:text-term-cyan transition-colors"
+            >github</a
+          >
+        </div>
       </div>
-      <div class="card">
-        <h3><code>HStack</code></h3>
-        <p>Horizontal stack — children left to right</p>
+    </nav>
+
+    <!-- hero -->
+    <header class="max-w-4xl mx-auto px-4 sm:px-6 pt-16 pb-12">
+      <div class="flex items-start gap-4 mb-6">
+        <div>
+          <h1 class="text-4xl sm:text-5xl font-bold tracking-tight">
+            <span class="text-term-green glow-green">cel</span
+            ><span class="text-term-bright">-tui</span>
+          </h1>
+          <p class="text-term-muted mt-2 text-sm sm:text-base">
+            A TypeScript TUI framework built around a declarative functional API
+            and ultra-fast rendering.
+          </p>
+        </div>
       </div>
-      <div class="card">
-        <h3><code>Text</code></h3>
-        <p>Styled text leaf node</p>
+
+      <!-- terminal prompt -->
+      <div
+        class="bg-term-surface border border-term-border rounded-lg overflow-hidden"
+      >
+        <div
+          class="flex items-center gap-2 px-4 py-2 bg-term-panel border-b border-term-border"
+        >
+          <span class="w-3 h-3 rounded-full bg-term-red/80"></span>
+          <span class="w-3 h-3 rounded-full bg-term-yellow/80"></span>
+          <span class="w-3 h-3 rounded-full bg-term-green/80"></span>
+          <span class="text-term-muted text-xs ml-2">~</span>
+        </div>
+        <div class="p-4 text-sm">
+          <div class="flex gap-2">
+            <span class="text-term-green select-none">$</span>
+            <span class="text-term-bright">bun add @cel-tui/core</span>
+            <span
+              class="w-2 h-[1.2em] bg-term-green/70 inline-block cursor-blink self-center"
+            ></span>
+          </div>
+        </div>
       </div>
-      <div class="card">
-        <h3><code>TextInput</code></h3>
-        <p>Multi-line editable text container</p>
+
+      <!-- quick links -->
+      <div class="flex flex-wrap gap-3 mt-6 text-xs">
+        <a
+          href="docs/html/index.html"
+          class="px-3 py-1.5 rounded-md bg-term-panel border border-term-border text-term-fg hover:border-term-cyan/50 hover:text-term-cyan transition-all"
+          >API Reference →</a
+        >
+        <a
+          href="spec.md"
+          class="px-3 py-1.5 rounded-md bg-term-panel border border-term-border text-term-fg hover:border-term-cyan/50 hover:text-term-cyan transition-all"
+          >Specification →</a
+        >
+        <a
+          href="docs/skill/cel-tui/SKILL.md"
+          class="px-3 py-1.5 rounded-md bg-term-panel border border-term-border text-term-fg hover:border-term-cyan/50 hover:text-term-cyan transition-all"
+          >Agent Skill →</a
+        >
+        <a
+          href="docs/md/modules.md"
+          class="px-3 py-1.5 rounded-md bg-term-panel border border-term-border text-term-fg hover:border-term-cyan/50 hover:text-term-cyan transition-all"
+          >API (Markdown) →</a
+        >
       </div>
-    </div>
+    </header>
 
-    <h2>Documentation</h2>
-    <ul class="links">
-      <li>
-        <a href="docs/html/index.html">API Reference</a>
-        <span class="desc">
-          — Full TypeDoc-generated documentation for all packages</span
-        >
-      </li>
-      <li>
-        <a href="spec.md">Specification</a>
-        <span class="desc">
-          — Complete framework spec: layout, input, rendering, and
-          decisions</span
-        >
-      </li>
-      <li>
-        <a href="AGENTS.md">Agent Guide</a>
-        <span class="desc">
-          — Project structure, design decisions, testing strategy, and
-          conventions</span
-        >
-      </li>
-      <li>
-        <a href="docs/md/modules.md">API Reference (Markdown)</a>
-        <span class="desc"> — Markdown version of the API docs</span>
-      </li>
-    </ul>
+    <!-- readme content -->
+    <main class="max-w-4xl mx-auto px-4 sm:px-6 pb-16">
+      <div id="readme" class="prose-terminal">
+        <div class="text-term-muted text-sm animate-pulse">Loading README…</div>
+      </div>
+    </main>
 
-    <h2>Packages</h2>
-    <ul class="links">
-      <li>
-        <a href="docs/html/types/src/modules.html">@cel-tui/types</a>
-        <span class="desc"> — Shared type definitions</span>
-      </li>
-      <li>
-        <a href="docs/html/core/src/modules.html">@cel-tui/core</a>
-        <span class="desc"> — Framework engine and primitives</span>
-      </li>
-      <li>
-        <a href="docs/html/components/src/modules.html">@cel-tui/components</a>
-        <span class="desc">
-          — Pre-made components (Button, Spacer, Divider)</span
+    <!-- footer -->
+    <footer
+      class="max-w-4xl mx-auto px-4 sm:px-6 pb-8 border-t border-term-border pt-6"
+    >
+      <div
+        class="flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-term-muted"
+      >
+        <span
+          >MIT License · Built with
+          <a href="https://bun.sh" class="text-term-blue hover:underline"
+            >Bun</a
+          ></span
         >
-      </li>
-    </ul>
-
-    <h2>Key Concepts</h2>
-    <ul class="links">
-      <li>
-        <strong>State is external</strong>
-        <span class="desc">
-          — The framework renders what you give it. Use any state
-          approach.</span
-        >
-      </li>
-      <li>
-        <strong>Flexbox layout</strong>
-        <span class="desc">
-          — Fixed, flex, percentage, intrinsic sizing with gap, padding,
-          alignment.</span
-        >
-      </li>
-      <li>
-        <strong>Layers</strong>
-        <span class="desc">
-          — Return an array from the render function for modals and
-          overlays.</span
-        >
-      </li>
-      <li>
-        <strong>Cell buffer rendering</strong>
-        <span class="desc">
-          — Styled cells, differential updates, synchronized output.</span
-        >
-      </li>
-      <li>
-        <strong>170+ tests</strong><span class="badge">passing</span>
-        <span class="desc">
-          — TDD across layout, painting, input, compositing, and editing.</span
-        >
-      </li>
-    </ul>
-
-    <footer>
-      MIT License · Built with
-      <a href="https://bun.sh">Bun</a> ·
-      <a href="https://github.com/xonecas/cel-tui">GitHub</a>
+        <div class="flex items-center gap-4">
+          <a
+            href="https://github.com/sacenox/cel-tui"
+            class="hover:text-term-cyan transition-colors"
+            >GitHub</a
+          >
+          <a
+            href="https://www.npmjs.com/org/cel-tui"
+            class="hover:text-term-cyan transition-colors"
+            >npm</a
+          >
+          <a
+            href="docs/html/index.html"
+            class="hover:text-term-cyan transition-colors"
+            >API Docs</a
+          >
+        </div>
+      </div>
     </footer>
+
+    <script>
+      async function loadReadme() {
+        const container = document.getElementById("readme");
+        try {
+          const res = await fetch("README.md");
+          if (!res.ok) throw new Error(`${res.status}`);
+          let md = await res.text();
+
+          // Remove the centered image HTML block (we show the gif differently)
+          // and the first heading since the hero covers it
+          md = md.replace(/<p align="center">[\s\S]*?<\/p>\s*/, "");
+
+          const html = marked.parse(md, {
+            gfm: true,
+            breaks: false,
+          });
+          container.innerHTML = html;
+        } catch (e) {
+          container.innerHTML = `
+            <p class="text-term-red">
+              Failed to load README.md — <a href="README.md" class="text-term-blue underline">view it directly</a>.
+            </p>`;
+        }
+      }
+      loadReadme();
+    </script>
   </body>
 </html>
