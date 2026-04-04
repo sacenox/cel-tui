@@ -328,7 +328,7 @@ All lowercase, modifiers joined by `+`: `"ctrl+s"`, `"ctrl+shift+n"`, `"escape"`
 ## Pre-made Components
 
 ```ts
-import { Spacer, Divider, Button } from "@cel-tui/components";
+import { Spacer, Divider, Button, Select } from "@cel-tui/components";
 
 Spacer(); // VStack({ flex: 1 }, [])
 Divider(); // Text("─", { repeat: "fill" })
@@ -336,5 +336,163 @@ Divider({ char: "═", fgColor: "brightBlack" });
 Button("[OK]", { onClick: handleOk });
 Button("✕", { onClick: handleClose, focusable: false });
 ```
+
+### Select (filterable list)
+
+```ts
+import { Select } from "@cel-tui/components";
+
+const mySelect = Select({
+  items: ["apple", "banana", "cherry"],
+  onSelect: (value) => {
+    chosen = value;
+    cel.render();
+  },
+  placeholder: "search fruits...",
+  maxVisible: 8,
+  onKeyPress: (key) => {
+    // Receives keys the Select doesn't handle (modifiers, etc.)
+    if (key === "ctrl+q") {
+      cel.stop();
+      process.exit();
+    }
+  },
+});
+
+// Inside cel.viewport — call each render to get the current node tree
+cel.viewport(() =>
+  VStack({ height: "100%" }, [Text("Pick a fruit:"), mySelect()]),
+);
+
+// Reset state programmatically
+mySelect.reset();
+```
+
+Rich items with separate display label, return value, and filter text:
+
+```ts
+const modelSelect = Select({
+  items: [
+    {
+      label: "claude-sonnet-4  (free)",
+      value: "anthropic/claude-sonnet-4",
+      filterText: "claude-sonnet-4",
+    },
+    { label: "gpt-4o", value: "openai/gpt-4o", filterText: "gpt-4o" },
+  ],
+  onSelect: (value) => {
+    model = value;
+    cel.render();
+  },
+});
+```
+
+## Composing Components
+
+cel-tui components are plain functions that return `Node` trees. There are two patterns depending on whether the component needs internal state.
+
+### Stateless components
+
+Stateless components are simple functions that take props and return a `Node`. They're called every render cycle inside `cel.viewport()`. All existing state is external — passed in as props.
+
+```ts
+import type { ContainerNode } from "@cel-tui/types";
+import { HStack, Text } from "@cel-tui/core";
+
+function StatusBar(left: string, right: string): ContainerNode {
+  return HStack({ fgColor: "black", bgColor: "white" }, [
+    Text(` ${left}`),
+    VStack({ flex: 1 }, []), // spacer
+    Text(`${right} `),
+  ]);
+}
+
+// Usage — called fresh each render
+cel.viewport(() =>
+  VStack({ height: "100%" }, [
+    mainContent(),
+    StatusBar(filename, `${lines} lines`),
+  ]),
+);
+```
+
+This is the pattern used by `Button`, `Divider`, and `Spacer`. Prefer it whenever possible — it's simple, testable, and composable.
+
+### Stateful components (factory pattern)
+
+When a component needs internal state that persists across renders (e.g., a search query, cursor position, scroll offset), use a **factory function** that returns a callable instance. State lives in the closure. The user calls the instance each render to get a fresh `Node` tree.
+
+```ts
+import type { ContainerNode, Color } from "@cel-tui/types";
+import { cel, VStack, HStack, Text } from "@cel-tui/core";
+
+interface ToggleGroupProps {
+  options: string[];
+  onSelect: (value: string) => void;
+  activeColor?: Color;
+}
+
+interface ToggleGroupInstance {
+  (): ContainerNode;
+  reset(): void;
+}
+
+function ToggleGroup(props: ToggleGroupProps): ToggleGroupInstance {
+  const { options, onSelect, activeColor = "cyan" } = props;
+  let activeIndex = 0;
+
+  function handleKey(key: string): void {
+    if (key === "left" && activeIndex > 0) {
+      activeIndex--;
+      cel.render();
+    } else if (key === "right" && activeIndex < options.length - 1) {
+      activeIndex++;
+      cel.render();
+    } else if (key === "enter") {
+      onSelect(options[activeIndex]!);
+    }
+  }
+
+  function render(): ContainerNode {
+    return HStack(
+      { focusable: true, onKeyPress: handleKey, gap: 1 },
+      options.map((opt, i) =>
+        Text(` ${opt} `, {
+          fgColor: i === activeIndex ? "black" : undefined,
+          bgColor: i === activeIndex ? activeColor : undefined,
+        }),
+      ),
+    );
+  }
+
+  render.reset = () => {
+    activeIndex = 0;
+  };
+  return render as ToggleGroupInstance;
+}
+
+// Usage — create once, call each render
+const formatToggle = ToggleGroup({
+  options: ["JSON", "YAML", "TOML"],
+  onSelect: (fmt) => {
+    format = fmt;
+    cel.render();
+  },
+});
+
+cel.viewport(() =>
+  VStack({ height: "100%" }, [Text("Output format:"), formatToggle()]),
+);
+```
+
+Key points:
+
+- **Create once** outside `cel.viewport()`. The closure captures mutable state.
+- **Call each render** inside `cel.viewport()` — the function builds a fresh node tree from current state.
+- **`cel.render()`** is importable from `@cel-tui/core` — stateful components call it after internal state changes to trigger re-renders.
+- **Key forwarding** — `findKeyPressHandler` returns the innermost handler and stops. If your component uses `onKeyPress`, accept an `onKeyPress` prop from the user and call it for keys you don't handle, so parent shortcuts still work.
+- **`.reset()`** or other methods — attach to the render function (functions are objects in JS) to expose imperative control.
+
+This is the pattern used by `Select` from `@cel-tui/components`.
 
 For the full specification, see the [cel-tui spec](https://raw.githubusercontent.com/sacenox/cel-tui/main/spec.md).
