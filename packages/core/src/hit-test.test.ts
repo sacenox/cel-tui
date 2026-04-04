@@ -186,4 +186,14 @@ describe("collectFocusable", () => {
     const focusable = collectFocusable(ln);
     expect(focusable.length).toBe(3);
   });
+
+  test("explicit focusable: true without onClick is focusable", () => {
+    const node = VStack({ width: 20, height: 10 }, [
+      HStack({ focusable: true }, [Text("keyboard-only")]),
+      HStack({ onClick: () => {} }, [Text("clickable")]),
+    ]);
+    const ln = layout(node, 20, 10);
+    const focusable = collectFocusable(ln);
+    expect(focusable.length).toBe(2);
+  });
 });

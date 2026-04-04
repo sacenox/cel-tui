@@ -420,12 +420,11 @@ function findClickFocusTarget(path: LayoutNode[]): LayoutNode | null {
   for (let i = path.length - 1; i >= 0; i--) {
     const node = path[i]!.node;
     if (node.type === "textinput") return path[i]!;
-    if (
-      (node.type === "vstack" || node.type === "hstack") &&
-      node.props.onClick &&
-      node.props.focusable !== false
-    ) {
-      return path[i]!;
+    if (node.type === "vstack" || node.type === "hstack") {
+      const isFocusable =
+        node.props.focusable === true ||
+        (node.props.onClick != null && node.props.focusable !== false);
+      if (isFocusable) return path[i]!;
     }
   }
   return null;

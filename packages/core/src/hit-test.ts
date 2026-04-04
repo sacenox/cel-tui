@@ -118,7 +118,8 @@ export function findKeyPressHandler(
  *
  * A node is focusable if:
  * - It's a TextInput (always focusable), OR
- * - It's a container with `onClick` and `focusable` is not `false`
+ * - It's a container with `onClick` and `focusable` is not `false`, OR
+ * - It's a container with explicit `focusable: true`
  *
  * @param root - Root of the layout tree.
  * @returns Focusable nodes in document order.
@@ -135,7 +136,10 @@ function collectFocusableRecursive(ln: LayoutNode, result: LayoutNode[]): void {
   if (node.type === "textinput") {
     result.push(ln);
   } else if (node.type === "vstack" || node.type === "hstack") {
-    if (node.props.onClick && node.props.focusable !== false) {
+    const isFocusable =
+      node.props.focusable === true ||
+      (node.props.onClick != null && node.props.focusable !== false);
+    if (isFocusable) {
       result.push(ln);
     }
   }

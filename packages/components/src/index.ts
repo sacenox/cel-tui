@@ -6,7 +6,7 @@
  *
  * @example
  * ```ts
- * import { Spacer, Divider, Button } from "@cel-tui/components";
+ * import { Spacer, Divider, Button, Select } from "@cel-tui/components";
  *
  * HStack({ height: 1 }, [
  *   Text("Title", { bold: true }),
@@ -19,3 +19,9 @@
 export { Spacer } from "./spacer.js";
 export { Divider, type DividerProps } from "./divider.js";
 export { Button, type ButtonProps } from "./button.js";
+export {
+  Select,
+  type SelectProps,
+  type SelectItem,
+  type SelectInstance,
+} from "./select.js";
