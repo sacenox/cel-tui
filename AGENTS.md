@@ -169,6 +169,50 @@ git checkout main
 - `.gitignore` does **not** exclude `docs/html/` or `docs/md/` (they're committed)
 - `.prettierignore` includes `docs/html` and `docs/md` (generated files fail format checks otherwise)
 
+## Publishing to npm
+
+Packages are published to the `@cel-tui` npm org (owner: `xonecas`). They ship TypeScript source directly — no build step.
+
+### Version bump
+
+All three packages share the same version. Bump all together:
+
+```bash
+# In packages/types/package.json, packages/core/package.json, packages/components/package.json
+# Update "version" to the new value
+```
+
+Follow [semver](https://semver.org/): patch for fixes, minor for features, major for breaking changes. While `0.x`, minor = breaking is acceptable.
+
+### Publish order
+
+Must publish in dependency order — types first, then core, then components:
+
+```bash
+cd packages/types && bun publish --access public
+cd ../core && bun publish --access public
+cd ../components && bun publish --access public
+```
+
+If 2FA is enabled, add `--otp <code>` to each command.
+
+### Pre-publish checklist
+
+1. All tests pass: `bun test`
+2. Types clean: `bun run typecheck`
+3. Lint/format clean: `bun run check && bun run format`
+4. Version bumped in all three `package.json` files
+5. Changes committed and pushed
+6. Dry run looks correct: `cd packages/core && bun publish --dry-run --access public`
+
+### How it works
+
+- `"files"` in each `package.json` whitelists what ships (source only, no tests)
+- `"exports"` map provides proper module resolution for Bun and bundlers
+- `workspace:*` dependencies are resolved to actual versions by `bun publish`
+- `get-east-asian-width` is a real dependency of `@cel-tui/core` (installs for consumers)
+- `typescript` is a peer dependency (consumers bring their own)
+
 ## Destructive Actions
 
 **Never use `git checkout` or `git restore` on files you have modified.** A single `git checkout <file>` will silently discard all uncommitted changes in that file — including unrelated work. If you need to revert a specific edit, use `edit` to undo just that change. If you must use git to undo something, `git stash` first so the work can be recovered.
