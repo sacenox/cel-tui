@@ -707,10 +707,11 @@ function handleKeyEvent(key: string, rawData?: string): void {
             }
             // result === false → key not consumed, keep bubbling
           }
-          if (consumed || handlers.length > 0) {
-            cel.render();
-            return;
-          }
+          // Always return — the key was offered to every handler in the
+          // focused element's path (including root). Even if all returned
+          // false, we don't retry via the unfocused fallback path.
+          if (consumed) cel.render();
+          return;
         }
       }
     }
