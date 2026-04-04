@@ -140,8 +140,9 @@ export interface ContainerProps extends StyleProps {
    * to move the scroll position.
    *
    * @param offset - The new scroll offset in cells.
+   * @param maxOffset - The maximum scroll offset (content size minus viewport size).
    */
-  onScroll?: (offset: number) => void;
+  onScroll?: (offset: number, maxOffset: number) => void;
 
   /**
    * Called on mouse click or Enter key when this container is focused.

@@ -277,6 +277,35 @@ describe("cel end-to-end", () => {
       expect(scrollOffset).toBe(3);
     });
 
+    test("onScroll receives maxOffset", async () => {
+      const term = setup(20, 5);
+      let scrollOffset = 0;
+      let receivedMax = -1;
+      cel.viewport(() =>
+        VStack(
+          {
+            width: 20,
+            height: 5,
+            overflow: "scroll",
+            scrollOffset: scrollOffset,
+            onScroll: (offset, maxOffset) => {
+              scrollOffset = offset;
+              receivedMax = maxOffset;
+            },
+          },
+          // 8 items in 5-row viewport → max offset = 3
+          Array.from({ length: 8 }, (_, i) => Text(`item ${i + 1}`)),
+        ),
+      );
+      await waitForRender();
+
+      term.sendInput("\x1b[<65;4;3M");
+      await waitForRender();
+
+      expect(scrollOffset).toBe(1);
+      expect(receivedMax).toBe(3);
+    });
+
     test("uncontrolled scroll works without onScroll", async () => {
       const term = setup(20, 5);
       cel.viewport(() =>

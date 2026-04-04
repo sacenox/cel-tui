@@ -104,6 +104,32 @@ function fillBackground(
   }
 }
 
+/**
+ * Compute the maximum scroll offset for a scrollable container.
+ * This is the content size minus the viewport size along the main axis.
+ */
+function computeMaxScrollOffset(ln: LayoutNode, isVertical: boolean): number {
+  const { rect, children } = ln;
+  const props = ln.node.type !== "text" ? ln.node.props : null;
+  const padX = (props as any)?.padding?.x ?? 0;
+  const padY = (props as any)?.padding?.y ?? 0;
+
+  if (isVertical) {
+    let contentHeight = 0;
+    for (const child of children) {
+      const childBottom = child.rect.y + child.rect.height - rect.y;
+      if (childBottom > contentHeight) contentHeight = childBottom;
+    }
+    return Math.max(0, contentHeight + padY - rect.height);
+  }
+  let contentWidth = 0;
+  for (const child of children) {
+    const childRight = child.rect.x + child.rect.width - rect.x;
+    if (childRight > contentWidth) contentWidth = childRight;
+  }
+  return Math.max(0, contentWidth + padX - rect.width);
+}
+
 function paintLayoutNode(
   ln: LayoutNode,
   buf: CellBuffer,
@@ -172,10 +198,15 @@ function paintLayoutNode(
   const isContainer = node.type === "vstack" || node.type === "hstack";
   const containerProps = isContainer ? node.props : null;
   const isScrollable = containerProps?.overflow === "scroll";
-  const scrollOffset = isScrollable
-    ? (containerProps.scrollOffset ?? getContainerScroll(containerProps))
-    : 0;
   const isVertical = node.type === "vstack";
+  let scrollOffset = 0;
+  if (isScrollable) {
+    const raw =
+      containerProps.scrollOffset ?? getContainerScroll(containerProps);
+    // Clamp to valid range so apps can pass large values to mean "scroll to end"
+    const maxOffset = computeMaxScrollOffset(ln, isVertical);
+    scrollOffset = Math.max(0, Math.min(raw, maxOffset));
+  }
 
   // Recurse into children, using this node's clipped rect as the clip for children
   for (const child of ln.children) {

@@ -500,7 +500,7 @@ function handleMouseEvent(event: MouseEvent): void {
                 Math.min(maxOffset, baseOffset + delta),
               );
               batchScrollOffsets?.set(props, newOffset);
-              props.onScroll(newOffset);
+              props.onScroll(newOffset, maxOffset);
             } else {
               // Uncontrolled scroll: framework manages state via path key
               const pathKey = getScrollPathKey(target);

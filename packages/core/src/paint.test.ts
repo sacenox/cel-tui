@@ -370,18 +370,33 @@ describe("paint", () => {
       expect(lastCol.some((c) => c !== " ")).toBe(true);
     });
 
-    test("scroll clamps content — no painting above container", () => {
+    test("scroll clamps to max offset", () => {
       const node = VStack(
-        { width: 10, height: 3, overflow: "scroll", scrollOffset: 2 },
+        { width: 10, height: 3, overflow: "scroll", scrollOffset: 99 },
         [Text("line0"), Text("line1"), Text("line2"), Text("line3")],
       );
       const ln = layout(node, 10, 5);
       const buf = new CellBuffer(10, 5);
       paint(ln, buf);
-      // With scrollOffset=2, line2 and line3 visible
-      expect(readRow(buf, 0)).toBe("line2");
-      expect(readRow(buf, 1)).toBe("line3");
-      expect(readRow(buf, 2)).toBe("");
+      // 4 items in 3-row viewport → max offset = 1
+      // scrollOffset=99 is clamped to 1, so line1–line3 visible
+      expect(readRow(buf, 0)).toBe("line1");
+      expect(readRow(buf, 1)).toBe("line2");
+      expect(readRow(buf, 2)).toBe("line3");
+    });
+
+    test("scroll clamps to 0 when content fits", () => {
+      const node = VStack(
+        { width: 10, height: 5, overflow: "scroll", scrollOffset: 10 },
+        [Text("line0"), Text("line1")],
+      );
+      const ln = layout(node, 10, 5);
+      const buf = new CellBuffer(10, 5);
+      paint(ln, buf);
+      // 2 items in 5-row viewport → max offset = 0
+      // scrollOffset=10 clamped to 0
+      expect(readRow(buf, 0)).toBe("line0");
+      expect(readRow(buf, 1)).toBe("line1");
     });
   });
 

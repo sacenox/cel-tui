@@ -65,30 +65,30 @@ HStack(props, children);
 
 Shared by both VStack and HStack. Containers also accept styling props (see [Styling](#styling)).
 
-| Prop             | Type                               | Description                                         |
-| ---------------- | ---------------------------------- | --------------------------------------------------- |
-| `width`          | `number \| string`                 | Fixed cells or percentage (`"50%"`)                 |
-| `height`         | `number \| string`                 | Fixed cells or percentage (`"100%"`)                |
-| `flex`           | `number`                           | Flex grow factor, proportional to siblings          |
-| `minWidth`       | `number`                           | Minimum width constraint                            |
-| `maxWidth`       | `number`                           | Maximum width constraint                            |
-| `minHeight`      | `number`                           | Minimum height constraint                           |
-| `maxHeight`      | `number`                           | Maximum height constraint                           |
-| `padding`        | `{ x?: number, y?: number }`       | Internal padding (cells)                            |
-| `gap`            | `number`                           | Spacing between children (cells)                    |
-| `justifyContent` | `string`                           | Distribute children along the main axis             |
-| `alignItems`     | `string`                           | Align children along the cross axis                 |
-| `overflow`       | `"hidden" \| "scroll"`             | Content overflow behavior (default: `"hidden"`)     |
-| `scrollbar`      | `boolean`                          | Show scrollbar indicator                            |
-| `scrollOffset`   | `number`                           | Scroll position in cells (controlled)               |
-| `onScroll`       | `(offset: number) => void`         | Called on scroll input                              |
-| `onClick`        | `() => void`                       | Called on mouse click or Enter when focused         |
-| `focusable`      | `boolean`                          | Opt out of focus (default: `true` if `onClick`)     |
-| `focused`        | `boolean`                          | Whether this element is focused (controlled)        |
-| `onFocus`        | `() => void`                       | Called when element receives focus                  |
-| `onBlur`         | `() => void`                       | Called when element loses focus                     |
-| `focusStyle`     | `StyleProps`                       | Style overrides applied when focused                |
-| `onKeyPress`     | `(key: string) => boolean \| void` | Key event handler. Return `false` to keep bubbling. |
+| Prop             | Type                                          | Description                                         |
+| ---------------- | --------------------------------------------- | --------------------------------------------------- |
+| `width`          | `number \| string`                            | Fixed cells or percentage (`"50%"`)                 |
+| `height`         | `number \| string`                            | Fixed cells or percentage (`"100%"`)                |
+| `flex`           | `number`                                      | Flex grow factor, proportional to siblings          |
+| `minWidth`       | `number`                                      | Minimum width constraint                            |
+| `maxWidth`       | `number`                                      | Maximum width constraint                            |
+| `minHeight`      | `number`                                      | Minimum height constraint                           |
+| `maxHeight`      | `number`                                      | Maximum height constraint                           |
+| `padding`        | `{ x?: number, y?: number }`                  | Internal padding (cells)                            |
+| `gap`            | `number`                                      | Spacing between children (cells)                    |
+| `justifyContent` | `string`                                      | Distribute children along the main axis             |
+| `alignItems`     | `string`                                      | Align children along the cross axis                 |
+| `overflow`       | `"hidden" \| "scroll"`                        | Content overflow behavior (default: `"hidden"`)     |
+| `scrollbar`      | `boolean`                                     | Show scrollbar indicator                            |
+| `scrollOffset`   | `number`                                      | Scroll position in cells (controlled)               |
+| `onScroll`       | `(offset: number, maxOffset: number) => void` | Called on scroll input                              |
+| `onClick`        | `() => void`                                  | Called on mouse click or Enter when focused         |
+| `focusable`      | `boolean`                                     | Opt out of focus (default: `true` if `onClick`)     |
+| `focused`        | `boolean`                                     | Whether this element is focused (controlled)        |
+| `onFocus`        | `() => void`                                  | Called when element receives focus                  |
+| `onBlur`         | `() => void`                                  | Called when element loses focus                     |
+| `focusStyle`     | `StyleProps`                                  | Style overrides applied when focused                |
+| `onKeyPress`     | `(key: string) => boolean \| void`            | Key event handler. Return `false` to keep bubbling. |
 
 ### Sizing
 
@@ -183,13 +183,31 @@ VStack({ overflow: "scroll" }, [...])
 VStack({
   overflow: "scroll",
   scrollOffset: offset,
-  onScroll: (newOffset) => {
+  onScroll: (newOffset, maxOffset) => {
     offset = newOffset;
   },
 }, [...])
 ```
 
-In controlled mode, mouse wheel events fire `onScroll` with the new offset; the UI only moves when the app passes the updated `scrollOffset` back.
+In controlled mode, mouse wheel events fire `onScroll` with the new offset and maximum offset (total content size minus viewport size); the UI only moves when the app passes the updated `scrollOffset` back.
+
+Values exceeding the maximum scroll offset are clamped during rendering — passing `Infinity` means "scroll to the end". This enables patterns like sticky-bottom scroll:
+
+```ts
+let offset = 0;
+let stickToBottom = true;
+
+VStack({
+  overflow: "scroll",
+  scrollOffset: stickToBottom ? Infinity : offset,
+  onScroll: (newOffset, maxOffset) => {
+    offset = newOffset;
+    stickToBottom = newOffset >= maxOffset;
+  },
+}, [...])
+```
+
+While `stickToBottom` is true, `Infinity` is clamped to the current maximum on each render — new content automatically scrolls into view. When the user scrolls up, `stickToBottom` becomes false and the explicit offset takes over. Scrolling back to the bottom re-enables sticky mode.
 
 ---
 
