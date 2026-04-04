@@ -24,6 +24,7 @@ cel.viewport(() =>
   VStack(
     {
       height: "100%",
+      fgColor: "white",
       onKeyPress: (key) => {
         if (key === "ctrl+q") process.exit();
       },
@@ -34,7 +35,6 @@ cel.viewport(() =>
       TextInput({
         flex: 1,
         value: input,
-        focused: true,
         onChange: (v) => {
           input = v;
           cel.render();
@@ -60,7 +60,8 @@ cel.viewport(() =>
 - **`cel.viewport(() => tree)`** sets the render function, **`cel.render()`** triggers re-renders.
 - **Flexbox layout** — fixed, flex, percentage, and intrinsic sizing with gap, padding, alignment.
 - **Layers** — return an array for multi-layer compositing (modals, overlays).
-- **Controlled props** — focus, scroll, and text value are app-owned.
+- **Uncontrolled by default** — focus and scroll just work. Opt into controlled mode when needed.
+- **Style inheritance** — containers propagate styles to descendants. `bgColor` fills the rect.
 - **Cell buffer rendering** — styled cells, differential updates, synchronized output.
 
 ## Packages

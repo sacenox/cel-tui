@@ -21,11 +21,11 @@ Dependency chain: `components → core → types`
 
 - **4 primitives only:** VStack, HStack (layout), Text (content leaf), TextInput (editable container)
 - **State is external:** The framework has no state management. `cel.viewport(() => tree)` sets a render function, `cel.render()` requests re-evaluation. Apps use whatever state approach they want.
-- **Controlled props pattern:** Focus (`focused`/`onFocus`/`onBlur`), scroll (`scrollOffset`/`onScroll`), and value (`value`/`onChange`) are app-controlled. The app owns the state, the framework renders it.
-- **Uncontrolled scroll default:** `overflow: "scroll"` without `scrollOffset` is framework-managed. Adding `scrollOffset` makes it controlled.
+- **Uncontrolled by default, controlled opt-in:** Focus and scroll are framework-managed by default. Providing `focused` or `scrollOffset` explicitly switches to controlled mode (app owns the state). Value (`value`/`onChange`) on TextInput is always controlled.
+- **Style inheritance:** Containers propagate style props (fgColor, bgColor, bold, italic, underline) to descendants. Explicit props on a node always override inherited values. Container `bgColor` fills the rect with opaque background before painting children.
+- **focusStyle:** Containers accept `focusStyle: StyleProps` — style overrides applied when focused, participating in inheritance.
 - **TextInput is a container:** Accepts sizing props (flex, width, height, padding, min/max constraints) but has no children — its content is the `value` prop. Scroll is always framework-managed (follows cursor + responds to mouse wheel).
 - **Text is a pure leaf:** No sizing props, no children. Parent controls the box. Height is intrinsic (from content + wrapping).
-- **No style inheritance:** Every Text/TextInput sets its own styles explicitly. No cascading. Verbose but predictable.
 - **Cell buffer rendering:** Layout writes to a 2D grid of styled cells, not raw strings. Clipping and layer compositing are cell writes. Diff against previous buffer for minimal terminal output.
 - **Reactive rendering:** `cel.render()` batches via `process.nextTick()`. No fixed FPS.
 - **Layers:** `cel.viewport(() => [layer1, layer2])` — array of independent viewport-sized trees, composited bottom-to-top. Conditional inclusion = show/hide.
@@ -38,8 +38,8 @@ All core systems from the spec are implemented and tested:
 
 - **Layout engine** — flexbox sizing (fixed, intrinsic, flex, percentage), constraints, gap, padding, justifyContent, alignItems, largest-remainder rounding
 - **Rendering** — cell buffer, ANSI emitter with SGR styling, synchronized output (CSI 2026), differential rendering (emitDiff), full clear on resize
-- **Painting** — grapheme-aware text rendering (CJK/emoji via visibleWidth), overflow clipping via clip rect propagation, scroll content offsetting, scrollbar indicators
-- **Input** — key parsing/normalization, SGR mouse events (with batched event support), hit detection, click/scroll routing, focus traversal (Tab/Shift+Tab/Escape/Enter), onKeyPress bubbling from focused element through ancestors
+- **Painting** — grapheme-aware text rendering (CJK/emoji via visibleWidth), overflow clipping via clip rect propagation, scroll content offsetting, scrollbar indicators, container bgColor fill, style inheritance, focusStyle overrides
+- **Input** — key parsing/normalization, SGR mouse events (with batched event support), hit detection, click/scroll routing, focus traversal (Tab/Shift+Tab/Escape/Enter) with uncontrolled and controlled modes, onKeyPress bubbling from focused element through ancestors
 - **TextInput** — text editing, cursor movement, cursor persistence across re-renders (keyed on onChange), auto-scroll to keep cursor visible, placeholder rendering
 - **Layering** — multi-layer compositing, transparency, topmost-layer input priority
 - **Terminal** — crash cleanup (SIGINT/SIGTERM/uncaughtException), resize clear
@@ -94,7 +94,7 @@ This lets you see exactly what the user sees — rendered cells, alignment, clip
 
 ## Spec
 
-The `spec.md` file is the source of truth for all API design decisions. Always read it before making changes to core framework behavior. The open questions at the bottom track what's been decided vs. still in progress.
+The `spec.md` file is the source of truth for all API design decisions. Always read it before making changes to core framework behavior.
 
 ## Testing Strategy
 
@@ -143,7 +143,7 @@ chore: scaffold monorepo with types, core, components packages
 
 - `cel.ts` — Framework entrypoint. Owns render loop, input dispatch, focus management. `cel.init(terminal)` starts, `cel.viewport(fn)` sets render function, `cel.render()` requests re-render, `cel.stop()` restores terminal. Mouse input handles batched SGR events (terminals often send multiple events in a single data chunk).
 - `layout.ts` — Flexbox engine. `layout(root, width, height)` → `LayoutNode` tree with absolute screen rects.
-- `paint.ts` — Paints `LayoutNode` tree into `CellBuffer`. Handles clip rects, scroll offsets, scrollbars, grapheme-aware text rendering, TextInput cursor/scroll state.
+- `paint.ts` — Paints `LayoutNode` tree into `CellBuffer`. Handles clip rects, scroll offsets, scrollbars, grapheme-aware text rendering, TextInput cursor/scroll state, container bgColor fill, style inheritance threading, focusStyle resolution.
 - `emitter.ts` — `emitBuffer()` for full renders, `emitDiff()` for differential. Both wrap in CSI 2026 synchronized output.
 - `hit-test.ts` — `hitTest(root, x, y)` → path from root to deepest node. `findClickHandler`, `findScrollTarget`, `findKeyPressHandler`, `collectFocusable` walk paths.
 - `keys.ts` — `parseKey(data)` normalizes terminal input to canonical key strings. `isEditingKey()` identifies keys consumed by TextInput.

@@ -5,12 +5,12 @@ license: MIT
 compatibility: Requires Bun runtime and a terminal with SGR mouse mode support.
 metadata:
   author: sacenox
-  version: "0.0.1"
+  version: "0.1.0"
 ---
 
 # Building TUIs with cel-tui
 
-cel-tui is a TypeScript TUI framework with a declarative functional API, flexbox layout, and cell-buffer rendering. It has 4 primitives and external state management.
+cel-tui is a TypeScript TUI framework with a declarative functional API, flexbox layout, cell-buffer rendering, and style inheritance. It has 4 primitives and external state management.
 
 ## Install
 
@@ -47,6 +47,7 @@ cel.viewport(() =>
   VStack(
     {
       height: "100%",
+      fgColor: "white",
       onKeyPress: (key) => {
         if (key === "ctrl+q") {
           cel.stop();
@@ -60,7 +61,6 @@ cel.viewport(() =>
       TextInput({
         flex: 1,
         value,
-        focused: true,
         onChange: (v) => {
           value = v;
           cel.render();
@@ -101,6 +101,7 @@ TextInput accepts container sizing props (`flex`, `width`, `height`, `padding`, 
 
 ```ts
 {
+  // Sizing
   width, height,          // SizeValue (number | "50%")
   flex,                   // number
   minWidth, maxWidth,     // number
@@ -113,9 +114,16 @@ TextInput accepts container sizing props (`flex`, `width`, `height`, `padding`, 
   scrollbar,              // boolean
   scrollOffset,           // number (controlled scroll)
   onScroll,               // (offset: number) => void
+
+  // Styling (inherited by descendants)
+  bold, italic, underline,// boolean
+  fgColor, bgColor,       // Color (ANSI 16)
+  focusStyle,             // StyleProps — overrides when focused
+
+  // Interaction
   onClick,                // () => void
   focusable,              // boolean (default true if onClick set)
-  focused,                // boolean (controlled)
+  focused,                // boolean (controlled — omit for uncontrolled)
   onFocus,                // () => void
   onBlur,                 // () => void
   onKeyPress,             // (key: string) => void
@@ -147,11 +155,7 @@ TextInput({
   onSubmit, // () => void
   submitKey, // string (default "enter")
   placeholder, // Text() node shown when empty
-  focused, // boolean (controlled)
-  onFocus,
-  onBlur, // () => void
-  // + all container sizing props
-  // + all styling props (bold, fgColor, etc.)
+  // + all container props (sizing, styling, focus, etc.)
 });
 ```
 
@@ -173,12 +177,17 @@ HStack({ height: 1 }, [
 Text("─", { repeat: "fill", fgColor: "brightBlack" });
 ```
 
-### Button
+### Button with focus style
 
 ```ts
-HStack({ onClick: handleClick }, [
-  Text("[Send]", { bold: true, fgColor: "cyan" }),
-]);
+HStack(
+  {
+    onClick: handleClick,
+    fgColor: "cyan",
+    focusStyle: { bgColor: "cyan", fgColor: "black" },
+  },
+  [Text(" Send ", { bold: true })],
+);
 ```
 
 ### Growing text input (caps at maxHeight, then scrolls)
@@ -218,7 +227,7 @@ VStack(
 
 ### Layers (modals)
 
-Return an array from the render function. Layers composite bottom-to-top:
+Return an array from the render function. Layers composite bottom-to-top. Use `bgColor` for opaque modal backgrounds:
 
 ```ts
 cel.viewport(() => [
@@ -235,7 +244,11 @@ cel.viewport(() => [
               cel.render();
             },
           },
-          [VStack({ width: 40, height: 10 }, [...modalContent])],
+          [
+            VStack({ width: 40, height: 10, bgColor: "black" }, [
+              ...modalContent,
+            ]),
+          ],
         ),
       ]
     : []),
@@ -256,9 +269,15 @@ VStack({
 }, [...])
 ```
 
-### Focus (controlled)
+### Focus
+
+Focus is **uncontrolled by default** — Tab/Shift+Tab/Escape/click just work:
 
 ```ts
+// Uncontrolled (default) — framework manages focus
+HStack({ onClick: handleAction }, [Text("[ OK ]")]);
+
+// Controlled — app owns focus state (provide `focused` prop)
 TextInput({
   value: text,
   onChange: handleChange,
@@ -274,6 +293,17 @@ TextInput({
 });
 ```
 
+### Style inheritance
+
+Containers propagate styles to descendants. Explicit props always win:
+
+```ts
+VStack({ fgColor: "white", bgColor: "blue" }, [
+  Text("inherits white on blue"),
+  Text("explicit green on blue", { fgColor: "green" }),
+]);
+```
+
 ## Key Format
 
 All lowercase, modifiers joined by `+`: `"ctrl+s"`, `"ctrl+shift+n"`, `"escape"`, `"enter"`, `"alt+up"`, `"f1"`. Framework normalizes modifier order.
@@ -283,7 +313,9 @@ All lowercase, modifiers joined by `+`: `"ctrl+s"`, `"ctrl+shift+n"`, `"escape"`
 - **State is external** — framework has no state. Call `cel.render()` after changes.
 - **Text is a leaf** — no sizing props, no children. Parent controls the box.
 - **TextInput is a container** — accepts sizing props but no children.
-- **No style inheritance** — every node sets its own styles explicitly.
+- **Style inheritance** — containers propagate styles (fgColor, bgColor, bold, etc.) to descendants. Explicit props on a node always override. Container `bgColor` fills the rect with opaque background.
+- **focusStyle** — `focusStyle: { bgColor, fgColor, ... }` on containers overrides styles when focused. Participates in inheritance.
+- **Uncontrolled focus by default** — Tab/Shift+Tab/Escape/click just work. Provide `focused` prop to opt into controlled mode.
 - **Escape unfocuses** the current element.
 - **Tab/Shift+Tab** traverses focusable elements in document order (wraps around). After Escape, traversal continues from the element that lost focus (not from the start).
 - **Enter** activates a focused clickable container (fires onClick).
