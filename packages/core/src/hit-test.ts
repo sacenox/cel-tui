@@ -17,7 +17,7 @@ function pointInRect(x: number, y: number, rect: Rect): boolean {
  * Callback to resolve the current scroll offset for a scrollable container.
  * Used to adjust hit coordinates when testing children of scrolled containers.
  */
-export type ScrollOffsetResolver = (ln: LayoutNode) => number;
+type ScrollOffsetResolver = (ln: LayoutNode) => number;
 
 /** Default resolver: reads scrollOffset from props, defaults to 0. */
 function defaultScrollResolver(ln: LayoutNode): number {

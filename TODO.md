@@ -5,31 +5,12 @@ Remaining work, known bugs, and planned improvements.
 ## Legend
 
 - 🔧 Bug / spec violation
-- ✅ Fixed
 - ❌ Not yet implemented
 - 💡 Future enhancement
 
 ---
 
 ## Bugs / Spec Violations
-
-- ✅ ~~**Uncontrolled container scroll is broken**~~ — Fixed: changed `"onScroll" in props` to `overflow === "scroll"`, added path-based persistence for uncontrolled scroll state across re-renders.
-
-- ✅ ~~**Wide character (CJK/emoji) rendering broken in emitter**~~ — Fixed: paint writes continuation markers (char="") for wide chars, emitter skips them.
-
-- ✅ ~~**Hit testing ignores scroll offsets**~~ — Fixed: hitTest() accepts a scroll offset resolver and adjusts coordinates when descending into scrollable containers.
-
-- ✅ ~~**TextInput padding accepted but never applied**~~ — Fixed: layout intrinsic size accounts for padding, paint insets content area by padding.
-
-- ✅ ~~**TextInput placeholder doesn't inherit styles**~~ — Fixed: placeholder text inherits the TextInput's resolved style chain.
-
-- ✅ ~~**Key bubbling spuriously consumes keys**~~ — Fixed: focused path always returns after bubbling (no double-dispatch to root), only renders when consumed.
-
-- ✅ ~~**`getMaxScrollOffset` doesn't account for padding**~~ — Fixed: adds padding to content extent in max offset calculation.
-
-- ✅ ~~**Spec reference example inconsistency**~~ — Fixed: changed `msg.blocks.map(...)` to `Text(msg.content)`.
-
-- ✅ ~~**Duplicate JSDoc in paint.ts**~~ — Fixed: removed duplicate doc comment on `paintLineGraphemes`.
 
 - 🔧 **TextInput cursor movement doesn't handle multi-codepoint graphemes** — `deleteBackward`/`deleteForward` in `text-edit.ts` operate on single string indices. For multi-codepoint characters (emoji ZWJ sequences, combining marks), this leaves the cursor mid-grapheme. `moveCursor` has the same issue.
 

@@ -572,16 +572,8 @@ import type { ContainerProps } from "@cel-tui/types";
 const containerScrolls = new WeakMap<ContainerProps, number>();
 
 /** Get the scroll offset for an uncontrolled scrollable container. */
-export function getContainerScroll(props: ContainerProps): number {
+function getContainerScroll(props: ContainerProps): number {
   return containerScrolls.get(props) ?? 0;
-}
-
-/** Set the scroll offset for an uncontrolled scrollable container. */
-export function setContainerScroll(
-  props: ContainerProps,
-  scroll: number,
-): void {
-  containerScrolls.set(props, scroll);
 }
 
 /**

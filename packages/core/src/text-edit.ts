@@ -139,26 +139,3 @@ function moveVertical(
 
   return { value, cursor: newOffset };
 }
-
-/**
- * Map a cursor offset to (line, column) in the raw text (split by \n).
- * Used for painting the cursor.
- */
-export function cursorToLineCol(
-  value: string,
-  cursor: number,
-): { line: number; col: number } {
-  const lines = value.split("\n");
-  let offset = 0;
-
-  for (let i = 0; i < lines.length; i++) {
-    const lineLen = lines[i]!.length;
-    if (cursor <= offset + lineLen) {
-      return { line: i, col: cursor - offset };
-    }
-    offset += lineLen + 1;
-  }
-
-  // Cursor at very end
-  return { line: lines.length - 1, col: lines[lines.length - 1]!.length };
-}
