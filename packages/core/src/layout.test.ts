@@ -648,6 +648,447 @@ describe("layout", () => {
     });
   });
 
+  describe("flexWrap", () => {
+    test("nowrap is the default — children stay on one line", () => {
+      // Three 30-wide children in an 80-wide HStack: total 90, no wrapping
+      const node = HStack({ width: 80, height: 24 }, [
+        VStack({ width: 30, height: 5 }, []),
+        VStack({ width: 30, height: 5 }, []),
+        VStack({ width: 30, height: 5 }, []),
+      ]);
+      const result = layout(node, 80, 24);
+      const rects = childRects(result);
+      // All on same row (y=0), positioned left-to-right
+      expect(rects[0]!.y).toBe(0);
+      expect(rects[1]!.y).toBe(0);
+      expect(rects[2]!.y).toBe(0);
+      expect(rects[0]!.x).toBe(0);
+      expect(rects[1]!.x).toBe(30);
+      expect(rects[2]!.x).toBe(60);
+    });
+
+    test("wrap splits children into rows when they exceed width", () => {
+      // Three 30-wide children in an 80-wide HStack with wrap
+      // Row 1: child0 (30) + child1 (30) = 60 ≤ 80 ✓
+      // Row 2: child2 (30) — adding to row 1 would be 90 > 80
+      const node = HStack({ width: 80, height: 24, flexWrap: "wrap" }, [
+        VStack({ width: 30, height: 5 }, []),
+        VStack({ width: 30, height: 5 }, []),
+        VStack({ width: 30, height: 5 }, []),
+      ]);
+      const result = layout(node, 80, 24);
+      const rects = childRects(result);
+      // Row 1: child0 at (0,0), child1 at (30,0)
+      expect(rects[0]).toEqual({ x: 0, y: 0, width: 30, height: 5 });
+      expect(rects[1]).toEqual({ x: 30, y: 0, width: 30, height: 5 });
+      // Row 2: child2 at (0,5)
+      expect(rects[2]).toEqual({ x: 0, y: 5, width: 30, height: 5 });
+    });
+
+    test("all children fit on one row — no wrapping", () => {
+      const node = HStack({ width: 80, height: 24, flexWrap: "wrap" }, [
+        VStack({ width: 20, height: 3 }, []),
+        VStack({ width: 20, height: 3 }, []),
+        VStack({ width: 20, height: 3 }, []),
+      ]);
+      const result = layout(node, 80, 24);
+      const rects = childRects(result);
+      expect(rects[0]).toEqual({ x: 0, y: 0, width: 20, height: 3 });
+      expect(rects[1]).toEqual({ x: 20, y: 0, width: 20, height: 3 });
+      expect(rects[2]).toEqual({ x: 40, y: 0, width: 20, height: 3 });
+    });
+
+    test("each child on its own row when each exceeds half the width", () => {
+      const node = HStack({ width: 80, height: 24, flexWrap: "wrap" }, [
+        VStack({ width: 50, height: 2 }, []),
+        VStack({ width: 50, height: 3 }, []),
+        VStack({ width: 50, height: 4 }, []),
+      ]);
+      const result = layout(node, 80, 24);
+      const rects = childRects(result);
+      expect(rects[0]).toEqual({ x: 0, y: 0, width: 50, height: 2 });
+      expect(rects[1]).toEqual({ x: 0, y: 2, width: 50, height: 3 });
+      expect(rects[2]).toEqual({ x: 0, y: 5, width: 50, height: 4 });
+    });
+
+    test("row height is the max cross-size of children in that row", () => {
+      // Row 1: height-2 and height-5 → row height 5
+      // Row 2: height-3 → row height 3
+      const node = HStack({ width: 80, height: 24, flexWrap: "wrap" }, [
+        VStack({ width: 50, height: 2 }, []),
+        VStack({ width: 20, height: 5 }, []),
+        VStack({ width: 50, height: 3 }, []),
+      ]);
+      const result = layout(node, 80, 24);
+      const rects = childRects(result);
+      // Row 1: both at y=0, row height = max(2,5) = 5
+      expect(rects[0]).toEqual({ x: 0, y: 0, width: 50, height: 2 });
+      expect(rects[1]).toEqual({ x: 50, y: 0, width: 20, height: 5 });
+      // Row 2: starts at y=5
+      expect(rects[2]).toEqual({ x: 0, y: 5, width: 50, height: 3 });
+    });
+
+    test("gap between items within a row", () => {
+      const node = HStack({ width: 80, height: 24, flexWrap: "wrap", gap: 2 }, [
+        VStack({ width: 30, height: 3 }, []),
+        VStack({ width: 30, height: 3 }, []),
+        VStack({ width: 30, height: 3 }, []),
+      ]);
+      const result = layout(node, 80, 24);
+      const rects = childRects(result);
+      // Row 1: child0(30) + gap(2) + child1(30) = 62 ≤ 80 ✓
+      //         + gap(2) + child2(30) = 94 > 80 ✗
+      // Row 2: child2
+      expect(rects[0]).toEqual({ x: 0, y: 0, width: 30, height: 3 });
+      expect(rects[1]).toEqual({ x: 32, y: 0, width: 30, height: 3 });
+      // Row 2 starts at y = row1Height(3) + gap(2) = 5
+      expect(rects[2]).toEqual({ x: 0, y: 5, width: 30, height: 3 });
+    });
+
+    test("gap between rows", () => {
+      // Every child gets its own row, gap between rows
+      const node = HStack({ width: 80, height: 24, flexWrap: "wrap", gap: 1 }, [
+        VStack({ width: 80, height: 2 }, []),
+        VStack({ width: 80, height: 3 }, []),
+      ]);
+      const result = layout(node, 80, 24);
+      const rects = childRects(result);
+      expect(rects[0]).toEqual({ x: 0, y: 0, width: 80, height: 2 });
+      // gap between rows = 1
+      expect(rects[1]).toEqual({ x: 0, y: 3, width: 80, height: 3 });
+    });
+
+    test("flex children distribute remaining space within their row", () => {
+      // Row 1: fixed(20) + flex(1) → flex gets 80-20 = 60
+      // Row 2: flex(1) → flex gets 80
+      const node = HStack({ width: 80, height: 24, flexWrap: "wrap" }, [
+        VStack({ width: 20, height: 3 }, []),
+        VStack({ flex: 1, height: 3 }, []),
+        VStack({ width: 90, height: 4 }, []), // wider than container, own row
+      ]);
+      const result = layout(node, 80, 24);
+      const rects = childRects(result);
+      // Row 1: fixed + flex
+      expect(rects[0]).toEqual({ x: 0, y: 0, width: 20, height: 3 });
+      expect(rects[1]).toEqual({ x: 20, y: 0, width: 60, height: 3 });
+      // Row 2: child wider than container
+      expect(rects[2]!.y).toBe(3);
+    });
+
+    test("multiple flex children in one row share space", () => {
+      const node = HStack({ width: 80, height: 24, flexWrap: "wrap" }, [
+        VStack({ width: 20, height: 3 }, []),
+        VStack({ flex: 1, height: 3 }, []),
+        VStack({ flex: 1, height: 3 }, []),
+      ]);
+      const result = layout(node, 80, 24);
+      const rects = childRects(result);
+      // All fit in one row. Remaining = 80 - 20 = 60, split 30/30
+      expect(rects[0]).toEqual({ x: 0, y: 0, width: 20, height: 3 });
+      expect(rects[1]).toEqual({ x: 20, y: 0, width: 30, height: 3 });
+      expect(rects[2]).toEqual({ x: 50, y: 0, width: 30, height: 3 });
+    });
+
+    test("padding reduces available width for wrapping", () => {
+      // Inner width = 80 - 2*5 = 70
+      // Row 1: 40 ≤ 70 ✓, 40+40=80 > 70 ✗
+      // Row 2: 40
+      const node = HStack(
+        { width: 80, height: 24, flexWrap: "wrap", padding: { x: 5, y: 2 } },
+        [
+          VStack({ width: 40, height: 3 }, []),
+          VStack({ width: 40, height: 3 }, []),
+        ],
+      );
+      const result = layout(node, 80, 24);
+      const rects = childRects(result);
+      // Row 1 at padded origin
+      expect(rects[0]).toEqual({ x: 5, y: 2, width: 40, height: 3 });
+      // Row 2
+      expect(rects[1]).toEqual({ x: 5, y: 5, width: 40, height: 3 });
+    });
+
+    test("alignItems stretch makes children fill row height", () => {
+      // Default alignItems is stretch. Children should fill their row's height.
+      const node = HStack({ width: 80, height: 24, flexWrap: "wrap" }, [
+        VStack({ width: 50, height: 2 }, []),
+        VStack({ width: 20 }, []), // no explicit height
+        VStack({ width: 50, height: 3 }, []),
+      ]);
+      const result = layout(node, 80, 24);
+      const rects = childRects(result);
+      // Row 1: max height = 2 (first child), second child stretches to 2
+      // But wait — when the second child has no explicit height, under stretch
+      // it should fill the row height, which is determined by the tallest child.
+      // The tallest in row 1 is 2, so stretched child gets 2.
+      expect(rects[0]!.height).toBe(2);
+      expect(rects[1]!.height).toBe(2);
+      // Row 2
+      expect(rects[2]!.height).toBe(3);
+    });
+
+    test("alignItems center centers children vertically within row", () => {
+      const node = HStack(
+        { width: 80, height: 24, flexWrap: "wrap", alignItems: "center" },
+        [
+          VStack({ width: 50, height: 6 }, []),
+          VStack({ width: 20, height: 2 }, []),
+        ],
+      );
+      const result = layout(node, 80, 24);
+      const rects = childRects(result);
+      // Single row, row height = 6
+      // First child: y=0, height=6 (fills row)
+      expect(rects[0]).toEqual({ x: 0, y: 0, width: 50, height: 6 });
+      // Second child: centered in 6-high row → (6-2)/2 = 2
+      expect(rects[1]).toEqual({ x: 50, y: 2, width: 20, height: 2 });
+    });
+
+    test("alignItems end aligns children to bottom of row", () => {
+      const node = HStack(
+        { width: 80, height: 24, flexWrap: "wrap", alignItems: "end" },
+        [
+          VStack({ width: 50, height: 6 }, []),
+          VStack({ width: 20, height: 2 }, []),
+        ],
+      );
+      const result = layout(node, 80, 24);
+      const rects = childRects(result);
+      // Row height = 6. Second child at bottom: y = 6-2 = 4
+      expect(rects[0]).toEqual({ x: 0, y: 0, width: 50, height: 6 });
+      expect(rects[1]).toEqual({ x: 50, y: 4, width: 20, height: 2 });
+    });
+
+    test("justifyContent center centers items within each row", () => {
+      const node = HStack(
+        { width: 80, height: 24, flexWrap: "wrap", justifyContent: "center" },
+        [
+          VStack({ width: 30, height: 3 }, []),
+          VStack({ width: 30, height: 3 }, []),
+          VStack({ width: 30, height: 3 }, []),
+        ],
+      );
+      const result = layout(node, 80, 24);
+      const rects = childRects(result);
+      // Row 1: child0+child1 = 60, remaining = 20, offset = 10
+      expect(rects[0]).toEqual({ x: 10, y: 0, width: 30, height: 3 });
+      expect(rects[1]).toEqual({ x: 40, y: 0, width: 30, height: 3 });
+      // Row 2: child2 = 30, remaining = 50, offset = 25
+      expect(rects[2]).toEqual({ x: 25, y: 3, width: 30, height: 3 });
+    });
+
+    test("justifyContent end pushes items to end of each row", () => {
+      const node = HStack(
+        { width: 80, height: 24, flexWrap: "wrap", justifyContent: "end" },
+        [
+          VStack({ width: 30, height: 3 }, []),
+          VStack({ width: 30, height: 3 }, []),
+          VStack({ width: 30, height: 3 }, []),
+        ],
+      );
+      const result = layout(node, 80, 24);
+      const rects = childRects(result);
+      // Row 1: 30+30 = 60, remaining = 20, offset = 20
+      expect(rects[0]).toEqual({ x: 20, y: 0, width: 30, height: 3 });
+      expect(rects[1]).toEqual({ x: 50, y: 0, width: 30, height: 3 });
+      // Row 2: 30, remaining = 50, offset = 50
+      expect(rects[2]).toEqual({ x: 50, y: 3, width: 30, height: 3 });
+    });
+
+    test("justifyContent space-between distributes within each row", () => {
+      const node = HStack(
+        {
+          width: 80,
+          height: 24,
+          flexWrap: "wrap",
+          justifyContent: "space-between",
+        },
+        [
+          VStack({ width: 20, height: 3 }, []),
+          VStack({ width: 20, height: 3 }, []),
+          VStack({ width: 20, height: 3 }, []),
+          VStack({ width: 20, height: 3 }, []),
+        ],
+      );
+      const result = layout(node, 80, 24);
+      const rects = childRects(result);
+      // All 4 fit: 20*4 = 80 — no wrapping needed
+      // Remaining = 0 with space-between
+      expect(rects[0]!.x).toBe(0);
+      expect(rects[1]!.x).toBe(20);
+      expect(rects[2]!.x).toBe(40);
+      expect(rects[3]!.x).toBe(60);
+    });
+
+    test("intrinsic height of wrapping HStack equals sum of row heights", () => {
+      // HStack with no explicit height should size to fit all rows
+      const node = VStack({ width: 80, height: 24 }, [
+        HStack({ flexWrap: "wrap" }, [
+          VStack({ width: 50, height: 3 }, []),
+          VStack({ width: 50, height: 4 }, []),
+        ]),
+        Text("below"),
+      ]);
+      const result = layout(node, 80, 24);
+      const rects = childRects(result);
+      // HStack: row1 height=3, row2 height=4, total = 7
+      expect(rects[0]!.height).toBe(7);
+      // Text below starts at y=7
+      expect(rects[1]!.y).toBe(7);
+    });
+
+    test("intrinsic height with gap includes gaps between rows", () => {
+      const node = VStack({ width: 80, height: 24 }, [
+        HStack({ flexWrap: "wrap", gap: 1 }, [
+          VStack({ width: 80, height: 2 }, []),
+          VStack({ width: 80, height: 3 }, []),
+        ]),
+        Text("below"),
+      ]);
+      const result = layout(node, 80, 24);
+      const rects = childRects(result);
+      // Two rows: 2 + gap(1) + 3 = 6
+      expect(rects[0]!.height).toBe(6);
+      expect(rects[1]!.y).toBe(6);
+    });
+
+    test("Text children wrap based on intrinsic width", () => {
+      // Text nodes have intrinsic width. They should wrap like other nodes.
+      const node = HStack({ width: 20, height: 10, flexWrap: "wrap" }, [
+        Text("hello"), // width 5
+        Text("world"), // width 5
+        Text("this is long text"), // width 17
+      ]);
+      const result = layout(node, 20, 10);
+      const rects = childRects(result);
+      // Row 1: "hello"(5) + "world"(5) = 10 ≤ 20 ✓
+      //         + "this is long text"(17) = 27 > 20 ✗
+      // Row 2: "this is long text"
+      expect(rects[0]!.y).toBe(0);
+      expect(rects[1]!.y).toBe(0);
+      expect(rects[2]!.y).toBe(1); // second row
+      expect(rects[0]!.x).toBe(0);
+      expect(rects[1]!.x).toBe(5);
+      expect(rects[2]!.x).toBe(0);
+    });
+
+    test("single child wider than container gets its own row", () => {
+      const node = HStack({ width: 40, height: 24, flexWrap: "wrap" }, [
+        VStack({ width: 20, height: 3 }, []),
+        VStack({ width: 50, height: 4 }, []), // wider than container
+        VStack({ width: 20, height: 2 }, []),
+      ]);
+      const result = layout(node, 40, 24);
+      const rects = childRects(result);
+      // Row 1: child0 (20 ≤ 40)
+      // child1 (20+50 > 40, starts new row)
+      // Row 2: child1 (50 > 40, but it's the first item so it goes on this row)
+      // Row 3: child2 (50+20 > 40, new row)
+      expect(rects[0]!.y).toBe(0);
+      expect(rects[1]!.y).toBe(3); // after row 1 (height 3)
+      expect(rects[2]!.y).toBe(7); // after row 2 (height 4)
+    });
+
+    test("empty HStack with flexWrap produces no children", () => {
+      const node = HStack({ width: 80, height: 24, flexWrap: "wrap" }, []);
+      const result = layout(node, 80, 24);
+      expect(result.children).toEqual([]);
+    });
+
+    test("single child in wrapping HStack", () => {
+      const node = HStack({ width: 80, height: 24, flexWrap: "wrap" }, [
+        VStack({ width: 30, height: 5 }, []),
+      ]);
+      const result = layout(node, 80, 24);
+      const rects = childRects(result);
+      expect(rects[0]).toEqual({ x: 0, y: 0, width: 30, height: 5 });
+    });
+
+    test("flexWrap on VStack is ignored (treated as nowrap)", () => {
+      // flexWrap is only meaningful on HStack per the spec
+      const node = VStack({ width: 80, height: 10, flexWrap: "wrap" as any }, [
+        VStack({ height: 4 }, []),
+        VStack({ height: 4 }, []),
+        VStack({ height: 4 }, []),
+      ]);
+      const result = layout(node, 80, 10);
+      const rects = childRects(result);
+      // Normal VStack behavior — children stack vertically, overflow
+      expect(rects[0]!.y).toBe(0);
+      expect(rects[1]!.y).toBe(4);
+      expect(rects[2]!.y).toBe(8);
+    });
+
+    test("nested wrapping HStack inside VStack", () => {
+      const node = VStack({ width: 60, height: 24 }, [
+        Text("Title"),
+        HStack({ flexWrap: "wrap", gap: 1 }, [
+          VStack({ width: 25, height: 2 }, []),
+          VStack({ width: 25, height: 2 }, []),
+          VStack({ width: 25, height: 2 }, []),
+        ]),
+        Text("Footer"),
+      ]);
+      const result = layout(node, 60, 24);
+      const rects = childRects(result);
+
+      // Title at y=0, height=1
+      expect(rects[0]!.y).toBe(0);
+      expect(rects[0]!.height).toBe(1);
+
+      // HStack at y=1
+      // Row 1: 25 + 1 + 25 = 51 ≤ 60, + 1 + 25 = 77 > 60
+      // Row 2: 25
+      // HStack height = 2 + 1 + 2 = 5
+      expect(rects[1]!.y).toBe(1);
+      expect(rects[1]!.height).toBe(5);
+
+      // Footer at y=6
+      expect(rects[2]!.y).toBe(6);
+
+      // Verify HStack's children
+      const hstackChildren = result.children[1]!.children;
+      expect(hstackChildren[0]!.rect).toEqual({
+        x: 0,
+        y: 1,
+        width: 25,
+        height: 2,
+      });
+      expect(hstackChildren[1]!.rect).toEqual({
+        x: 26,
+        y: 1,
+        width: 25,
+        height: 2,
+      });
+      expect(hstackChildren[2]!.rect).toEqual({
+        x: 0,
+        y: 4,
+        width: 25,
+        height: 2,
+      });
+    });
+
+    test("constraints apply to children in wrapped rows", () => {
+      const node = HStack({ width: 80, height: 24, flexWrap: "wrap" }, [
+        VStack({ flex: 1, minWidth: 30, height: 3 }, []),
+        VStack({ flex: 1, minWidth: 30, height: 3 }, []),
+        VStack({ flex: 1, minWidth: 30, height: 3 }, []),
+      ]);
+      const result = layout(node, 80, 24);
+      const rects = childRects(result);
+      // Flex children: need to decide row membership based on min sizes
+      // Each has minWidth 30. Three at 30 = 90 > 80, so wrapping occurs.
+      // Row 1: child0 + child1 at minWidth 30 each = 60 ≤ 80
+      //   Remaining = 80 - 0 (no fixed) = 80, shared between 2 flex → 40 each
+      //   Both ≥ 30 ✓
+      // Row 2: child2 → gets full 80
+      expect(rects[0]!.width).toBe(40);
+      expect(rects[1]!.width).toBe(40);
+      expect(rects[2]!.y).toBe(3);
+      expect(rects[2]!.width).toBe(80);
+    });
+  });
+
   describe("nested layout", () => {
     test("editor-like layout: sidebar + main area", () => {
       const node = HStack({ width: 80, height: 24 }, [

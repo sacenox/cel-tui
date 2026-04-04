@@ -18,6 +18,7 @@
 
 export { Spacer } from "./spacer.js";
 export { Divider, type DividerProps } from "./divider.js";
+export { VDivider, type VDividerProps } from "./vdivider.js";
 export { Button, type ButtonProps } from "./button.js";
 export {
   Select,
@@ -25,3 +26,11 @@ export {
   type SelectItem,
   type SelectInstance,
 } from "./select.js";
+export {
+  Markdown,
+  tokenize,
+  type MarkdownProps,
+  type MarkdownTheme,
+  type BlockToken,
+  type InlineSpan,
+} from "./markdown.js";

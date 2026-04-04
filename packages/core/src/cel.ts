@@ -16,8 +16,6 @@ import {
   setTextInputCursor,
   getTextInputScroll,
   setTextInputScroll,
-  getContainerScroll,
-  setContainerScroll,
 } from "./paint.js";
 import {
   insertChar,
@@ -48,6 +46,17 @@ let frameworkFocusIndex = -1;
 
 /** The node whose props were stamped with `focused: true` during the last paint. */
 let stampedNode: LayoutNode | null = null;
+
+/**
+ * Uncontrolled scroll offsets, keyed by structural tree path.
+ * The path is a string like "0/2/1" representing the DFS child indices
+ * from the layer root to the scrollable container. This survives re-renders
+ * because the structural position is the same even with new props objects.
+ */
+const uncontrolledScrollOffsets = new Map<string, number>();
+
+/** Nodes whose props were stamped with scrollOffset during the last paint. */
+let stampedScrollNodes: { node: Node; key: string }[] = [];
 
 function doRender(): void {
   renderScheduled = false;
@@ -81,8 +90,9 @@ function doRender(): void {
     currentLayouts.push(layoutTree);
   }
 
-  // Stamp uncontrolled focus before painting so focusStyle and cursor work
+  // Stamp uncontrolled focus and scroll before painting
   stampUncontrolledFocus();
+  stampUncontrolledScroll();
 
   // Paint each layer into the buffer
   for (const layoutTree of currentLayouts) {
@@ -91,6 +101,7 @@ function doRender(): void {
 
   // Unstamp after paint so input handlers see clean props
   unstampUncontrolledFocus();
+  unstampUncontrolledScroll();
 
   // Emit to terminal — differential when possible
   if (prevBuffer) {
@@ -253,6 +264,75 @@ function unstampUncontrolledFocus(): void {
 }
 
 /**
+ * Compute the structural tree path from a layer root to a target LayoutNode.
+ * Returns a string like "0/2/1" or null if target is not in the tree.
+ */
+function computeTreePath(root: LayoutNode, target: LayoutNode): string | null {
+  if (root === target) return "";
+  for (let i = 0; i < root.children.length; i++) {
+    const sub = computeTreePath(root.children[i]!, target);
+    if (sub !== null) return sub === "" ? String(i) : `${i}/${sub}`;
+  }
+  return null;
+}
+
+/**
+ * Get the full path key for a scrollable node, prefixed by layer index.
+ */
+function getScrollPathKey(target: LayoutNode): string | null {
+  for (let i = 0; i < currentLayouts.length; i++) {
+    const path = computeTreePath(currentLayouts[i]!, target);
+    if (path !== null) return `L${i}:${path}`;
+  }
+  return null;
+}
+
+/**
+ * Stamp `scrollOffset` on uncontrolled scrollable containers' props
+ * before painting, so paint reads the correct offset.
+ */
+function stampUncontrolledScroll(): void {
+  stampedScrollNodes = [];
+  if (uncontrolledScrollOffsets.size === 0) return;
+  for (let i = 0; i < currentLayouts.length; i++) {
+    walkAndStampScroll(currentLayouts[i]!, `L${i}:`);
+  }
+}
+
+function walkAndStampScroll(ln: LayoutNode, pathKey: string): void {
+  const node = ln.node;
+  if (node.type === "vstack" || node.type === "hstack") {
+    if (
+      node.props.overflow === "scroll" &&
+      node.props.scrollOffset === undefined &&
+      !node.props.onScroll
+    ) {
+      const offset = uncontrolledScrollOffsets.get(pathKey);
+      if (offset !== undefined && offset !== 0) {
+        (node.props as any).scrollOffset = offset;
+        stampedScrollNodes.push({ node, key: pathKey });
+      }
+    }
+  }
+  for (let i = 0; i < ln.children.length; i++) {
+    // Keys match getScrollPathKey format: "L0:" for root, "L0:2" for child 2, "L0:2/1" for grandchild
+    const childKey = pathKey.endsWith(":")
+      ? `${pathKey}${i}`
+      : `${pathKey}/${i}`;
+    walkAndStampScroll(ln.children[i]!, childKey);
+  }
+}
+
+function unstampUncontrolledScroll(): void {
+  for (const { node } of stampedScrollNodes) {
+    if (node.type === "vstack" || node.type === "hstack") {
+      delete (node.props as any).scrollOffset;
+    }
+  }
+  stampedScrollNodes = [];
+}
+
+/**
  * Blur the currently focused element and focus a new one.
  * Manages both controlled (via onFocus/onBlur callbacks) and
  * uncontrolled (via frameworkFocusIndex) focus.
@@ -328,6 +408,9 @@ function getMaxScrollOffset(target: LayoutNode): number {
   }
 
   const isVertical = target.node.type === "vstack";
+  const props = target.node.type !== "text" ? target.node.props : null;
+  const padX = (props as any)?.padding?.x ?? 0;
+  const padY = (props as any)?.padding?.y ?? 0;
 
   if (isVertical) {
     let contentHeight = 0;
@@ -335,22 +418,42 @@ function getMaxScrollOffset(target: LayoutNode): number {
       const childBottom = child.rect.y + child.rect.height - rect.y;
       if (childBottom > contentHeight) contentHeight = childBottom;
     }
-    return Math.max(0, contentHeight - rect.height);
+    // Viewport is the inner height (minus bottom padding)
+    // Content starts at padY, so contentHeight includes top padding offset
+    return Math.max(0, contentHeight + padY - rect.height);
   } else {
     let contentWidth = 0;
     for (const child of children) {
       const childRight = child.rect.x + child.rect.width - rect.x;
       if (childRight > contentWidth) contentWidth = childRight;
     }
-    return Math.max(0, contentWidth - rect.width);
+    return Math.max(0, contentWidth + padX - rect.width);
   }
+}
+
+/**
+ * Resolve the current scroll offset for a layout node.
+ * Checks controlled (props.scrollOffset), then uncontrolled (path-based map).
+ */
+function resolveScrollOffset(ln: import("./layout.js").LayoutNode): number {
+  const node = ln.node;
+  if (node.type === "text") return 0;
+  const props = node.props;
+  if ((props as any).scrollOffset !== undefined)
+    return (props as any).scrollOffset;
+  // Check uncontrolled map
+  const pathKey = getScrollPathKey(ln);
+  if (pathKey !== null) {
+    return uncontrolledScrollOffsets.get(pathKey) ?? 0;
+  }
+  return 0;
 }
 
 function handleMouseEvent(event: MouseEvent): void {
   // Hit test on topmost layer first
   for (let i = currentLayouts.length - 1; i >= 0; i--) {
     const layoutRoot = currentLayouts[i]!;
-    const path = hitTest(layoutRoot, event.x, event.y);
+    const path = hitTest(layoutRoot, event.x, event.y, resolveScrollOffset);
     if (path.length === 0) continue;
 
     if (event.type === "click") {
@@ -383,7 +486,7 @@ function handleMouseEvent(event: MouseEvent): void {
           cel.render();
         } else {
           const props = target.node.type !== "text" ? target.node.props : null;
-          if (props && "onScroll" in props) {
+          if (props && (props as any).overflow === "scroll") {
             if (props.onScroll) {
               // Controlled scroll: notify app.
               // Use batch accumulator if available (multiple events in one chunk),
@@ -397,12 +500,18 @@ function handleMouseEvent(event: MouseEvent): void {
                 Math.min(maxOffset, baseOffset + delta),
               );
               batchScrollOffsets?.set(props, newOffset);
-              props.onScroll(newOffset);
+              props.onScroll(newOffset, maxOffset);
             } else {
-              // Uncontrolled scroll: framework manages state
-              const current = getContainerScroll(props);
-              const clamped = Math.max(0, Math.min(maxOffset, current + delta));
-              setContainerScroll(props, clamped);
+              // Uncontrolled scroll: framework manages state via path key
+              const pathKey = getScrollPathKey(target);
+              if (pathKey !== null) {
+                const current = uncontrolledScrollOffsets.get(pathKey) ?? 0;
+                const clamped = Math.max(
+                  0,
+                  Math.min(maxOffset, current + delta),
+                );
+                uncontrolledScrollOffsets.set(pathKey, clamped);
+              }
             }
             cel.render();
           }
@@ -538,17 +647,32 @@ function handleKeyEvent(key: string, rawData?: string): void {
         case "down":
         case "home":
         case "end":
-          newState = moveCursor(
-            editState,
-            key as "left" | "right" | "up" | "down" | "home" | "end",
-            focusedInput.rect.width,
-          );
+          {
+            const tiPadX =
+              (focusedInput.node as import("@cel-tui/types").TextInputNode)
+                .props.padding?.x ?? 0;
+            const contentWidth = Math.max(
+              0,
+              focusedInput.rect.width - tiPadX * 2,
+            );
+            newState = moveCursor(
+              editState,
+              key as "left" | "right" | "up" | "down" | "home" | "end",
+              contentWidth,
+            );
+          }
           break;
         case "enter":
           newState = insertChar(editState, "\n");
           break;
         case "tab":
           newState = insertChar(editState, "\t");
+          break;
+        case "space":
+          newState = insertChar(editState, " ");
+          break;
+        case "plus":
+          newState = insertChar(editState, "+");
           break;
         default:
           // Single printable character — use raw data to preserve case
@@ -588,10 +712,11 @@ function handleKeyEvent(key: string, rawData?: string): void {
             }
             // result === false → key not consumed, keep bubbling
           }
-          if (consumed || handlers.length > 0) {
-            cel.render();
-            return;
-          }
+          // Always return — the key was offered to every handler in the
+          // focused element's path (including root). Even if all returned
+          // false, we don't retry via the unfocused fallback path.
+          if (consumed) cel.render();
+          return;
         }
       }
     }
@@ -675,6 +800,9 @@ export const cel = {
    * Initialize the framework with a terminal implementation.
    * Must be called before {@link cel.viewport}.
    *
+   * Enables the Kitty keyboard protocol (level 1) via the terminal,
+   * enters raw mode, and starts mouse tracking.
+   *
    * @param term - Terminal to render to (ProcessTerminal or MockTerminal).
    */
   init(term: Terminal): void {
@@ -707,6 +835,9 @@ export const cel = {
 
   /**
    * Stop the framework and restore terminal state.
+   *
+   * Pops the Kitty keyboard protocol mode, disables mouse tracking,
+   * and restores the terminal to its previous state.
    */
   stop(): void {
     terminal?.stop();
@@ -719,6 +850,8 @@ export const cel = {
     lastFocusedIndex = -1;
     frameworkFocusIndex = -1;
     stampedNode = null;
+    uncontrolledScrollOffsets.clear();
+    stampedScrollNodes = [];
   },
 
   /** @internal */

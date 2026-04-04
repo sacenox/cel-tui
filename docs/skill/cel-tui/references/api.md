@@ -35,6 +35,33 @@ All props accepted by `VStack` and `HStack`:
 }
 ```
 
+## Scroll
+
+Scroll supports **uncontrolled** (default) and **controlled** modes, mirroring the focus model:
+
+```ts
+// Uncontrolled — framework manages scroll position. Mouse wheel just works.
+VStack({ overflow: "scroll", scrollbar: true }, [...items]);
+
+// Controlled — app owns scroll state.
+VStack(
+  {
+    overflow: "scroll",
+    scrollbar: true,
+    scrollOffset: offset,
+    onScroll: (newOffset) => {
+      offset = newOffset;
+      cel.render();
+    },
+  },
+  [...items],
+);
+```
+
+- Scroll direction follows the container’s main axis: VStack → vertical, HStack → horizontal.
+- Scroll is pointer-driven (mouse wheel), not focus-driven. A user can type in a focused widget while scrolling a different container.
+- In controlled mode, the UI only moves when the app passes the updated `scrollOffset` back. `onScroll` fires with the clamped new offset.
+
 ## Text Props
 
 ```ts

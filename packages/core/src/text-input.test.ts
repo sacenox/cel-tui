@@ -4,6 +4,12 @@ import { MockTerminal } from "./terminal.js";
 import { VStack } from "./primitives/stacks.js";
 import { Text } from "./primitives/text.js";
 import { TextInput } from "./primitives/text-input.js";
+import { kittyEncode } from "./test-helpers.js";
+
+const ENTER = kittyEncode("enter");
+const BACKSPACE = kittyEncode("backspace");
+const CTRL_S = kittyEncode("ctrl+s");
+const LEFT = kittyEncode("left");
 
 describe("TextInput integration", () => {
   let term: MockTerminal;
@@ -86,7 +92,7 @@ describe("TextInput integration", () => {
     await waitForRender();
 
     // Press backspace
-    term.sendInput("\x7f");
+    term.sendInput(BACKSPACE);
     await waitForRender();
 
     expect(value).toBe("ab");
@@ -109,7 +115,7 @@ describe("TextInput integration", () => {
     await waitForRender();
 
     // Press enter
-    term.sendInput("\r");
+    term.sendInput(ENTER);
     await waitForRender();
 
     expect(value).toBe("ab\n");
@@ -136,7 +142,7 @@ describe("TextInput integration", () => {
     );
     await waitForRender();
 
-    term.sendInput("\r");
+    term.sendInput(ENTER);
     await waitForRender();
 
     expect(submitted).toBe(true);
@@ -165,7 +171,7 @@ describe("TextInput integration", () => {
     await waitForRender();
 
     // Enter should insert newline (not submit)
-    term.sendInput("\r");
+    term.sendInput(ENTER);
     await waitForRender();
     expect(value).toBe("hi\n");
     expect(submitted).toBe(false);
@@ -196,7 +202,7 @@ describe("TextInput integration", () => {
     await waitForRender();
 
     // Ctrl+S should bubble up
-    term.sendInput("\x13");
+    term.sendInput(CTRL_S);
     await waitForRender();
 
     expect(receivedKey).toBe("ctrl+s");
@@ -223,11 +229,11 @@ describe("TextInput integration", () => {
     await waitForRender();
 
     // Move cursor left 3 times (from end of "abcdef")
-    term.sendInput("\x1b[D"); // left
+    term.sendInput(LEFT); // left
     await waitForRender();
-    term.sendInput("\x1b[D"); // left
+    term.sendInput(LEFT); // left
     await waitForRender();
-    term.sendInput("\x1b[D"); // left
+    term.sendInput(LEFT); // left
     await waitForRender();
 
     // Now type "X" — should insert at position 3 (after "abc")
@@ -259,7 +265,7 @@ describe("TextInput integration", () => {
 
     // Press enter to add line4 — cursor is now on line 4 (index 3)
     // which is below the 3-row viewport
-    term.sendInput("\r");
+    term.sendInput(ENTER);
     await waitForRender();
 
     // The buffer should show the cursor line (line4 area)
@@ -312,5 +318,60 @@ describe("TextInput integration", () => {
 
     expect(value).toBe("text"); // Not consumed
     expect(receivedKey).toBe("a"); // Bubbled up
+  });
+
+  test("padding insets content area", async () => {
+    setup(20, 5);
+    let value = "hi";
+
+    cel.viewport(() =>
+      VStack({ width: 20, height: 5 }, [
+        TextInput({
+          width: 10,
+          height: 3,
+          padding: { x: 2, y: 1 },
+          value,
+          onChange: (v) => {
+            value = v;
+          },
+          focused: true,
+        }),
+      ]),
+    );
+    await waitForRender();
+
+    const buf = cel._getBuffer()!;
+    // With padding x=2, content starts at col 2. With padding y=1, content at row 1.
+    // Content should be at (2, 1) not (0, 0)
+    expect(buf.get(0, 0).char).toBe(" "); // padding
+    expect(buf.get(1, 0).char).toBe(" "); // padding
+    expect(buf.get(2, 1).char).not.toBe(" "); // content area — "h" or cursor
+  });
+
+  test("padding affects intrinsic height", async () => {
+    setup(20, 10);
+    let value = "line1";
+
+    cel.viewport(() =>
+      VStack({ width: 20, height: 10 }, [
+        TextInput({
+          width: 10,
+          padding: { y: 1 },
+          value,
+          onChange: (v) => {
+            value = v;
+          },
+        }),
+        Text("after"),
+      ]),
+    );
+    await waitForRender();
+
+    const buf = cel._getBuffer()!;
+    // TextInput should have height 3 (1 content + 2 padding)
+    // "after" should start at row 3
+    let afterRow = "";
+    for (let x = 0; x < 5; x++) afterRow += buf.get(x, 3).char;
+    expect(afterRow).toBe("after");
   });
 });

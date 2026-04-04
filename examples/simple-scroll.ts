@@ -2,9 +2,13 @@
  * Scroll test — a large list inside a scrollable VStack.
  * Mouse wheel should scroll the list up/down.
  *
- * Run: bun run examples/scroll-test.ts
+ * Uses uncontrolled scroll — the framework manages scroll position
+ * internally. No scrollOffset/onScroll state needed.
+ *
+ * Run: bun run examples/simple-scroll.ts
  */
 import { cel, VStack, HStack, Text, ProcessTerminal } from "@cel-tui/core";
+import { Divider, Spacer } from "@cel-tui/components";
 
 const MIN_COLS = 30;
 const MIN_ROWS = 8;
@@ -38,8 +42,6 @@ function fake(): string {
     () => words[Math.floor(Math.random() * words.length)],
   ).join(" ");
 }
-
-let scrollOffset = 0;
 
 function quit() {
   cel.stop();
@@ -87,22 +89,13 @@ cel.viewport(() => {
     [
       HStack({ padding: { x: 1 } }, [
         Text("Scroll Test", { bold: true, fgColor: "cyan" }),
-        VStack({ flex: 1 }, []),
-        Text(`offset: ${scrollOffset}`, { fgColor: "brightBlack" }),
+        Spacer(),
+        Text("uncontrolled", { fgColor: "brightBlack" }),
       ]),
-      Text("─", { repeat: "fill", fgColor: "brightBlack" }),
+      Divider({ fgColor: "brightBlack" }),
 
       VStack(
-        {
-          flex: 1,
-          overflow: "scroll",
-          scrollbar: true,
-          scrollOffset,
-          onScroll: (off) => {
-            scrollOffset = off;
-            cel.render();
-          },
-        },
+        { flex: 1, overflow: "scroll", scrollbar: true },
         items.map((item, i) =>
           HStack({ padding: { x: 1 } }, [
             Text(`${String(i + 1).padStart(3)}.`, { fgColor: "yellow" }),
@@ -111,9 +104,11 @@ cel.viewport(() => {
         ),
       ),
 
-      Text("─", { repeat: "fill", fgColor: "brightBlack" }),
+      Divider({ fgColor: "brightBlack" }),
       HStack({ padding: { x: 1 } }, [
-        Text("Mouse wheel to scroll · Ctrl+Q quit", { fgColor: "brightBlack" }),
+        Text("Mouse wheel to scroll · Ctrl+Q quit", {
+          fgColor: "brightBlack",
+        }),
       ]),
     ],
   );

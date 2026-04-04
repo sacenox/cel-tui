@@ -104,6 +104,32 @@ function fillBackground(
   }
 }
 
+/**
+ * Compute the maximum scroll offset for a scrollable container.
+ * This is the content size minus the viewport size along the main axis.
+ */
+function computeMaxScrollOffset(ln: LayoutNode, isVertical: boolean): number {
+  const { rect, children } = ln;
+  const props = ln.node.type !== "text" ? ln.node.props : null;
+  const padX = (props as any)?.padding?.x ?? 0;
+  const padY = (props as any)?.padding?.y ?? 0;
+
+  if (isVertical) {
+    let contentHeight = 0;
+    for (const child of children) {
+      const childBottom = child.rect.y + child.rect.height - rect.y;
+      if (childBottom > contentHeight) contentHeight = childBottom;
+    }
+    return Math.max(0, contentHeight + padY - rect.height);
+  }
+  let contentWidth = 0;
+  for (const child of children) {
+    const childRight = child.rect.x + child.rect.width - rect.x;
+    if (childRight > contentWidth) contentWidth = childRight;
+  }
+  return Math.max(0, contentWidth + padX - rect.width);
+}
+
 function paintLayoutNode(
   ln: LayoutNode,
   buf: CellBuffer,
@@ -150,7 +176,7 @@ function paintLayoutNode(
         italic: node.props.italic ?? tiEffective.italic,
         underline: node.props.underline ?? tiEffective.underline,
       };
-      paintTextInput(tiProps, rect, clipped, buf);
+      paintTextInput(tiProps, rect, clipped, buf, tiEffective);
       break;
     }
     case "vstack":
@@ -172,10 +198,14 @@ function paintLayoutNode(
   const isContainer = node.type === "vstack" || node.type === "hstack";
   const containerProps = isContainer ? node.props : null;
   const isScrollable = containerProps?.overflow === "scroll";
-  const scrollOffset = isScrollable
-    ? (containerProps.scrollOffset ?? getContainerScroll(containerProps))
-    : 0;
   const isVertical = node.type === "vstack";
+  let scrollOffset = 0;
+  if (isScrollable) {
+    const raw = containerProps.scrollOffset ?? 0;
+    // Clamp to valid range so apps can pass large values to mean "scroll to end"
+    const maxOffset = computeMaxScrollOffset(ln, isVertical);
+    scrollOffset = Math.max(0, Math.min(raw, maxOffset));
+  }
 
   // Recurse into children, using this node's clipped rect as the clip for children
   for (const child of ln.children) {
@@ -325,11 +355,6 @@ function makeCell(
 /**
  * Paint a single line of text into the buffer using grapheme segmentation.
  * Correctly handles wide characters (CJK, emoji) by advancing the column
- * by the grapheme's visible width.
- */
-/**
- * Paint a single line of text into the buffer using grapheme segmentation.
- * Correctly handles wide characters (CJK, emoji) by advancing the column
  * by the grapheme's visible width. Respects the clip rect.
  */
 function paintLineGraphemes(
@@ -361,6 +386,20 @@ function paintLineGraphemes(
     if (absX + gw > clipLeft) {
       // At least partially visible in clip rect
       buf.set(absX, y, makeCell(segment, props));
+      // Write continuation markers for wide characters (2+ columns)
+      for (let w = 1; w < gw; w++) {
+        const cx = absX + w;
+        if (cx < clipRight) {
+          buf.set(cx, y, {
+            char: "",
+            fgColor: props.fgColor ?? null,
+            bgColor: props.bgColor ?? null,
+            bold: props.bold ?? false,
+            italic: props.italic ?? false,
+            underline: props.underline ?? false,
+          });
+        }
+      }
     }
     col += gw;
   }
@@ -424,32 +463,53 @@ function paintTextInput(
   rect: Rect,
   clipRect: Rect,
   buf: CellBuffer,
+  inherited: StyleProps = EMPTY_STYLE,
 ): void {
   const { x, y, width: w, height: h } = rect;
   if (w <= 0 || h <= 0) return;
+
+  // Apply padding — content is inset from the rect edges
+  const padX = props.padding?.x ?? 0;
+  const padY = props.padding?.y ?? 0;
+  const cx = x + padX;
+  const cy = y + padY;
+  const cw = Math.max(0, w - padX * 2);
+  const ch = Math.max(0, h - padY * 2);
+  if (cw <= 0 || ch <= 0) return;
 
   const value = props.value;
   const showPlaceholder = value.length === 0 && props.placeholder;
 
   if (showPlaceholder && props.placeholder) {
-    // Paint placeholder text
+    // Paint placeholder text in padded content area, inheriting
+    // styles from the TextInput's resolved style chain
+    const contentRect: Rect = { x: cx, y: cy, width: cw, height: ch };
+    const phProps = props.placeholder.props;
+    const effectivePh = {
+      ...phProps,
+      fgColor: phProps.fgColor ?? inherited.fgColor,
+      bgColor: phProps.bgColor ?? inherited.bgColor,
+      bold: phProps.bold ?? inherited.bold,
+      italic: phProps.italic ?? inherited.italic,
+      underline: phProps.underline ?? inherited.underline,
+    };
     paintText(
       props.placeholder.content,
-      props.placeholder.props,
-      rect,
+      effectivePh,
+      contentRect,
       clipRect,
       buf,
     );
     return;
   }
 
-  // Word-wrap value (always on for TextInput)
+  // Word-wrap value (always on for TextInput) using content width
   const lines: string[] = [];
   for (const rawLine of value.split("\n")) {
-    if (visibleWidth(rawLine) <= w) {
+    if (visibleWidth(rawLine) <= cw) {
       lines.push(rawLine);
     } else {
-      wrapLine(rawLine, w, lines);
+      wrapLine(rawLine, cw, lines);
     }
   }
 
@@ -458,10 +518,10 @@ function paintTextInput(
 
   if (props.focused) {
     const cursorOffset = getTextInputCursor(props);
-    const cursorPos = offsetToWrappedPos(value, cursorOffset, w);
+    const cursorPos = offsetToWrappedPos(value, cursorOffset, cw);
     // Scroll down if cursor is below viewport
-    if (cursorPos.line >= scrollOffset + h) {
-      scrollOffset = cursorPos.line - h + 1;
+    if (cursorPos.line >= scrollOffset + ch) {
+      scrollOffset = cursorPos.line - ch + 1;
     }
     // Scroll up if cursor is above viewport
     if (cursorPos.line < scrollOffset) {
@@ -470,23 +530,23 @@ function paintTextInput(
     setTextInputScroll(props, scrollOffset);
   }
 
-  // Paint visible lines (grapheme-aware)
-  for (let row = 0; row < h; row++) {
+  // Paint visible lines (grapheme-aware) in content area
+  for (let row = 0; row < ch; row++) {
     const lineIdx = scrollOffset + row;
     if (lineIdx >= lines.length) break;
     const line = lines[lineIdx]!;
-    paintLineGraphemes(line, x, y + row, w, clipRect, props, buf);
+    paintLineGraphemes(line, cx, cy + row, cw, clipRect, props, buf);
   }
 
   // Paint cursor if focused
   if (props.focused) {
     const cursorOffset = getTextInputCursor(props);
-    const pos = offsetToWrappedPos(value, cursorOffset, w);
+    const pos = offsetToWrappedPos(value, cursorOffset, cw);
     const screenRow = pos.line - scrollOffset;
-    if (screenRow >= 0 && screenRow < h && pos.col < w) {
-      const existing = buf.get(x + pos.col, y + screenRow);
+    if (screenRow >= 0 && screenRow < ch && pos.col < cw) {
+      const existing = buf.get(cx + pos.col, cy + screenRow);
       // Invert colors for cursor visibility
-      buf.set(x + pos.col, y + screenRow, {
+      buf.set(cx + pos.col, cy + screenRow, {
         char: existing.char === " " && !existing.bgColor ? " " : existing.char,
         fgColor: existing.bgColor ?? "black",
         bgColor: existing.fgColor ?? "white",
@@ -538,21 +598,6 @@ function offsetToWrappedPos(
 // --- Framework-managed state ---
 
 import type { ContainerProps } from "@cel-tui/types";
-
-const containerScrolls = new WeakMap<ContainerProps, number>();
-
-/** Get the scroll offset for an uncontrolled scrollable container. */
-export function getContainerScroll(props: ContainerProps): number {
-  return containerScrolls.get(props) ?? 0;
-}
-
-/** Set the scroll offset for an uncontrolled scrollable container. */
-export function setContainerScroll(
-  props: ContainerProps,
-  scroll: number,
-): void {
-  containerScrolls.set(props, scroll);
-}
 
 /**
  * TextInput state is keyed on the `onChange` function reference, which is

@@ -21,7 +21,7 @@ import {
   TextInput,
   ProcessTerminal,
 } from "@cel-tui/core";
-import { Button, Divider, Spacer } from "@cel-tui/components";
+import { Button, Divider, Spacer, VDivider } from "@cel-tui/components";
 
 // ─── Pet Definitions ────────────────────────────────────────────
 
@@ -491,32 +491,32 @@ function createView() {
           },
         }),
 
-        // Species picker
+        // Species picker — wrapping chips
         Text(""),
         Text("Species:", { bold: true, fgColor: "white" }),
-        ...PETS.map((p, i) => {
-          const sel = i === selectedKind;
-          return HStack(
-            {
-              onClick: () => {
-                selectedKind = i;
-                cel.render();
+        HStack(
+          { flexWrap: "wrap", gap: 1 },
+          PETS.map((p, i) => {
+            const sel = i === selectedKind;
+            return HStack(
+              {
+                onClick: () => {
+                  selectedKind = i;
+                  cel.render();
+                },
+                focusable: false,
               },
-              focusable: false,
-            },
-            [
-              Text(sel ? "  > " : "    ", {
-                fgColor: sel ? "cyan" : "brightBlack",
-                bold: sel,
-              }),
-              Text(p.kind, {
-                fgColor: sel ? "cyan" : "white",
-                bold: sel,
-              }),
-            ],
-          );
-        }),
-        Text("    ↑/↓ to change", {
+              [
+                Text(sel ? ` ● ${p.kind} ` : `   ${p.kind} `, {
+                  fgColor: sel ? "black" : "white",
+                  bgColor: sel ? "cyan" : undefined,
+                  bold: sel,
+                }),
+              ],
+            );
+          }),
+        ),
+        Text("  ↑/↓ to change", {
           fgColor: "brightBlack",
           italic: true,
         }),
@@ -536,22 +536,24 @@ function createView() {
 
         // Create button — uncontrolled focus + focusStyle
         HStack({ justifyContent: "center" }, [
-          HStack(
-            {
-              onClick: startGame,
-              fgColor: "green",
-              focusStyle: { bgColor: "green", fgColor: "black" },
-            },
-            [Text(" Create Pet! ", { bold: true })],
-          ),
+          Button(" Create Pet! ", {
+            onClick: startGame,
+            fgColor: "green",
+            bold: true,
+            focusStyle: { bgColor: "green", fgColor: "black" },
+          }),
         ]),
 
-        // Hints
-        HStack({ justifyContent: "center" }, [
-          Text("Tab", { fgColor: "brightBlack", bold: true }),
-          Text(" navigate  ", { fgColor: "brightBlack" }),
-          Text("Ctrl+Q", { fgColor: "brightBlack", bold: true }),
-          Text(" quit", { fgColor: "brightBlack" }),
+        // Hints — wrapping for narrow terminals
+        HStack({ justifyContent: "center", flexWrap: "wrap", gap: 1 }, [
+          HStack({}, [
+            Text("Tab", { fgColor: "brightBlack", bold: true }),
+            Text(" navigate", { fgColor: "brightBlack" }),
+          ]),
+          HStack({}, [
+            Text("Ctrl+Q", { fgColor: "brightBlack", bold: true }),
+            Text(" quit", { fgColor: "brightBlack" }),
+          ]),
         ]),
       ]),
       Spacer(),
@@ -602,22 +604,18 @@ function mainView() {
       ),
       Text(""),
       HStack({ gap: 3 }, [
-        HStack(
-          {
-            onClick: feed,
-            fgColor: "yellow",
-            focusStyle: { bgColor: "yellow", fgColor: "black" },
-          },
-          [Text(" Feed ", { bold: true })],
-        ),
-        HStack(
-          {
-            onClick: petIt,
-            fgColor: "magenta",
-            focusStyle: { bgColor: "magenta", fgColor: "black" },
-          },
-          [Text(" Pet ", { bold: true })],
-        ),
+        Button(" Feed ", {
+          onClick: feed,
+          fgColor: "yellow",
+          bold: true,
+          focusStyle: { bgColor: "yellow", fgColor: "black" },
+        }),
+        Button(" Pet ", {
+          onClick: petIt,
+          fgColor: "magenta",
+          bold: true,
+          focusStyle: { bgColor: "magenta", fgColor: "black" },
+        }),
       ]),
     ],
   );
@@ -663,9 +661,7 @@ function mainView() {
             // Wide: sidebar | pet side-by-side
             HStack({ flex: 1 }, [
               statsPanel,
-              VStack({ width: 1, height: "100%" }, [
-                Text("│", { repeat: "fill", fgColor: "brightBlack" }),
-              ]),
+              VDivider({ fgColor: "brightBlack" }),
               petPane,
             ]),
           ]),
@@ -811,25 +807,21 @@ function deadView() {
       }),
       Text(""),
       HStack({ gap: 3 }, [
-        HStack(
-          {
-            onClick: restart,
-            fgColor: "green",
-            focusStyle: { bgColor: "green", fgColor: "black" },
+        Button(" New Pet ", {
+          onClick: restart,
+          fgColor: "green",
+          bold: true,
+          focusStyle: { bgColor: "green", fgColor: "black" },
+        }),
+        Button(" View Log ", {
+          onClick: () => {
+            showLog = !showLog;
+            cel.render();
           },
-          [Text(" New Pet ", { bold: true })],
-        ),
-        HStack(
-          {
-            onClick: () => {
-              showLog = !showLog;
-              cel.render();
-            },
-            fgColor: "cyan",
-            focusStyle: { bgColor: "cyan", fgColor: "black" },
-          },
-          [Text(" View Log ", { bold: true })],
-        ),
+          fgColor: "cyan",
+          bold: true,
+          focusStyle: { bgColor: "cyan", fgColor: "black" },
+        }),
       ]),
       HStack({}, [
         Text("Ctrl+Q", { fgColor: "brightBlack", bold: true }),

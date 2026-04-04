@@ -39,10 +39,10 @@ All core systems from the spec are implemented and tested:
 - **Layout engine** — flexbox sizing (fixed, intrinsic, flex, percentage), constraints, gap, padding, justifyContent, alignItems, largest-remainder rounding
 - **Rendering** — cell buffer, ANSI emitter with SGR styling, synchronized output (CSI 2026), differential rendering (emitDiff), full clear on resize
 - **Painting** — grapheme-aware text rendering (CJK/emoji via visibleWidth), overflow clipping via clip rect propagation, scroll content offsetting, scrollbar indicators, container bgColor fill, style inheritance, focusStyle overrides
-- **Input** — key parsing/normalization, SGR mouse events (with batched event support), hit detection, click/scroll routing, focus traversal (Tab/Shift+Tab/Escape/Enter) with uncontrolled and controlled modes, onKeyPress bubbling from focused element through ancestors
+- **Input** — Kitty keyboard protocol (level 1, required), key parsing/normalization for CSI u / CSI letter / CSI tilde formats, SGR mouse events (with batched event support), hit detection, click/scroll routing, focus traversal (Tab/Shift+Tab/Escape/Enter) with uncontrolled and controlled modes, onKeyPress bubbling from focused element through ancestors
 - **TextInput** — text editing, cursor movement, cursor persistence across re-renders (keyed on onChange), auto-scroll to keep cursor visible, placeholder rendering
 - **Layering** — multi-layer compositing, transparency, topmost-layer input priority
-- **Terminal** — crash cleanup (SIGINT/SIGTERM/uncaughtException), resize clear
+- **Terminal** — Kitty keyboard protocol enable/disable, crash cleanup (SIGINT/SIGTERM/uncaughtException), resize clear
 
 See `TODO.md` for remaining spec violations and future work.
 
@@ -67,7 +67,19 @@ bun run docs             # generate HTML + Markdown docs into docs/
 
 ## Visual Testing with tmux
 
-Use a tmux session to run examples and visually inspect rendered output:
+Use a tmux session to run examples and visually inspect rendered output.
+
+### tmux Configuration
+
+cel-tui requires the Kitty keyboard protocol. tmux 3.2+ supports it via the `extended-keys` option, but it's **off by default**. The global `~/.tmux.conf` must include:
+
+```
+set -s extended-keys on
+```
+
+Without this, tmux intercepts the protocol negotiation and key events arrive in legacy format that the framework's parser won't recognize.
+
+### Usage
 
 ```bash
 # Create a session (set size to simulate a terminal window)
@@ -91,7 +103,56 @@ tmux kill-session -t cel
 
 This lets you see exactly what the user sees — rendered cells, alignment, clipping, colors — without needing a real interactive terminal.
 
+### Sending Keys with the Kitty Protocol
+
+cel-tui requires the Kitty keyboard protocol. `tmux send-keys` named keys (e.g., `C-q`, `Enter`) inject **legacy** byte sequences that the framework's parser won't recognize. Use the `kittyEncode` test helper with `send-keys -H` (hex mode) instead:
+
+```bash
+# Helper: convert a key name to hex bytes via kittyEncode
+send_key() {
+  local hex=$(cd /home/xonecas/src/cel-tui && bun -e "
+    const {kittyEncode} = require('./packages/core/src/test-helpers.ts');
+    const bytes = kittyEncode('$1');
+    const hex = Array.from(bytes).map(c => c.charCodeAt(0).toString(16).padStart(2,'0')).join(' ');
+    process.stdout.write(hex);
+  ")
+  tmux send-keys -t cel -H $hex
+}
+
+# Usage:
+send_key "ctrl+q"       # Quit
+send_key "tab"           # Focus traversal
+send_key "enter"         # Activate
+send_key "escape"        # Unfocus
+send_key "a"             # Printable character (lowercase only)
+send_key "ctrl+s"        # Modifier combo
+send_key "shift+tab"     # Reverse focus traversal
+```
+
+**Limitations:** The helper lowercases all input, so uppercase letters aren't testable this way.
+
 **Caveat:** tmux `send-keys -H` injects raw bytes one event at a time, but real terminals batch multiple mouse events into a single stdin chunk. Always verify mouse/scroll behavior in a real terminal, not just tmux.
+
+### Mouse Events Don't Work in tmux
+
+SGR mouse events (click, scroll) sent via `tmux send-keys -H` are **unreliable** and should not be used for testing. Even with correctly-formatted SGR press/release byte sequences and `mouse off` in tmux config, the injected bytes may not reach the application's stdin in a form the parser recognizes. This is a known tmux limitation with raw byte injection for mouse protocols.
+
+**Do not test mouse interactions (click, scroll) through tmux.** Use tmux only for:
+
+- Keyboard-driven testing via `send_key` helper
+- Visual inspection of rendered output via `tmux capture-pane -p`
+- Verifying layout, alignment, and text content
+
+Mouse and scroll behavior must be verified in a real interactive terminal.
+
+### tmux capture-pane Limitations
+
+`tmux capture-pane -p` captures **plain text only** — no colors or style attributes. This means:
+
+- You can verify text content, alignment, and layout structure
+- You **cannot** verify `fgColor`, `bgColor`, `bold`, `focusStyle` changes, or any visual styling
+
+To inspect colors, use `tmux capture-pane -e -p` (includes escape sequences) or verify styling through unit tests against the cell buffer.
 
 ## Spec
 
@@ -144,13 +205,13 @@ chore: scaffold monorepo with types, core, components packages
 
 - `cel.ts` — Framework entrypoint. Owns render loop, input dispatch, focus management. `cel.init(terminal)` starts, `cel.viewport(fn)` sets render function, `cel.render()` requests re-render, `cel.stop()` restores terminal. Mouse input handles batched SGR events (terminals often send multiple events in a single data chunk).
 - `layout.ts` — Flexbox engine. `layout(root, width, height)` → `LayoutNode` tree with absolute screen rects.
-- `paint.ts` — Paints `LayoutNode` tree into `CellBuffer`. Handles clip rects, scroll offsets, scrollbars, grapheme-aware text rendering, TextInput cursor/scroll state, container bgColor fill, style inheritance threading, focusStyle resolution.
+- `paint.ts` — Paints `LayoutNode` tree into `CellBuffer`. Handles clip rects, scroll offsets (clamped to max — apps can pass `Infinity` to mean "scroll to end"), scrollbars, grapheme-aware text rendering, TextInput cursor/scroll state, container bgColor fill, style inheritance threading, focusStyle resolution.
 - `emitter.ts` — `emitBuffer()` for full renders, `emitDiff()` for differential. Both wrap in CSI 2026 synchronized output.
 - `hit-test.ts` — `hitTest(root, x, y)` → path from root to deepest node. `findClickHandler`, `findScrollTarget`, `collectKeyPressHandlers`, `collectFocusable` walk paths.
-- `keys.ts` — `parseKey(data)` normalizes terminal input to canonical key strings. `isEditingKey()` identifies keys consumed by TextInput. `normalizeKey()` reorders modifiers to canonical `ctrl+alt+shift+<key>` order.
+- `keys.ts` — Kitty keyboard protocol parser. `parseKey(data)` handles CSI u sequences (special keys, modifier combos), CSI letter sequences (arrows, Home/End with modifiers), CSI tilde sequences (Delete, PageUp/Down, F-keys with modifiers), and raw printable bytes. Maps `" "` → `"space"`, `"+"` → `"plus"` as named keys. `isEditingKey()` identifies keys consumed by TextInput. `normalizeKey()` reorders modifiers to canonical `ctrl+alt+shift+<key>` order.
 - `text-edit.ts` — Pure text editing functions (`insertChar`, `deleteBackward`, `deleteForward`, `moveCursor`). Operates on `EditState` (value + cursor position). Used by `cel.ts` to handle TextInput key events.
 - `width.ts` — `visibleWidth(str)` measures terminal column width. Fast ASCII path, grapheme segmentation, East Asian width, ANSI stripping, LRU cache.
-- `terminal.ts` — `ProcessTerminal` (real I/O, raw mode, SGR mouse, crash cleanup) and `MockTerminal` (testing).
+- `terminal.ts` — `ProcessTerminal` (real I/O, raw mode, Kitty keyboard protocol level 1, SGR mouse, crash cleanup) and `MockTerminal` (testing).
 
 ## Updating gh-pages
 

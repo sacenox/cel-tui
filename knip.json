@@ -1,0 +1,23 @@
+{
+  "$schema": "https://unpkg.com/knip@latest/schema.json",
+  "workspaces": {
+    ".": {
+      "entry": ["benchmarks/{run-all,helpers}.ts", "examples/*.ts"],
+      "ignore": ["benchmarks/*.bench.ts"],
+      "ignoreDependencies": [
+        "mitata",
+        "@cel-tui/core",
+        "@cel-tui/components",
+        "@cel-tui/types"
+      ]
+    },
+    "packages/core": {
+      "entry": ["src/test-helpers.ts", "src/**/*.test.ts"]
+    },
+    "packages/types": {},
+    "packages/components": {
+      "entry": ["src/**/*.test.ts"]
+    }
+  },
+  "ignoreUnresolved": [".bench.ts"]
+}

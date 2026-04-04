@@ -4,6 +4,14 @@ import { MockTerminal } from "./terminal.js";
 import { Text } from "./primitives/text.js";
 import { TextInput } from "./primitives/text-input.js";
 import { VStack, HStack } from "./primitives/stacks.js";
+import { kittyEncode } from "./test-helpers.js";
+
+// Kitty protocol byte sequences for commonly used keys
+const TAB = kittyEncode("tab");
+const ENTER = kittyEncode("enter");
+const ESCAPE = kittyEncode("escape");
+const SHIFT_TAB = kittyEncode("shift+tab");
+const CTRL_S = kittyEncode("ctrl+s");
 
 describe("cel end-to-end", () => {
   let term: MockTerminal;
@@ -172,7 +180,7 @@ describe("cel end-to-end", () => {
       await waitForRender();
 
       // Send Ctrl+S
-      term.sendInput("\x13");
+      term.sendInput(CTRL_S);
       await waitForRender();
 
       expect(receivedKey).toBe("ctrl+s");
@@ -268,6 +276,127 @@ describe("cel end-to-end", () => {
 
       expect(scrollOffset).toBe(3);
     });
+
+    test("onScroll receives maxOffset", async () => {
+      const term = setup(20, 5);
+      let scrollOffset = 0;
+      let receivedMax = -1;
+      cel.viewport(() =>
+        VStack(
+          {
+            width: 20,
+            height: 5,
+            overflow: "scroll",
+            scrollOffset: scrollOffset,
+            onScroll: (offset, maxOffset) => {
+              scrollOffset = offset;
+              receivedMax = maxOffset;
+            },
+          },
+          // 8 items in 5-row viewport → max offset = 3
+          Array.from({ length: 8 }, (_, i) => Text(`item ${i + 1}`)),
+        ),
+      );
+      await waitForRender();
+
+      term.sendInput("\x1b[<65;4;3M");
+      await waitForRender();
+
+      expect(scrollOffset).toBe(1);
+      expect(receivedMax).toBe(3);
+    });
+
+    test("uncontrolled scroll works without onScroll", async () => {
+      const term = setup(20, 5);
+      cel.viewport(() =>
+        VStack(
+          {
+            width: 20,
+            height: 5,
+            overflow: "scroll",
+          },
+          Array.from({ length: 10 }, (_, i) => Text(`line ${i + 1}`)),
+        ),
+      );
+      await waitForRender();
+
+      // Before scroll, line 1 should be visible at row 0
+      const buf1 = cel._getBuffer()!;
+      expect(buf1.get(0, 0).char).toBe("l"); // "line 1"
+
+      // SGR scroll down at (3, 2): ESC [ < 65 ; 4 ; 3 M
+      term.sendInput("\x1b[<65;4;3M");
+      await waitForRender();
+
+      // After scroll by 1, line 2 should now be at row 0
+      const buf2 = cel._getBuffer()!;
+      // Read first 6 chars of row 0
+      let row0 = "";
+      for (let x = 0; x < 6; x++) row0 += buf2.get(x, 0).char;
+      expect(row0).toBe("line 2");
+    });
+
+    test("uncontrolled scroll clamps at max offset", async () => {
+      const term = setup(20, 3);
+      cel.viewport(() =>
+        VStack(
+          {
+            width: 20,
+            height: 3,
+            overflow: "scroll",
+          },
+          // 5 items in 3-row viewport → max offset = 2
+          Array.from({ length: 5 }, (_, i) => Text(`item ${i + 1}`)),
+        ),
+      );
+      await waitForRender();
+
+      // Scroll down 10 times — should clamp at 2
+      for (let i = 0; i < 10; i++) {
+        term.sendInput("\x1b[<65;4;2M");
+        await waitForRender();
+      }
+
+      // Row 0 should show item 3 (offset=2), row 2 should show item 5
+      const buf = cel._getBuffer()!;
+      let row0 = "";
+      for (let x = 0; x < 6; x++) row0 += buf.get(x, 0).char;
+      expect(row0).toBe("item 3");
+
+      let row2 = "";
+      for (let x = 0; x < 6; x++) row2 += buf.get(x, 2).char;
+      expect(row2).toBe("item 5");
+    });
+
+    test("scroll clamps correctly with padding", async () => {
+      const term = setup(20, 7);
+      let scrollOffset = 0;
+      cel.viewport(() =>
+        VStack(
+          {
+            width: 20,
+            height: 7,
+            overflow: "scroll",
+            padding: { y: 1 },
+            scrollOffset: scrollOffset,
+            onScroll: (offset) => {
+              scrollOffset = offset;
+            },
+          },
+          // 7 items, viewport inner height = 5 (7 - 2*1), max offset = 2
+          Array.from({ length: 7 }, (_, i) => Text(`line ${i}`)),
+        ),
+      );
+      await waitForRender();
+
+      // Scroll down 10 times — should clamp at 2 (7 items - 5 visible = 2)
+      for (let i = 0; i < 10; i++) {
+        term.sendInput("\x1b[<65;4;4M");
+        await waitForRender();
+      }
+
+      expect(scrollOffset).toBe(2);
+    });
   });
 
   describe("focus system", () => {
@@ -314,12 +443,12 @@ describe("cel end-to-end", () => {
       await waitForRender();
 
       // Tab to focus first element
-      term.sendInput("\t");
+      term.sendInput(TAB);
       await waitForRender();
       expect(focused).toEqual(["btn1"]);
 
       // Tab to focus second element
-      term.sendInput("\t");
+      term.sendInput(TAB);
       await waitForRender();
       expect(focused).toEqual(["btn1", "btn2"]);
     });
@@ -367,7 +496,7 @@ describe("cel end-to-end", () => {
       await waitForRender();
 
       // Shift+Tab from btn2 should focus btn1
-      term.sendInput("\x1b[Z");
+      term.sendInput(SHIFT_TAB);
       await waitForRender();
       expect(focused).toEqual(["btn1"]);
     });
@@ -394,7 +523,7 @@ describe("cel end-to-end", () => {
       );
       await waitForRender();
 
-      term.sendInput("\x1b");
+      term.sendInput(ESCAPE);
       await waitForRender();
       expect(blurred).toBe(true);
     });
@@ -418,7 +547,7 @@ describe("cel end-to-end", () => {
       );
       await waitForRender();
 
-      term.sendInput("\r");
+      term.sendInput(ENTER);
       await waitForRender();
       expect(clicked).toBe(true);
     });
@@ -492,7 +621,7 @@ describe("cel end-to-end", () => {
       await waitForRender();
 
       // Tab from btn2 (last) should wrap to btn1
-      term.sendInput("\t");
+      term.sendInput(TAB);
       await waitForRender();
       expect(focused).toEqual(["btn1"]);
     });
@@ -735,7 +864,7 @@ describe("cel end-to-end", () => {
       await waitForRender();
 
       // Ctrl+S is not an editing key — should bubble up
-      term.sendInput("\x13");
+      term.sendInput(CTRL_S);
       await waitForRender();
       expect(parentKey).toBe("ctrl+s");
     });
@@ -782,7 +911,7 @@ describe("cel end-to-end", () => {
       await waitForRender();
 
       // Tab should insert \t, not traverse focus
-      term.sendInput("\t");
+      term.sendInput(TAB);
       await waitForRender();
       expect(value).toBe("hello\t");
     });
@@ -816,7 +945,7 @@ describe("cel end-to-end", () => {
       await waitForRender();
 
       // Shift+Tab should not move focus away from TextInput
-      term.sendInput("\x1b[Z");
+      term.sendInput(SHIFT_TAB);
       await waitForRender();
       expect(btnFocused).toBe(false);
     });
@@ -840,7 +969,7 @@ describe("cel end-to-end", () => {
       await waitForRender();
 
       // Tab should traverse to the TextInput (it's not focused yet)
-      term.sendInput("\t");
+      term.sendInput(TAB);
       await waitForRender();
       expect(tiFocused).toBe(true);
     });
@@ -876,12 +1005,12 @@ describe("cel end-to-end", () => {
       await waitForRender();
 
       // Escape to leave TextInput
-      term.sendInput("\x1b");
+      term.sendInput(ESCAPE);
       await waitForRender();
       expect(tiFocused).toBe(false);
 
       // Tab should now traverse to the button
-      term.sendInput("\t");
+      term.sendInput(TAB);
       await waitForRender();
       expect(btnFocused).toBe(true);
     });
@@ -922,13 +1051,13 @@ describe("cel end-to-end", () => {
       expect(focused as string | null).toBe("ti");
 
       // Escape to unfocus TextInput
-      term.sendInput("\x1b");
+      term.sendInput(ESCAPE);
       await waitForRender();
       expect(focused as string | null).toBe(null);
 
       // Tab should go FORWARD to the button (next after TextInput),
       // not back to the TextInput
-      term.sendInput("\t");
+      term.sendInput(TAB);
       await waitForRender();
       expect(focused as string | null).toBe("btn");
     });
@@ -983,18 +1112,18 @@ describe("cel end-to-end", () => {
       await waitForRender();
 
       // Tab to B
-      term.sendInput("\t"); // → A
+      term.sendInput(TAB); // → A
       await waitForRender();
-      term.sendInput("\t"); // → B
+      term.sendInput(TAB); // → B
       await waitForRender();
       expect(focused as string | null).toBe("b");
 
       // Escape, then Shift+Tab should go backward to A
-      term.sendInput("\x1b");
+      term.sendInput(ESCAPE);
       await waitForRender();
       expect(focused as string | null).toBe(null);
 
-      term.sendInput("\x1b[Z"); // Shift+Tab
+      term.sendInput(SHIFT_TAB); // Shift+Tab
       await waitForRender();
       expect(focused as string | null).toBe("a");
     });
@@ -1130,11 +1259,11 @@ describe("cel end-to-end", () => {
       await waitForRender();
 
       // Tab to focus the button
-      term.sendInput("\t");
+      term.sendInput(TAB);
       await waitForRender();
 
       // Enter to activate
-      term.sendInput("\r");
+      term.sendInput(ENTER);
       await waitForRender();
 
       expect(clicked).toBe(true);
@@ -1153,16 +1282,16 @@ describe("cel end-to-end", () => {
       await waitForRender();
 
       // Tab to first, activate
-      term.sendInput("\t");
+      term.sendInput(TAB);
       await waitForRender();
-      term.sendInput("\r");
+      term.sendInput(ENTER);
       await waitForRender();
       expect(clicks).toEqual(["btn1"]);
 
       // Tab to second, activate
-      term.sendInput("\t");
+      term.sendInput(TAB);
       await waitForRender();
-      term.sendInput("\r");
+      term.sendInput(ENTER);
       await waitForRender();
       expect(clicks).toEqual(["btn1", "btn2"]);
     });
@@ -1180,16 +1309,16 @@ describe("cel end-to-end", () => {
       await waitForRender();
 
       // Shift+Tab to focus last element
-      term.sendInput("\x1b[Z");
+      term.sendInput(SHIFT_TAB);
       await waitForRender();
-      term.sendInput("\r");
+      term.sendInput(ENTER);
       await waitForRender();
       expect(clicks).toEqual(["btn2"]);
 
       // Shift+Tab to go backward to first
-      term.sendInput("\x1b[Z");
+      term.sendInput(SHIFT_TAB);
       await waitForRender();
-      term.sendInput("\r");
+      term.sendInput(ENTER);
       await waitForRender();
       expect(clicks).toEqual(["btn2", "btn1"]);
     });
@@ -1213,13 +1342,13 @@ describe("cel end-to-end", () => {
       await waitForRender();
 
       // Tab to focus, then Escape to unfocus
-      term.sendInput("\t");
+      term.sendInput(TAB);
       await waitForRender();
-      term.sendInput("\x1b");
+      term.sendInput(ESCAPE);
       await waitForRender();
 
       // Enter should do nothing — no element is focused
-      term.sendInput("\r");
+      term.sendInput(ENTER);
       await waitForRender();
       expect(clicked).toBe(false);
     });
@@ -1248,7 +1377,7 @@ describe("cel end-to-end", () => {
       await waitForRender();
 
       // Enter should activate the clicked element
-      term.sendInput("\r");
+      term.sendInput(ENTER);
       await waitForRender();
       expect(clicked).toBe(true);
     });
@@ -1270,7 +1399,7 @@ describe("cel end-to-end", () => {
       );
       await waitForRender();
 
-      term.sendInput("\t");
+      term.sendInput(TAB);
       await waitForRender();
       expect(events).toEqual(["focus"]);
     });
@@ -1301,12 +1430,12 @@ describe("cel end-to-end", () => {
       await waitForRender();
 
       // Tab to first
-      term.sendInput("\t");
+      term.sendInput(TAB);
       await waitForRender();
       expect(events).toEqual(["focus1"]);
 
       // Tab to second — first should get onBlur
-      term.sendInput("\t");
+      term.sendInput(TAB);
       await waitForRender();
       expect(events).toEqual(["focus1", "blur1", "focus2"]);
     });
@@ -1328,7 +1457,7 @@ describe("cel end-to-end", () => {
       await waitForRender();
 
       // Tab to focus the TextInput
-      term.sendInput("\t");
+      term.sendInput(TAB);
       await waitForRender();
 
       // Type a character
@@ -1350,13 +1479,13 @@ describe("cel end-to-end", () => {
       await waitForRender();
 
       // Tab to first, Tab to second, Tab wraps to first
-      term.sendInput("\t");
+      term.sendInput(TAB);
       await waitForRender();
-      term.sendInput("\t");
+      term.sendInput(TAB);
       await waitForRender();
-      term.sendInput("\t");
+      term.sendInput(TAB);
       await waitForRender();
-      term.sendInput("\r");
+      term.sendInput(ENTER);
       await waitForRender();
       expect(clicks).toEqual(["btn1"]);
     });
@@ -1389,15 +1518,15 @@ describe("cel end-to-end", () => {
       await waitForRender();
 
       // Tab to first (controlled)
-      term.sendInput("\t");
+      term.sendInput(TAB);
       await waitForRender();
       expect(controlledFocused).toBe(true);
 
       // Tab to second (uncontrolled), Enter to activate
-      term.sendInput("\t");
+      term.sendInput(TAB);
       await waitForRender();
       expect(controlledFocused).toBe(false);
-      term.sendInput("\r");
+      term.sendInput(ENTER);
       await waitForRender();
       expect(clicks).toEqual(["uncontrolled"]);
     });
@@ -1426,7 +1555,7 @@ describe("cel end-to-end", () => {
       expect(buf.get(0, 0).bgColor).toBe("black");
 
       // Tab to focus
-      term.sendInput("\t");
+      term.sendInput(TAB);
       await waitForRender();
 
       // After focus — focusStyle bgColor
@@ -1460,14 +1589,14 @@ describe("cel end-to-end", () => {
       await waitForRender();
 
       // Tab to first
-      term.sendInput("\t");
+      term.sendInput(TAB);
       await waitForRender();
       let buf = cel._getBuffer()!;
       expect(buf.get(0, 0).bgColor).toBe("cyan");
       expect(buf.get(0, 1).bgColor).toBe("black");
 
       // Tab to second — first loses focusStyle, second gains it
-      term.sendInput("\t");
+      term.sendInput(TAB);
       await waitForRender();
       buf = cel._getBuffer()!;
       expect(buf.get(0, 0).bgColor).toBe("black");
@@ -1496,7 +1625,7 @@ describe("cel end-to-end", () => {
       expect(buf.get(0, 0).fgColor).toBe("white");
 
       // Tab to focus
-      term.sendInput("\t");
+      term.sendInput(TAB);
       await waitForRender();
 
       // After focus — Text inherits black from focusStyle
@@ -1531,7 +1660,7 @@ describe("cel end-to-end", () => {
       expect(buf.get(0, 0).bgColor).toBe("cyan");
 
       // Escape to blur
-      term.sendInput("\x1b");
+      term.sendInput(ESCAPE);
       await waitForRender();
 
       // focused=false — normal style
