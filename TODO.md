@@ -18,11 +18,7 @@ Remaining work, known bugs, and planned improvements.
 
 ## API Improvements
 
-- ❌ **Upgrade `Button` component** — `Button` from `@cel-tui/components` doesn't forward `focusStyle`, `fgColor`, `bgColor`, or other container/style props to the underlying HStack. With uncontrolled focus and focusStyle now available, Button should accept these to be useful for keyboard navigation without inline HStack wrappers.
-
 - ❌ **`repeat: "fill"` should claim flex space in HStack** — `Text(" ", { repeat: "fill" })` inside an HStack gets width 0 because its intrinsic width is 0 and no flex distributes remaining space. The workaround is `VStack({ flex: 1 }, [Text(" ", { repeat: "fill" })])`, which is non-obvious. Fix: either make `repeat: "fill"` imply flex behavior in the layout engine, or document the workaround prominently. The former is preferred.
-
-- ❌ **`VDivider` component** — Drawing a vertical divider requires `VStack({ width: 1, height: "100%" }, [Text("│", { repeat: "fill" })])`. A `VDivider({ char, fgColor })` component would match the existing horizontal `Divider` and reduce boilerplate.
 
 ## Not Yet Implemented
 

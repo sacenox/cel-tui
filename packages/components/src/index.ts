@@ -18,6 +18,7 @@
 
 export { Spacer } from "./spacer.js";
 export { Divider, type DividerProps } from "./divider.js";
+export { VDivider, type VDividerProps } from "./vdivider.js";
 export { Button, type ButtonProps } from "./button.js";
 export {
   Select,
