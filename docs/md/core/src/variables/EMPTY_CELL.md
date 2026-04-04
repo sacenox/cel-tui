@@ -8,7 +8,7 @@
 
 > `const` **EMPTY\_CELL**: `Readonly`\<[`Cell`](../interfaces/Cell.md)\>
 
-Defined in: [core/src/cell-buffer.ts:29](https://github.com/sacenox/cel-tui/blob/3f42b8f9f04e894bda687c40d5c606614db01a42/packages/core/src/cell-buffer.ts#L29)
+Defined in: [core/src/cell-buffer.ts:29](https://github.com/sacenox/cel-tui/blob/f2a837959f6d7d9dca284e25c18a66f158f34f2f/packages/core/src/cell-buffer.ts#L29)
 
 The default empty cell — a space with no styling.
 Used for cleared/uninitialized cells and transparency detection.

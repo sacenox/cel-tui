@@ -9,7 +9,7 @@
 ## Example
 
 ```ts
-import { Spacer, Divider, Button } from "@cel-tui/components";
+import { Spacer, Divider, Button, Select } from "@cel-tui/components";
 
 HStack({ height: 1 }, [
   Text("Title", { bold: true }),
@@ -22,9 +22,16 @@ HStack({ height: 1 }, [
 
 - [ButtonProps](interfaces/ButtonProps.md)
 - [DividerProps](interfaces/DividerProps.md)
+- [SelectInstance](interfaces/SelectInstance.md)
+- [SelectProps](interfaces/SelectProps.md)
+
+## Type Aliases
+
+- [SelectItem](type-aliases/SelectItem.md)
 
 ## Functions
 
 - [Button](functions/Button.md)
 - [Divider](functions/Divider.md)
+- [Select](functions/Select.md)
 - [Spacer](functions/Spacer.md)

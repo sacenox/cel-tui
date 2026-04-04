@@ -8,7 +8,7 @@
 
 > **Spacer**(): [`ContainerNode`](../../../types/src/interfaces/ContainerNode.md)
 
-Defined in: [components/src/spacer.ts:20](https://github.com/sacenox/cel-tui/blob/3f42b8f9f04e894bda687c40d5c606614db01a42/packages/components/src/spacer.ts#L20)
+Defined in: [components/src/spacer.ts:20](https://github.com/sacenox/cel-tui/blob/f2a837959f6d7d9dca284e25c18a66f158f34f2f/packages/components/src/spacer.ts#L20)
 
 Flexible spacer that fills available space along the parent's main axis.
 

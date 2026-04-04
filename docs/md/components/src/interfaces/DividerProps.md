@@ -6,7 +6,7 @@
 
 # Interface: DividerProps
 
-Defined in: [components/src/divider.ts:5](https://github.com/sacenox/cel-tui/blob/3f42b8f9f04e894bda687c40d5c606614db01a42/packages/components/src/divider.ts#L5)
+Defined in: [components/src/divider.ts:5](https://github.com/sacenox/cel-tui/blob/f2a837959f6d7d9dca284e25c18a66f158f34f2f/packages/components/src/divider.ts#L5)
 
 Props for the [Divider](../functions/Divider.md) component.
 
@@ -16,7 +16,7 @@ Props for the [Divider](../functions/Divider.md) component.
 
 > `optional` **char?**: `string`
 
-Defined in: [components/src/divider.ts:10](https://github.com/sacenox/cel-tui/blob/3f42b8f9f04e894bda687c40d5c606614db01a42/packages/components/src/divider.ts#L10)
+Defined in: [components/src/divider.ts:10](https://github.com/sacenox/cel-tui/blob/f2a837959f6d7d9dca284e25c18a66f158f34f2f/packages/components/src/divider.ts#L10)
 
 Character to repeat across the width.
 
@@ -32,6 +32,6 @@ Character to repeat across the width.
 
 > `optional` **fgColor?**: [`Color`](../../../types/src/type-aliases/Color.md)
 
-Defined in: [components/src/divider.ts:12](https://github.com/sacenox/cel-tui/blob/3f42b8f9f04e894bda687c40d5c606614db01a42/packages/components/src/divider.ts#L12)
+Defined in: [components/src/divider.ts:12](https://github.com/sacenox/cel-tui/blob/f2a837959f6d7d9dca284e25c18a66f158f34f2f/packages/components/src/divider.ts#L12)
 
 Foreground color of the divider character.
