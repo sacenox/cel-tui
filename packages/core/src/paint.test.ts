@@ -165,9 +165,11 @@ describe("paint", () => {
       const ln = layout(node, 20, 1);
       const buf = new CellBuffer(20, 1);
       paint(ln, buf);
-      // \u4e16 at col 0 (wide), \u754c at col 2 (wide)
+      // \u4e16 at col 0 (wide), continuation at col 1, \u754c at col 2 (wide), continuation at col 3
       expect(buf.get(0, 0).char).toBe("\u4e16");
+      expect(buf.get(1, 0).char).toBe(""); // continuation marker
       expect(buf.get(2, 0).char).toBe("\u754c");
+      expect(buf.get(3, 0).char).toBe(""); // continuation marker
     });
 
     test("emoji occupies 2 cells", () => {
@@ -175,8 +177,9 @@ describe("paint", () => {
       const ln = layout(node, 20, 1);
       const buf = new CellBuffer(20, 1);
       paint(ln, buf);
-      // emoji at col 0 (wide), x at col 2
+      // emoji at col 0 (wide), continuation at col 1, x at col 2
       expect(buf.get(0, 0).char).toBe("\ud83d\ude00");
+      expect(buf.get(1, 0).char).toBe(""); // continuation marker
       expect(buf.get(2, 0).char).toBe("x");
     });
 

@@ -125,6 +125,20 @@ describe("emitBuffer", () => {
     const output = emitBuffer(buf);
     expect(output).toContain("   ");
   });
+
+  test("wide character continuation cells are skipped", () => {
+    const buf = new CellBuffer(5, 1);
+    // Simulate a wide char at col 0 with continuation at col 1
+    buf.set(0, 0, cell("\u4e16")); // CJK char (2 cols)
+    buf.set(1, 0, cell("")); // continuation marker
+    buf.set(2, 0, cell("x"));
+    const output = emitBuffer(buf);
+    // The output should contain the wide char and "x" without
+    // an extra space between them (continuation is skipped)
+    expect(output).toContain("\u4e16x");
+    // Should NOT contain "\u4e16 x" (space from continuation)
+    expect(output).not.toContain("\u4e16 x");
+  });
 });
 
 describe("emitDiff", () => {
@@ -182,5 +196,20 @@ describe("emitDiff", () => {
     // Only one cursor positioning for this run
     const cursorMoves = output.match(/\x1b\[\d+;\d+H/g) || [];
     expect(cursorMoves.length).toBe(1);
+  });
+
+  test("wide character continuation cells are skipped in diff", () => {
+    const prev = new CellBuffer(5, 1);
+    const next = new CellBuffer(5, 1);
+    // Wide char at col 0 with continuation at col 1
+    next.set(0, 0, cell("\u4e16"));
+    next.set(1, 0, cell("")); // continuation
+    next.set(2, 0, cell("x"));
+    const output = emitDiff(prev, next);
+    // Should emit the wide char and x without extra space
+    expect(output).toContain("\u4e16");
+    expect(output).toContain("x");
+    // Continuation cell should not produce any output character
+    expect(output).not.toContain("\u4e16 ");
   });
 });

@@ -361,6 +361,20 @@ function paintLineGraphemes(
     if (absX + gw > clipLeft) {
       // At least partially visible in clip rect
       buf.set(absX, y, makeCell(segment, props));
+      // Write continuation markers for wide characters (2+ columns)
+      for (let w = 1; w < gw; w++) {
+        const cx = absX + w;
+        if (cx < clipRight) {
+          buf.set(cx, y, {
+            char: "",
+            fgColor: props.fgColor ?? null,
+            bgColor: props.bgColor ?? null,
+            bold: props.bold ?? false,
+            italic: props.italic ?? false,
+            underline: props.underline ?? false,
+          });
+        }
+      }
     }
     col += gw;
   }

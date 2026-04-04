@@ -106,6 +106,9 @@ export function emitBuffer(buf: CellBuffer): string {
     for (let x = 0; x < buf.width; x++) {
       const cell = buf.get(x, y);
 
+      // Skip continuation cells (trailing half of wide characters)
+      if (cell.char === "") continue;
+
       // Emit style change if needed
       if (lastStyle === null || !styleEquals(cell, lastStyle)) {
         // Reset before applying new style
@@ -155,6 +158,9 @@ export function emitDiff(prev: CellBuffer, next: CellBuffer): string {
 
   for (const { x, y } of changes) {
     const cell = next.get(x, y);
+
+    // Skip continuation cells (trailing half of wide characters)
+    if (cell.char === "") continue;
 
     // Position cursor if not consecutive
     if (y !== lastY || x !== lastX + 1) {
