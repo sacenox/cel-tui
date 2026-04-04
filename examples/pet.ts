@@ -196,7 +196,7 @@ let screen: Screen = "create";
 // -- Creation state --
 let petName = "";
 let selectedKind = 0;
-let focused: string | null = "name"; // tracks which element has focus
+let nameInputFocused = false; // only TextInput needs controlled focus (arrow key routing)
 
 // -- Pet state --
 let pet: PetDef | null = null;
@@ -239,7 +239,6 @@ function startGame() {
   frame = 0;
   log = [];
   screen = "main";
-  focused = null;
 
   addLog(`${petName} the ${pet.kind} was born!`);
   addLog("Press [F] feed · [P] pet · [L] log");
@@ -304,7 +303,6 @@ function playExcited() {
 function die() {
   addLog(`${petName} has passed away...`);
   screen = "dead";
-  focused = null;
   stopTimers();
   cel.render();
 }
@@ -314,7 +312,6 @@ function restart() {
   pet = null;
   petName = "";
   selectedKind = 0;
-  focused = "name";
   screen = "create";
   log = [];
   showLog = false;
@@ -442,7 +439,7 @@ function createView() {
       onKeyPress: (key) => {
         if (key === "ctrl+q" || key === "ctrl+c") quit();
         // Arrow keys to pick species (only when name input is NOT focused)
-        if (focused !== "name") {
+        if (!nameInputFocused) {
           if (key === "up") {
             selectedKind = (selectedKind - 1 + PETS.length) % PETS.length;
             cel.render();
@@ -477,18 +474,19 @@ function createView() {
             fgColor: "brightBlack",
             bgColor: "black",
           }),
-          focused: focused === "name",
+          // Controlled focus: needed to gate arrow key routing above
+          focused: nameInputFocused,
           onFocus: () => {
-            focused = "name";
+            nameInputFocused = true;
             cel.render();
           },
           onBlur: () => {
-            if (focused === "name") focused = null;
+            nameInputFocused = false;
             cel.render();
           },
           submitKey: "enter",
           onSubmit: () => {
-            focused = null;
+            nameInputFocused = false;
             cel.render();
           },
         }),
@@ -536,27 +534,15 @@ function createView() {
 
         Divider({ fgColor: "brightBlack" }),
 
-        // Create button
+        // Create button — uncontrolled focus + focusStyle
         HStack({ justifyContent: "center" }, [
           HStack(
             {
               onClick: startGame,
-              focused: focused === "create",
-              onFocus: () => {
-                focused = "create";
-                cel.render();
-              },
-              onBlur: () => {
-                if (focused === "create") focused = null;
-                cel.render();
-              },
+              fgColor: "green",
+              focusStyle: { bgColor: "green", fgColor: "black" },
             },
-            [
-              Text(
-                focused === "create" ? ">> Create Pet! <<" : "[ Create Pet! ]",
-                { bold: true, fgColor: "green" },
-              ),
-            ],
+            [Text(" Create Pet! ", { bold: true })],
           ),
         ]),
 
@@ -619,42 +605,18 @@ function mainView() {
         HStack(
           {
             onClick: feed,
-            focused: focused === "feed",
-            onFocus: () => {
-              focused = "feed";
-              cel.render();
-            },
-            onBlur: () => {
-              if (focused === "feed") focused = null;
-              cel.render();
-            },
+            fgColor: "yellow",
+            focusStyle: { bgColor: "yellow", fgColor: "black" },
           },
-          [
-            Text(focused === "feed" ? ">> Feed <<" : "[ Feed ]", {
-              bold: true,
-              fgColor: "yellow",
-            }),
-          ],
+          [Text(" Feed ", { bold: true })],
         ),
         HStack(
           {
             onClick: petIt,
-            focused: focused === "pet",
-            onFocus: () => {
-              focused = "pet";
-              cel.render();
-            },
-            onBlur: () => {
-              if (focused === "pet") focused = null;
-              cel.render();
-            },
+            fgColor: "magenta",
+            focusStyle: { bgColor: "magenta", fgColor: "black" },
           },
-          [
-            Text(focused === "pet" ? ">> Pet <<" : "[ Pet ]", {
-              bold: true,
-              fgColor: "magenta",
-            }),
-          ],
+          [Text(" Pet ", { bold: true })],
         ),
       ]),
     ],
@@ -671,7 +633,6 @@ function mainView() {
           showLog = !showLog;
           if (showLog) {
             logScroll = Math.max(0, log.length - 12);
-            focused = null;
           }
           cel.render();
         }
@@ -716,7 +677,6 @@ function mainView() {
 
 function logView() {
   const { cols, rows } = termSize();
-  const bg = "black" as const;
   const closeLog = () => {
     showLog = false;
     cel.render();
@@ -725,7 +685,7 @@ function logView() {
   // Adapt modal size to terminal
   const modalW = Math.min(60, cols - 4);
   const modalH = Math.min(14, rows - 4);
-  const borderW = modalW - 2; // inner repeat count for ═ chars
+  const borderW = modalW - 2;
 
   return VStack(
     {
@@ -738,104 +698,81 @@ function logView() {
     },
     [
       // Top border
-      HStack({}, [
-        Text("╔", { fgColor: "brightBlack", bgColor: bg }),
-        Text("═", { repeat: borderW, fgColor: "brightBlack", bgColor: bg }),
-        Text("╗", { fgColor: "brightBlack", bgColor: bg }),
+      HStack({ bgColor: "black" }, [
+        Text("╔", { fgColor: "brightBlack" }),
+        Text("═", { repeat: borderW, fgColor: "brightBlack" }),
+        Text("╗", { fgColor: "brightBlack" }),
       ]),
 
-      VStack({ width: modalW, height: modalH, padding: { x: 1 } }, [
-        // Header row
-        HStack({}, [
-          Text(" Activity Log ", { bold: true, fgColor: "cyan", bgColor: bg }),
-          VStack({ flex: 1 }, [Text(" ", { repeat: "fill", bgColor: bg })]),
-          HStack({ onClick: closeLog, focusable: false }, [
-            Text(" [x] ", { fgColor: "red", bold: true, bgColor: bg }),
+      VStack(
+        { width: modalW, height: modalH, padding: { x: 1 }, bgColor: "black" },
+        [
+          // Header row
+          HStack({}, [
+            Text(" Activity Log ", { bold: true, fgColor: "cyan" }),
+            VStack({ flex: 1 }, [Text(" ", { repeat: "fill" })]),
+            HStack({ onClick: closeLog, focusable: false }, [
+              Text(" [x] ", { fgColor: "red", bold: true }),
+            ]),
           ]),
-        ]),
-        Text("─", { repeat: "fill", fgColor: "brightBlack", bgColor: bg }),
+          Text("─", { repeat: "fill", fgColor: "brightBlack" }),
 
-        // Scrollable entries
-        VStack(
-          {
-            flex: 1,
-            overflow: "scroll",
-            scrollbar: true,
-            scrollOffset: logScroll,
-            onScroll: (off) => {
-              logScroll = off;
-              cel.render();
+          // Scrollable entries
+          VStack(
+            {
+              flex: 1,
+              overflow: "scroll",
+              scrollbar: true,
+              scrollOffset: logScroll,
+              onScroll: (off) => {
+                logScroll = off;
+                cel.render();
+              },
             },
-          },
-          (() => {
-            const blank = () =>
-              HStack({}, [
-                VStack({ flex: 1 }, [
-                  Text(" ", { repeat: "fill", bgColor: bg }),
-                ]),
-              ]);
-            if (log.length === 0) {
-              return [
-                HStack({}, [
+            (() => {
+              if (log.length === 0) {
+                return [
                   Text(" No activity yet.", {
                     fgColor: "brightBlack",
                     italic: true,
-                    bgColor: bg,
                   }),
-                  VStack({ flex: 1 }, [
-                    Text(" ", { repeat: "fill", bgColor: bg }),
-                  ]),
-                ]),
-                ...Array.from({ length: Math.max(0, modalH - 5) }, blank),
-              ];
-            }
-            const rows = log.map((entry) => {
-              let fg:
-                | "yellow"
-                | "magenta"
-                | "red"
-                | "green"
-                | "white"
-                | "brightRed" = "white";
-              if (entry.includes("born")) fg = "green";
-              else if (entry.includes("fed") || entry.includes("Feed"))
-                fg = "yellow";
-              else if (entry.includes("pet ") || entry.includes("Happy"))
-                fg = "magenta";
-              else if (entry.includes("hungry") || entry.includes("lonely"))
-                fg = "brightRed";
-              else if (entry.includes("passed") || entry.includes("well"))
-                fg = "red";
-              return HStack({}, [
-                Text(entry, { fgColor: fg, bgColor: bg }),
-                VStack({ flex: 1 }, [
-                  Text(" ", { repeat: "fill", bgColor: bg }),
-                ]),
-              ]);
-            });
-            // Pad with blank rows so empty space has background
-            const visibleRows = Math.max(0, modalH - 4);
-            const pad = Math.max(0, visibleRows - rows.length);
-            return [...rows, ...Array.from({ length: pad }, blank)];
-          })(),
-        ),
+                ];
+              }
+              return log.map((entry) => {
+                let fg:
+                  | "yellow"
+                  | "magenta"
+                  | "red"
+                  | "green"
+                  | "white"
+                  | "brightRed" = "white";
+                if (entry.includes("born")) fg = "green";
+                else if (entry.includes("fed") || entry.includes("Feed"))
+                  fg = "yellow";
+                else if (entry.includes("pet ") || entry.includes("Happy"))
+                  fg = "magenta";
+                else if (entry.includes("hungry") || entry.includes("lonely"))
+                  fg = "brightRed";
+                else if (entry.includes("passed") || entry.includes("well"))
+                  fg = "red";
+                return Text(entry, { fgColor: fg });
+              });
+            })(),
+          ),
 
-        Text("─", { repeat: "fill", fgColor: "brightBlack", bgColor: bg }),
-        HStack({}, [
+          Text("─", { repeat: "fill", fgColor: "brightBlack" }),
           Text(" Scroll: mouse wheel  Close: [L] or Esc", {
             fgColor: "brightBlack",
             italic: true,
-            bgColor: bg,
           }),
-          VStack({ flex: 1 }, [Text(" ", { repeat: "fill", bgColor: bg })]),
-        ]),
-      ]),
+        ],
+      ),
 
       // Bottom border
-      HStack({}, [
-        Text("╚", { fgColor: "brightBlack", bgColor: bg }),
-        Text("═", { repeat: borderW, fgColor: "brightBlack", bgColor: bg }),
-        Text("╝", { fgColor: "brightBlack", bgColor: bg }),
+      HStack({ bgColor: "black" }, [
+        Text("╚", { fgColor: "brightBlack" }),
+        Text("═", { repeat: borderW, fgColor: "brightBlack" }),
+        Text("╝", { fgColor: "brightBlack" }),
       ]),
     ],
   );
@@ -854,7 +791,6 @@ function deadView() {
         if (key === "ctrl+q" || key === "ctrl+c") quit();
         if (key === "l") {
           showLog = !showLog;
-          if (showLog) focused = null;
           cel.render();
         }
       },
@@ -878,46 +814,21 @@ function deadView() {
         HStack(
           {
             onClick: restart,
-            focused: focused === "restart",
-            onFocus: () => {
-              focused = "restart";
-              cel.render();
-            },
-            onBlur: () => {
-              if (focused === "restart") focused = null;
-              cel.render();
-            },
+            fgColor: "green",
+            focusStyle: { bgColor: "green", fgColor: "black" },
           },
-          [
-            Text(focused === "restart" ? ">> New Pet <<" : "[ New Pet ]", {
-              bold: true,
-              fgColor: "green",
-            }),
-          ],
+          [Text(" New Pet ", { bold: true })],
         ),
         HStack(
           {
             onClick: () => {
               showLog = !showLog;
-              focused = null;
               cel.render();
             },
-            focused: focused === "viewlog",
-            onFocus: () => {
-              focused = "viewlog";
-              cel.render();
-            },
-            onBlur: () => {
-              if (focused === "viewlog") focused = null;
-              cel.render();
-            },
+            fgColor: "cyan",
+            focusStyle: { bgColor: "cyan", fgColor: "black" },
           },
-          [
-            Text(focused === "viewlog" ? ">> View Log <<" : "[ View Log ]", {
-              bold: true,
-              fgColor: "cyan",
-            }),
-          ],
+          [Text(" View Log ", { bold: true })],
         ),
       ]),
       HStack({}, [

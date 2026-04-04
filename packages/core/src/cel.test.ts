@@ -975,4 +975,434 @@ describe("cel end-to-end", () => {
       expect(row0).toBe("line2");
     });
   });
+
+  describe("uncontrolled focus", () => {
+    test("Tab focuses first clickable element and Enter activates it", async () => {
+      const term = setup(20, 5);
+      let clicked = false;
+
+      cel.viewport(() =>
+        VStack({ width: 20, height: 5 }, [
+          HStack(
+            {
+              onClick: () => {
+                clicked = true;
+              },
+            },
+            [Text("Btn")],
+          ),
+        ]),
+      );
+      await waitForRender();
+
+      // Tab to focus the button
+      term.sendInput("\t");
+      await waitForRender();
+
+      // Enter to activate
+      term.sendInput("\r");
+      await waitForRender();
+
+      expect(clicked).toBe(true);
+    });
+
+    test("Tab cycles through focusable elements in order", async () => {
+      const term = setup(20, 5);
+      const clicks: string[] = [];
+
+      cel.viewport(() =>
+        VStack({ width: 20, height: 5 }, [
+          HStack({ onClick: () => clicks.push("btn1") }, [Text("Btn1")]),
+          HStack({ onClick: () => clicks.push("btn2") }, [Text("Btn2")]),
+        ]),
+      );
+      await waitForRender();
+
+      // Tab to first, activate
+      term.sendInput("\t");
+      await waitForRender();
+      term.sendInput("\r");
+      await waitForRender();
+      expect(clicks).toEqual(["btn1"]);
+
+      // Tab to second, activate
+      term.sendInput("\t");
+      await waitForRender();
+      term.sendInput("\r");
+      await waitForRender();
+      expect(clicks).toEqual(["btn1", "btn2"]);
+    });
+
+    test("Shift+Tab moves focus backwards", async () => {
+      const term = setup(20, 5);
+      const clicks: string[] = [];
+
+      cel.viewport(() =>
+        VStack({ width: 20, height: 5 }, [
+          HStack({ onClick: () => clicks.push("btn1") }, [Text("Btn1")]),
+          HStack({ onClick: () => clicks.push("btn2") }, [Text("Btn2")]),
+        ]),
+      );
+      await waitForRender();
+
+      // Shift+Tab to focus last element
+      term.sendInput("\x1b[Z");
+      await waitForRender();
+      term.sendInput("\r");
+      await waitForRender();
+      expect(clicks).toEqual(["btn2"]);
+
+      // Shift+Tab to go backward to first
+      term.sendInput("\x1b[Z");
+      await waitForRender();
+      term.sendInput("\r");
+      await waitForRender();
+      expect(clicks).toEqual(["btn2", "btn1"]);
+    });
+
+    test("Escape unfocuses and Enter does nothing", async () => {
+      const term = setup(20, 5);
+      let clicked = false;
+
+      cel.viewport(() =>
+        VStack({ width: 20, height: 5 }, [
+          HStack(
+            {
+              onClick: () => {
+                clicked = true;
+              },
+            },
+            [Text("Btn")],
+          ),
+        ]),
+      );
+      await waitForRender();
+
+      // Tab to focus, then Escape to unfocus
+      term.sendInput("\t");
+      await waitForRender();
+      term.sendInput("\x1b");
+      await waitForRender();
+
+      // Enter should do nothing — no element is focused
+      term.sendInput("\r");
+      await waitForRender();
+      expect(clicked).toBe(false);
+    });
+
+    test("mouse click focuses element and Enter activates it", async () => {
+      const term = setup(20, 5);
+      let clicked = false;
+
+      cel.viewport(() =>
+        VStack({ width: 20, height: 5 }, [
+          HStack({}, [Text("not clickable")]),
+          HStack(
+            {
+              onClick: () => {
+                clicked = true;
+              },
+            },
+            [Text("Clickable")],
+          ),
+        ]),
+      );
+      await waitForRender();
+
+      // Click on the second element (row 1)
+      term.sendInput("\x1b[<0;2;2m");
+      await waitForRender();
+
+      // Enter should activate the clicked element
+      term.sendInput("\r");
+      await waitForRender();
+      expect(clicked).toBe(true);
+    });
+
+    test("onFocus fires as notification in uncontrolled mode", async () => {
+      const term = setup(20, 5);
+      const events: string[] = [];
+
+      cel.viewport(() =>
+        VStack({ width: 20, height: 5 }, [
+          HStack(
+            {
+              onClick: () => {},
+              onFocus: () => events.push("focus"),
+            },
+            [Text("Btn")],
+          ),
+        ]),
+      );
+      await waitForRender();
+
+      term.sendInput("\t");
+      await waitForRender();
+      expect(events).toEqual(["focus"]);
+    });
+
+    test("onBlur fires as notification in uncontrolled mode", async () => {
+      const term = setup(20, 5);
+      const events: string[] = [];
+
+      cel.viewport(() =>
+        VStack({ width: 20, height: 5 }, [
+          HStack(
+            {
+              onClick: () => {},
+              onFocus: () => events.push("focus1"),
+              onBlur: () => events.push("blur1"),
+            },
+            [Text("Btn1")],
+          ),
+          HStack(
+            {
+              onClick: () => {},
+              onFocus: () => events.push("focus2"),
+            },
+            [Text("Btn2")],
+          ),
+        ]),
+      );
+      await waitForRender();
+
+      // Tab to first
+      term.sendInput("\t");
+      await waitForRender();
+      expect(events).toEqual(["focus1"]);
+
+      // Tab to second — first should get onBlur
+      term.sendInput("\t");
+      await waitForRender();
+      expect(events).toEqual(["focus1", "blur1", "focus2"]);
+    });
+
+    test("Tab focuses uncontrolled TextInput and typing works", async () => {
+      const term = setup(20, 5);
+      let value = "";
+
+      cel.viewport(() =>
+        VStack({ width: 20, height: 5 }, [
+          TextInput({
+            value,
+            onChange: (v) => {
+              value = v;
+            },
+          }),
+        ]),
+      );
+      await waitForRender();
+
+      // Tab to focus the TextInput
+      term.sendInput("\t");
+      await waitForRender();
+
+      // Type a character
+      term.sendInput("x");
+      await waitForRender();
+      expect(value).toBe("x");
+    });
+
+    test("Tab wraps from last to first element", async () => {
+      const term = setup(20, 5);
+      const clicks: string[] = [];
+
+      cel.viewport(() =>
+        VStack({ width: 20, height: 5 }, [
+          HStack({ onClick: () => clicks.push("btn1") }, [Text("Btn1")]),
+          HStack({ onClick: () => clicks.push("btn2") }, [Text("Btn2")]),
+        ]),
+      );
+      await waitForRender();
+
+      // Tab to first, Tab to second, Tab wraps to first
+      term.sendInput("\t");
+      await waitForRender();
+      term.sendInput("\t");
+      await waitForRender();
+      term.sendInput("\t");
+      await waitForRender();
+      term.sendInput("\r");
+      await waitForRender();
+      expect(clicks).toEqual(["btn1"]);
+    });
+
+    test("mixed controlled and uncontrolled elements", async () => {
+      const term = setup(20, 5);
+      const clicks: string[] = [];
+      let controlledFocused = false;
+
+      cel.viewport(() =>
+        VStack({ width: 20, height: 5 }, [
+          HStack(
+            {
+              onClick: () => clicks.push("controlled"),
+              focused: controlledFocused,
+              onFocus: () => {
+                controlledFocused = true;
+              },
+              onBlur: () => {
+                controlledFocused = false;
+              },
+            },
+            [Text("Controlled")],
+          ),
+          HStack({ onClick: () => clicks.push("uncontrolled") }, [
+            Text("Uncontrolled"),
+          ]),
+        ]),
+      );
+      await waitForRender();
+
+      // Tab to first (controlled)
+      term.sendInput("\t");
+      await waitForRender();
+      expect(controlledFocused).toBe(true);
+
+      // Tab to second (uncontrolled), Enter to activate
+      term.sendInput("\t");
+      await waitForRender();
+      expect(controlledFocused).toBe(false);
+      term.sendInput("\r");
+      await waitForRender();
+      expect(clicks).toEqual(["uncontrolled"]);
+    });
+  });
+
+  describe("focusStyle rendering", () => {
+    test("focusStyle bgColor applied when element is focused via Tab", async () => {
+      const term = setup(20, 3);
+
+      cel.viewport(() =>
+        VStack({ width: 20, height: 3 }, [
+          HStack(
+            {
+              onClick: () => {},
+              bgColor: "black",
+              focusStyle: { bgColor: "cyan" },
+            },
+            [Text("Btn")],
+          ),
+        ]),
+      );
+      await waitForRender();
+
+      // Before focus — normal bgColor
+      let buf = cel._getBuffer()!;
+      expect(buf.get(0, 0).bgColor).toBe("black");
+
+      // Tab to focus
+      term.sendInput("\t");
+      await waitForRender();
+
+      // After focus — focusStyle bgColor
+      buf = cel._getBuffer()!;
+      expect(buf.get(0, 0).bgColor).toBe("cyan");
+    });
+
+    test("focusStyle removed when focus moves to another element", async () => {
+      const term = setup(20, 3);
+
+      cel.viewport(() =>
+        VStack({ width: 20, height: 3 }, [
+          HStack(
+            {
+              onClick: () => {},
+              bgColor: "black",
+              focusStyle: { bgColor: "cyan" },
+            },
+            [Text("Btn1")],
+          ),
+          HStack(
+            {
+              onClick: () => {},
+              bgColor: "black",
+              focusStyle: { bgColor: "yellow" },
+            },
+            [Text("Btn2")],
+          ),
+        ]),
+      );
+      await waitForRender();
+
+      // Tab to first
+      term.sendInput("\t");
+      await waitForRender();
+      let buf = cel._getBuffer()!;
+      expect(buf.get(0, 0).bgColor).toBe("cyan");
+      expect(buf.get(0, 1).bgColor).toBe("black");
+
+      // Tab to second — first loses focusStyle, second gains it
+      term.sendInput("\t");
+      await waitForRender();
+      buf = cel._getBuffer()!;
+      expect(buf.get(0, 0).bgColor).toBe("black");
+      expect(buf.get(0, 1).bgColor).toBe("yellow");
+    });
+
+    test("focusStyle fgColor inherited by child Text when focused", async () => {
+      const term = setup(20, 3);
+
+      cel.viewport(() =>
+        VStack({ width: 20, height: 3 }, [
+          HStack(
+            {
+              onClick: () => {},
+              fgColor: "white",
+              focusStyle: { fgColor: "black", bgColor: "cyan" },
+            },
+            [Text("Btn")],
+          ),
+        ]),
+      );
+      await waitForRender();
+
+      // Before focus — Text inherits white
+      let buf = cel._getBuffer()!;
+      expect(buf.get(0, 0).fgColor).toBe("white");
+
+      // Tab to focus
+      term.sendInput("\t");
+      await waitForRender();
+
+      // After focus — Text inherits black from focusStyle
+      buf = cel._getBuffer()!;
+      expect(buf.get(0, 0).fgColor).toBe("black");
+    });
+
+    test("focusStyle with controlled focus", async () => {
+      const term = setup(20, 3);
+      let isFocused = true;
+
+      cel.viewport(() =>
+        VStack({ width: 20, height: 3 }, [
+          HStack(
+            {
+              onClick: () => {},
+              focused: isFocused,
+              bgColor: "black",
+              focusStyle: { bgColor: "cyan" },
+              onBlur: () => {
+                isFocused = false;
+              },
+            },
+            [Text("Btn")],
+          ),
+        ]),
+      );
+      await waitForRender();
+
+      // Controlled focused=true — focusStyle applies
+      let buf = cel._getBuffer()!;
+      expect(buf.get(0, 0).bgColor).toBe("cyan");
+
+      // Escape to blur
+      term.sendInput("\x1b");
+      await waitForRender();
+
+      // focused=false — normal style
+      buf = cel._getBuffer()!;
+      expect(buf.get(0, 0).bgColor).toBe("black");
+    });
+  });
 });

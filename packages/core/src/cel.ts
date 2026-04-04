@@ -39,6 +39,16 @@ let currentBuffer: CellBuffer | null = null;
 let currentLayouts: LayoutNode[] = [];
 let lastFocusedIndex = -1;
 
+/**
+ * Framework-tracked focus index for uncontrolled focus.
+ * Points into the `collectFocusable()` list of the topmost layer.
+ * -1 means no uncontrolled element is focused.
+ */
+let frameworkFocusIndex = -1;
+
+/** The node whose props were stamped with `focused: true` during the last paint. */
+let stampedNode: LayoutNode | null = null;
+
 function doRender(): void {
   renderScheduled = false;
   if (!renderFn || !terminal) return;
@@ -64,13 +74,23 @@ function doRender(): void {
   const tree = renderFn();
   const layers = Array.isArray(tree) ? tree : [tree];
 
-  // Layout and paint each layer into the buffer
+  // Layout each layer
   currentLayouts = [];
   for (const layer of layers) {
     const layoutTree = layout(layer, width, height);
     currentLayouts.push(layoutTree);
+  }
+
+  // Stamp uncontrolled focus before painting so focusStyle and cursor work
+  stampUncontrolledFocus();
+
+  // Paint each layer into the buffer
+  for (const layoutTree of currentLayouts) {
     paint(layoutTree, currentBuffer);
   }
+
+  // Unstamp after paint so input handlers see clean props
+  unstampUncontrolledFocus();
 
   // Emit to terminal — differential when possible
   if (prevBuffer) {
@@ -141,19 +161,101 @@ function parseSgrMatch(match: RegExpExecArray): MouseEvent | null {
 }
 
 /**
+ * Check if a focusable element uses controlled focus (explicit `focused` prop).
+ */
+function isControlledFocus(ln: LayoutNode): boolean {
+  const node = ln.node;
+  if (node.type === "textinput") return node.props.focused !== undefined;
+  if (node.type === "vstack" || node.type === "hstack")
+    return node.props.focused !== undefined;
+  return false;
+}
+
+/**
  * Find the currently focused element across all layers.
- * Checks both TextInput (focused prop) and containers (focused prop).
+ * Checks controlled focus (`focused: true` in props) first,
+ * then falls back to framework-tracked uncontrolled focus.
  */
 function findFocusedElement(): LayoutNode | null {
+  // Controlled: scan tree for focused: true
   for (let i = currentLayouts.length - 1; i >= 0; i--) {
     const found = findFocusedInTree(currentLayouts[i]!);
     if (found) return found;
+  }
+  // Uncontrolled: check framework-tracked index
+  if (frameworkFocusIndex >= 0) {
+    const topLayer = currentLayouts[currentLayouts.length - 1];
+    if (topLayer) {
+      const focusables = collectFocusable(topLayer);
+      if (frameworkFocusIndex < focusables.length) {
+        return focusables[frameworkFocusIndex]!;
+      }
+    }
+    // Index out of bounds (tree changed) — clear
+    frameworkFocusIndex = -1;
   }
   return null;
 }
 
 /**
+ * Stamp `focused: true` on the framework-tracked focused node's props
+ * before painting, so that paint/focusStyle/cursor rendering picks it up.
+ * Only stamps if no controlled element is already focused.
+ * Must be followed by {@link unstampUncontrolledFocus} after paint.
+ */
+function stampUncontrolledFocus(): void {
+  stampedNode = null;
+  if (frameworkFocusIndex < 0) return;
+
+  // Don't stamp if a controlled element owns focus
+  for (let i = currentLayouts.length - 1; i >= 0; i--) {
+    if (findFocusedInTree(currentLayouts[i]!)) {
+      frameworkFocusIndex = -1;
+      return;
+    }
+  }
+
+  const topLayer = currentLayouts[currentLayouts.length - 1];
+  if (!topLayer) return;
+  const focusables = collectFocusable(topLayer);
+  if (frameworkFocusIndex >= focusables.length) {
+    frameworkFocusIndex = -1;
+    return;
+  }
+  const target = focusables[frameworkFocusIndex]!;
+  const node = target.node;
+  if (
+    node.type === "textinput" ||
+    node.type === "vstack" ||
+    node.type === "hstack"
+  ) {
+    (node.props as any).focused = true;
+    stampedNode = target;
+  }
+}
+
+/**
+ * Remove the `focused: true` stamp set by {@link stampUncontrolledFocus}.
+ * Called after paint so input handlers see the original props and can
+ * correctly distinguish controlled from uncontrolled elements.
+ */
+function unstampUncontrolledFocus(): void {
+  if (!stampedNode) return;
+  const node = stampedNode.node;
+  if (
+    node.type === "textinput" ||
+    node.type === "vstack" ||
+    node.type === "hstack"
+  ) {
+    delete (node.props as any).focused;
+  }
+  stampedNode = null;
+}
+
+/**
  * Blur the currently focused element and focus a new one.
+ * Manages both controlled (via onFocus/onBlur callbacks) and
+ * uncontrolled (via frameworkFocusIndex) focus.
  */
 function changeFocus(target: LayoutNode | null): void {
   const current = findFocusedElement();
@@ -168,6 +270,8 @@ function changeFocus(target: LayoutNode | null): void {
         idx = focusables.findIndex((f) => f.node === current.node);
       lastFocusedIndex = idx;
     }
+    // Always clear framework tracking on blur
+    frameworkFocusIndex = -1;
     const props =
       current.node.type === "textinput"
         ? current.node.props
@@ -182,6 +286,16 @@ function changeFocus(target: LayoutNode | null): void {
   // Focus new target — clear saved position
   if (target && target !== current) {
     lastFocusedIndex = -1;
+    // Set or clear framework tracking based on controlled/uncontrolled
+    if (!isControlledFocus(target)) {
+      const topLayer = currentLayouts[currentLayouts.length - 1];
+      if (topLayer) {
+        const focusables = collectFocusable(topLayer);
+        frameworkFocusIndex = focusables.indexOf(target);
+      }
+    } else {
+      frameworkFocusIndex = -1;
+    }
     const props =
       target.node.type === "textinput"
         ? target.node.props
@@ -501,22 +615,8 @@ function findPathTo(root: LayoutNode, target: LayoutNode): LayoutNode[] | null {
 }
 
 function findFocusedTextInput(): LayoutNode | null {
-  for (let i = currentLayouts.length - 1; i >= 0; i--) {
-    const found = findFocusedTextInputInTree(currentLayouts[i]!);
-    if (found) return found;
-  }
-  return null;
-}
-
-function findFocusedTextInputInTree(ln: LayoutNode): LayoutNode | null {
-  if (ln.node.type === "textinput" && ln.node.props.focused) {
-    return ln;
-  }
-  for (const child of ln.children) {
-    const found = findFocusedTextInputInTree(child);
-    if (found) return found;
-  }
-  return null;
+  const focused = findFocusedElement();
+  return focused && focused.node.type === "textinput" ? focused : null;
 }
 
 function findFocusedInTree(ln: LayoutNode): LayoutNode | null {
@@ -605,6 +705,8 @@ export const cel = {
     currentLayouts = [];
     renderScheduled = false;
     lastFocusedIndex = -1;
+    frameworkFocusIndex = -1;
+    stampedNode = null;
   },
 
   /** @internal */

@@ -23,10 +23,11 @@ export type Color =
   | "brightWhite";
 
 /**
- * Styling props shared by {@link TextProps} and {@link TextInputProps}.
+ * Styling props shared by all node types.
  *
  * Maps directly to terminal SGR (Select Graphic Rendition) attributes.
- * There is no style inheritance — every node sets its own styles explicitly.
+ * Containers propagate their styles to descendants — child nodes inherit
+ * the nearest ancestor's values unless they set a value explicitly.
  */
 export interface StyleProps {
   /** Render text with bold weight. */
@@ -54,9 +55,12 @@ export type SizeValue = number | `${number}%`;
 /**
  * Props shared by all container nodes ({@link ContainerNode} and {@link TextInputNode}).
  *
- * Controls layout, sizing, scrolling, focus, click handling, and key events.
+ * Controls layout, sizing, scrolling, focus, click handling, key events,
+ * and styling. Style props on containers are inherited by descendants —
+ * child nodes use the nearest ancestor's values unless they set their own.
+ * Container `bgColor` fills the container rect before painting children.
  */
-export interface ContainerProps {
+export interface ContainerProps extends StyleProps {
   /**
    * Fixed width in cells, or percentage of parent width.
    * When omitted, the container uses intrinsic sizing (fits content)
@@ -153,16 +157,40 @@ export interface ContainerProps {
   focusable?: boolean;
 
   /**
-   * Whether this container is currently focused. Controlled by the app —
-   * only one element should be focused at a time.
+   * Whether this container is currently focused.
+   *
+   * When provided, focus is **controlled** — the app owns the state and
+   * must update this value via {@link onFocus}/{@link onBlur}.
+   * When omitted, focus is **uncontrolled** — the framework manages
+   * focus internally (Tab/Shift+Tab/Escape/click just work).
    */
   focused?: boolean;
 
-  /** Called when this container receives focus (Tab, Shift+Tab, or mouse click). */
+  /**
+   * Called when this container receives focus (Tab, Shift+Tab, or mouse click).
+   * In uncontrolled mode, this is a notification callback.
+   * In controlled mode, update {@link focused} here.
+   */
   onFocus?: () => void;
 
-  /** Called when this container loses focus. */
+  /**
+   * Called when this container loses focus.
+   * In uncontrolled mode, this is a notification callback.
+   * In controlled mode, update {@link focused} here.
+   */
   onBlur?: () => void;
+
+  /**
+   * Style overrides applied when this element is focused.
+   * Accepts any {@link StyleProps} — overridden values replace the
+   * element's normal styles and participate in inheritance.
+   *
+   * Works in both uncontrolled and controlled focus modes.
+   *
+   * @example
+   * { bgColor: "cyan", fgColor: "black" }  // reverse-video effect
+   */
+  focusStyle?: StyleProps;
 
   /**
    * Called on key events that bubble up to this container.
@@ -214,7 +242,7 @@ export interface TextProps extends StyleProps {
  * Scroll is always framework-managed (follows cursor and responds to mouse wheel).
  * Word-wrap is always on.
  */
-export interface TextInputProps extends ContainerProps, StyleProps {
+export interface TextInputProps extends ContainerProps {
   /** Current text content. Controlled — the app owns this value. */
   value: string;
 
@@ -249,18 +277,6 @@ export interface TextInputProps extends ContainerProps, StyleProps {
    * placeholder: Text("type a message...", { fgColor: "brightBlack" })
    */
   placeholder?: TextNode;
-
-  /**
-   * Whether this input is currently focused. Controlled — the app
-   * owns focus state. TextInput is always focusable.
-   */
-  focused?: boolean;
-
-  /** Called when this input receives focus (Tab, Shift+Tab, or mouse click). */
-  onFocus?: () => void;
-
-  /** Called when this input loses focus. */
-  onBlur?: () => void;
 }
 
 /**
