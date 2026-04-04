@@ -63,6 +63,57 @@ describe("hitTest", () => {
     expect(path.length).toBe(4); // root > HStack > VStack > Text
     expect((path[path.length - 1]!.node as any).content).toBe("deep");
   });
+
+  test("adjusts for vertical scroll offset", () => {
+    // VStack with 5 children of height 1 in a 3-row viewport
+    const node = VStack(
+      { width: 20, height: 3, overflow: "scroll", scrollOffset: 2 },
+      [
+        Text("line 0"),
+        Text("line 1"),
+        Text("line 2"),
+        Text("line 3"),
+        Text("line 4"),
+      ],
+    );
+    const ln = layout(node, 20, 3);
+
+    // With scrollOffset=2, clicking at row 0 should hit "line 2"
+    // (the 3rd child, which is visually at the top)
+    const path = hitTest(ln, 3, 0);
+    expect((path[path.length - 1]!.node as any).content).toBe("line 2");
+
+    // Row 2 should hit "line 4"
+    const path2 = hitTest(ln, 3, 2);
+    expect((path2[path2.length - 1]!.node as any).content).toBe("line 4");
+  });
+
+  test("adjusts for horizontal scroll offset", () => {
+    const node = HStack(
+      { width: 10, height: 3, overflow: "scroll", scrollOffset: 5 },
+      [
+        VStack({ width: 5 }, [Text("a")]),
+        VStack({ width: 5 }, [Text("b")]),
+        VStack({ width: 5 }, [Text("c")]),
+      ],
+    );
+    const ln = layout(node, 10, 3);
+
+    // With scrollOffset=5, clicking at col 0 should hit child "b" (starts at x=5 in layout)
+    const path = hitTest(ln, 0, 0);
+    expect((path[path.length - 1]!.node as any).content).toBe("b");
+  });
+
+  test("no scroll adjustment without overflow scroll", () => {
+    const node = VStack({ width: 20, height: 3 }, [
+      Text("line 0"),
+      Text("line 1"),
+      Text("line 2"),
+    ]);
+    const ln = layout(node, 20, 3);
+    const path = hitTest(ln, 3, 0);
+    expect((path[path.length - 1]!.node as any).content).toBe("line 0");
+  });
 });
 
 describe("findClickHandler", () => {

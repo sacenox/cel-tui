@@ -426,11 +426,29 @@ function getMaxScrollOffset(target: LayoutNode): number {
   }
 }
 
+/**
+ * Resolve the current scroll offset for a layout node.
+ * Checks controlled (props.scrollOffset), then uncontrolled (path-based map).
+ */
+function resolveScrollOffset(ln: import("./layout.js").LayoutNode): number {
+  const node = ln.node;
+  if (node.type === "text") return 0;
+  const props = node.props;
+  if ((props as any).scrollOffset !== undefined)
+    return (props as any).scrollOffset;
+  // Check uncontrolled map
+  const pathKey = getScrollPathKey(ln);
+  if (pathKey !== null) {
+    return uncontrolledScrollOffsets.get(pathKey) ?? 0;
+  }
+  return 0;
+}
+
 function handleMouseEvent(event: MouseEvent): void {
   // Hit test on topmost layer first
   for (let i = currentLayouts.length - 1; i >= 0; i--) {
     const layoutRoot = currentLayouts[i]!;
-    const path = hitTest(layoutRoot, event.x, event.y);
+    const path = hitTest(layoutRoot, event.x, event.y, resolveScrollOffset);
     if (path.length === 0) continue;
 
     if (event.type === "click") {
