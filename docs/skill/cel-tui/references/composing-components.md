@@ -52,7 +52,7 @@ function ToggleGroup(props: ToggleGroupProps): ToggleGroupInstance {
   const { options, onSelect, activeColor = "cyan" } = props;
   let activeIndex = 0;
 
-  function handleKey(key: string): void {
+  function handleKey(key: string): boolean | void {
     if (key === "left" && activeIndex > 0) {
       activeIndex--;
       cel.render();
@@ -61,6 +61,8 @@ function ToggleGroup(props: ToggleGroupProps): ToggleGroupInstance {
       cel.render();
     } else if (key === "enter") {
       onSelect(options[activeIndex]!);
+    } else {
+      return false; // unrecognized key — let it bubble to ancestors
     }
   }
 
@@ -101,7 +103,7 @@ cel.viewport(() =>
 - **Create once** outside `cel.viewport()`. The closure captures mutable state.
 - **Call each render** inside `cel.viewport()` — the function builds a fresh node tree from current state.
 - **`cel.render()`** is importable from `@cel-tui/core` — stateful components call it after internal state changes to trigger re-renders.
-- **Key forwarding** — `findKeyPressHandler` returns the innermost handler and stops. If your component uses `onKeyPress`, accept an `onKeyPress` prop from the user and call it for keys you don't handle, so parent shortcuts still work.
+- **Key bubbling** — `onKeyPress` handlers bubble from innermost to root. Return `false` from a handler to signal the key was not consumed and let it continue to the next ancestor. Return `void`/`undefined` to consume (backward-compatible). Components like `Select` return `false` for unrecognized keys, so app-level shortcuts on parent containers work automatically.
 - **`.reset()`** or other methods — attach to the render function (functions are objects in JS) to expose imperative control.
 
 This is the pattern used by `Select` from `@cel-tui/components`.

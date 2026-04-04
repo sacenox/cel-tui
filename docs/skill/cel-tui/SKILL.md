@@ -163,15 +163,24 @@ const mySelect = Select({
     chosen = value;
     cel.render();
   },
-  onKeyPress: (key) => {
-    if (key === "ctrl+q") {
-      cel.stop();
-      process.exit();
-    }
-  },
 });
 
-cel.viewport(() => VStack({ height: "100%" }, [mySelect()]));
+// ctrl+q lives on the root — Select returns false for unrecognized
+// keys, so they bubble up automatically.
+cel.viewport(() =>
+  VStack(
+    {
+      height: "100%",
+      onKeyPress: (key) => {
+        if (key === "ctrl+q") {
+          cel.stop();
+          process.exit();
+        }
+      },
+    },
+    [mySelect()],
+  ),
+);
 mySelect.reset(); // clear filter/highlight programmatically
 ```
 
@@ -183,7 +192,7 @@ mySelect.reset(); // clear filter/highlight programmatically
 - **Escape unfocuses** the current element. Tab/Shift+Tab traverses focusable elements (wraps around). After Escape, traversal continues from where focus was lost.
 - **Enter activates** a focused container's `onClick`. If no `onClick`, Enter reaches `onKeyPress`.
 - **`focusable: true`** without `onClick` makes a container keyboard-focusable (receives `onKeyPress` events via Tab). Used by stateful components like `Select`.
-- **Innermost handler wins** — for `onClick`, `onScroll`, and `onKeyPress`. Unhandled keys in a component's `onKeyPress` don't automatically bubble to parent handlers — forward them manually via an `onKeyPress` prop.
+- **Innermost handler wins** — for `onClick` and `onScroll`. For `onKeyPress`, keys **bubble up** through ancestors: return `false` from a handler to let the key continue to the next ancestor. Returning `void`/`undefined` consumes the key (stops bubbling). This is backward-compatible.
 - **Container `bgColor`** fills the rect with opaque background before painting children.
 - **`repeat: "fill"` in HStack** gets width 0 (intrinsic width is 0). Workaround: wrap in `VStack({ flex: 1 }, [Text(" ", { repeat: "fill" })])`.
 - **Crash cleanup** — terminal state is restored on SIGINT, SIGTERM, uncaughtException.

@@ -146,7 +146,7 @@ chore: scaffold monorepo with types, core, components packages
 - `layout.ts` — Flexbox engine. `layout(root, width, height)` → `LayoutNode` tree with absolute screen rects.
 - `paint.ts` — Paints `LayoutNode` tree into `CellBuffer`. Handles clip rects, scroll offsets, scrollbars, grapheme-aware text rendering, TextInput cursor/scroll state, container bgColor fill, style inheritance threading, focusStyle resolution.
 - `emitter.ts` — `emitBuffer()` for full renders, `emitDiff()` for differential. Both wrap in CSI 2026 synchronized output.
-- `hit-test.ts` — `hitTest(root, x, y)` → path from root to deepest node. `findClickHandler`, `findScrollTarget`, `findKeyPressHandler`, `collectFocusable` walk paths.
+- `hit-test.ts` — `hitTest(root, x, y)` → path from root to deepest node. `findClickHandler`, `findScrollTarget`, `collectKeyPressHandlers`, `collectFocusable` walk paths.
 - `keys.ts` — `parseKey(data)` normalizes terminal input to canonical key strings. `isEditingKey()` identifies keys consumed by TextInput. `normalizeKey()` reorders modifiers to canonical `ctrl+alt+shift+<key>` order.
 - `text-edit.ts` — Pure text editing functions (`insertChar`, `deleteBackward`, `deleteForward`, `moveCursor`). Operates on `EditState` (value + cursor position). Used by `cel.ts` to handle TextInput key events.
 - `width.ts` — `visibleWidth(str)` measures terminal column width. Fast ASCII path, grapheme segmentation, East Asian width, ANSI stripping, LRU cache.

@@ -31,7 +31,7 @@ All props accepted by `VStack` and `HStack`:
   focused,                // boolean (controlled — omit for uncontrolled)
   onFocus,                // () => void
   onBlur,                 // () => void
-  onKeyPress,             // (key: string) => void
+  onKeyPress,             // (key: string) => boolean | void — return false to keep bubbling
 }
 ```
 
@@ -102,7 +102,7 @@ Button("✕", { onClick: handleClose, focusable: false });
 
 ### Select (filterable list)
 
-Select props: `items`, `onSelect`, `placeholder` (default `"type to filter..."`), `maxVisible` (default `10`), `indicator` (default `"›"`), `highlightColor` (default `"cyan"`), `onKeyPress` (receives unhandled keys), plus container/style props: `width`, `height`, `flex`, `fgColor`, `bgColor`, `focused`, `focusable`, `onFocus`, `onBlur`, `focusStyle`.
+Select props: `items`, `onSelect`, `placeholder` (default `"type to filter..."`), `maxVisible` (default `10`), `indicator` (default `"›"`), `highlightColor` (default `"cyan"`), `onKeyPress` (composed with internal handler), plus container/style props: `width`, `height`, `flex`, `fgColor`, `bgColor`, `focused`, `focusable`, `onFocus`, `onBlur`, `focusStyle`.
 
 ```ts
 const mySelect = Select({
@@ -113,18 +113,22 @@ const mySelect = Select({
   },
   placeholder: "search fruits...",
   maxVisible: 8,
-  onKeyPress: (key) => {
-    // Receives keys the Select doesn't handle (modifiers, etc.)
-    if (key === "ctrl+q") {
-      cel.stop();
-      process.exit();
-    }
-  },
 });
 
-// Inside cel.viewport — call each render to get the current node tree
+// Select returns false for unrecognized keys, so they bubble to root.
 cel.viewport(() =>
-  VStack({ height: "100%" }, [Text("Pick a fruit:"), mySelect()]),
+  VStack(
+    {
+      height: "100%",
+      onKeyPress: (key) => {
+        if (key === "ctrl+q") {
+          cel.stop();
+          process.exit();
+        }
+      },
+    },
+    [Text("Pick a fruit:"), mySelect()],
+  ),
 );
 
 // Reset state programmatically
