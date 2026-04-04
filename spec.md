@@ -327,6 +327,8 @@ cel-tui **requires** the [Kitty keyboard protocol](https://sw.kovidgoyal.net/kit
 2. All key input is parsed from the Kitty `CSI unicode-codepoint ; modifiers u` format, with fallback CSI parsing for functional keys (`CSI 1 ; modifiers <A-H>` arrows, `CSI number ; modifiers ~` function keys, etc.)
 3. `cel.stop()` pops the keyboard mode (`CSI < u`), restoring the terminal's previous state
 
+**Level 1 encoding details:** At level 1, unmodified special keys that have well-known legacy encodings (Tab, Enter, Escape, Backspace) retain those single-byte encodings. Only modified variants (e.g., Shift+Tab, Ctrl+Enter) use the CSI u format. The parser handles both paths.
+
 **Supported terminals:** Kitty, WezTerm, Ghostty, foot, Alacritty, Windows Terminal, and others. macOS Terminal.app and older xterm versions do not support this protocol.
 
 > **Future enhancement:** Higher protocol levels enable key-release events (`level 2`), associated text reporting (`level 3`), and full key event types (`level 4`). These would enable held-key detection for game-like UIs, distinguishing physical key layout from logical input, and other advanced input patterns. The framework may adopt higher levels in the future.

@@ -95,7 +95,29 @@ describe("parseKey", () => {
     });
   });
 
-  // --- CSI u: special keys without modifiers ---
+  // --- Legacy bytes for unmodified special keys ---
+  // At Kitty level 1, unmodified special keys retain their traditional
+  // encoding. Only modified variants get the CSI u treatment.
+
+  describe("legacy bytes for unmodified special keys", () => {
+    test("tab", () => {
+      expect(parseKey("\t")).toBe("tab");
+    });
+
+    test("enter", () => {
+      expect(parseKey("\r")).toBe("enter");
+    });
+
+    test("escape", () => {
+      expect(parseKey("\x1b")).toBe("escape");
+    });
+
+    test("backspace", () => {
+      expect(parseKey("\x7f")).toBe("backspace");
+    });
+  });
+
+  // --- CSI u: special keys (also valid, sent by some terminals) ---
 
   describe("CSI u special keys", () => {
     test("escape", () => {
@@ -120,6 +142,11 @@ describe("parseKey", () => {
 
     test("plus via CSI u", () => {
       expect(parseKey("\x1b[43u")).toBe("plus");
+    });
+
+    test("legacy shift+tab (CSI Z)", () => {
+      // tmux and some terminals send this instead of CSI 9;2 u
+      expect(parseKey("\x1b[Z")).toBe("shift+tab");
     });
 
     test("explicit modifier=1 means no modifiers", () => {

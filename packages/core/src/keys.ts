@@ -2,12 +2,14 @@
  * Key parsing for the Kitty keyboard protocol (level 1 — disambiguate).
  *
  * At level 1, the terminal sends:
- * - **CSI u** (`ESC [ codepoint ; modifiers u`) for keys that were ambiguous
- *   in legacy encoding (Escape, Enter, Tab, Backspace, Ctrl+letter, Alt+letter, etc.)
+ * - **CSI u** (`ESC [ codepoint ; modifiers u`) for modified special keys
+ *   and modifier combos (Ctrl+letter, Alt+letter, Shift+Tab, Ctrl+Enter, etc.)
  * - **CSI letter** (`ESC [ A/B/C/D/H/F` or `ESC [ 1 ; modifiers letter`) for
  *   arrow keys and Home/End
  * - **CSI tilde** (`ESC [ number ~` or `ESC [ number ; modifiers ~`) for
  *   Delete, PageUp, PageDown, and function keys
+ * - **Legacy bytes** for unmodified special keys (Tab=0x09, Enter=0x0D,
+ *   Escape=0x1B, Backspace=0x7F) — these retain their traditional encoding
  * - **Raw bytes** for unmodified printable characters
  *
  * Modifier bitmask (wire value = bitmask + 1):
@@ -57,6 +59,21 @@ const TILDE_NAMES: Record<number, string> = {
   24: "f12",
 };
 
+/**
+ * Legacy byte → named key mapping for unmodified special keys.
+ *
+ * At Kitty level 1, unmodified special keys that have well-known legacy
+ * encodings retain those encodings. Only modified variants (e.g., Shift+Tab,
+ * Ctrl+Enter) get the CSI u treatment. These mappings handle the legacy
+ * bytes that arrive for the unmodified case.
+ */
+const LEGACY_BYTE_NAMES: Record<number, string> = {
+  9: "tab", // \t — also Ctrl+I in legacy, but at level 1 Ctrl+I → CSI u
+  13: "enter", // \r — also Ctrl+M in legacy, but at level 1 Ctrl+M → CSI u
+  27: "escape", // \x1b — bare ESC byte
+  127: "backspace", // \x7f — DEL byte
+};
+
 /** Raw printable characters that map to named keys. */
 const CHAR_NAMES: Record<string, string> = {
   " ": "space",
@@ -101,6 +118,9 @@ const CSI_LETTER_RE = /^(?:1;(\d+))?([A-H])$/;
 const CSI_TILDE_RE = /^(\d+)(?:;(\d+))?~$/;
 
 function parseCsiSequence(seq: string): string {
+  // Legacy Shift+Tab (CSI Z) — sent by tmux and some terminals
+  if (seq === "Z") return "shift+tab";
+
   // CSI u format: codepoint [; modifiers] u
   let match = CSI_U_RE.exec(seq);
   if (match) {
@@ -157,10 +177,19 @@ export function parseKey(data: string): string {
     return parseCsiSequence(data.slice(2));
   }
 
-  // Single-character input: raw printable characters at level 1
+  // Single-character input
   if (data.length === 1) {
+    const code = data.charCodeAt(0);
+
+    // Legacy bytes for unmodified special keys (Kitty level 1 retains these)
+    const legacy = LEGACY_BYTE_NAMES[code];
+    if (legacy) return legacy;
+
+    // Named printable characters
     const named = CHAR_NAMES[data];
     if (named) return named;
+
+    // Printable characters — return lowercase
     return data.toLowerCase();
   }
 
