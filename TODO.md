@@ -30,9 +30,7 @@ Remaining work, known bugs, and planned improvements.
 
 - ❌ Bracketed paste mode support
 
-- ❌ **`flexWrap: "wrap"` for HStack** — Add `flexWrap?: "nowrap" | "wrap"` to `ContainerProps`. When set to `"wrap"`, children that exceed the container width flow to the next line (like CSS `flex-wrap: wrap`). This is a general layout feature useful for tags, chips, and inline elements — but the primary motivation is enabling Markdown inline styling.
-
-- ❌ **Markdown inline styling** — The `Markdown` component strips inline formatting (`**bold**`, `*italic*`, `` `code` ``, `[links](url)`) to plain text. With `flexWrap: "wrap"` on HStack, the component can split inline spans at word boundaries into individual `Text` nodes and wrap them in `HStack({ flexWrap: "wrap" })`. The framework handles line wrapping; the component handles word splitting. Depends on `flexWrap` above.
+- ❌ **Markdown inline styling** — The `Markdown` component strips inline formatting (`**bold**`, `*italic*`, `` `code` ``, `[links](url)`) to plain text. With `flexWrap: "wrap"` on HStack (now implemented), the component can split inline spans at word boundaries into individual `Text` nodes and wrap them in `HStack({ flexWrap: "wrap" })`. The framework handles line wrapping; the component handles word splitting.
 
 ## Future Enhancements
 

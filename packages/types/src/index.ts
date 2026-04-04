@@ -118,6 +118,20 @@ export interface ContainerProps extends StyleProps {
   alignItems?: "start" | "end" | "center" | "stretch";
 
   /**
+   * Whether children wrap to the next line when they exceed the
+   * container's main-axis size. Only meaningful on HStack.
+   *
+   * - `"nowrap"` (default) — all children on one line, may overflow.
+   * - `"wrap"` — children that exceed the width flow to the next row.
+   *
+   * When wrapping, each row is laid out independently: flex children
+   * distribute remaining space within their row, `justifyContent`
+   * applies per row, and `alignItems` applies per row. Rows are
+   * stacked vertically with `gap` spacing between them.
+   */
+  flexWrap?: "nowrap" | "wrap";
+
+  /**
    * Content overflow behavior.
    * - `"hidden"` (default) — clip content at the container edge.
    * - `"scroll"` — enable scrolling along the main axis.

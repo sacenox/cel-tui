@@ -400,6 +400,74 @@ describe("paint", () => {
     });
   });
 
+  describe("flexWrap rendering", () => {
+    test("wrapping HStack paints children on multiple rows", () => {
+      const node = HStack({ width: 10, height: 5, flexWrap: "wrap" }, [
+        VStack({ width: 6 }, [Text("AAAAAA")]),
+        VStack({ width: 6 }, [Text("BBBBBB")]),
+      ]);
+      const ln = layout(node, 10, 5);
+      const buf = new CellBuffer(10, 5);
+      paint(ln, buf);
+      // Row 1: "AAAAAA" at y=0
+      expect(readRow(buf, 0)).toBe("AAAAAA");
+      // Row 2: "BBBBBB" at y=1
+      expect(readRow(buf, 1)).toBe("BBBBBB");
+    });
+
+    test("wrapping HStack with gap paints correctly", () => {
+      const node = HStack({ width: 12, height: 5, flexWrap: "wrap", gap: 1 }, [
+        VStack({ width: 5 }, [Text("AAA")]),
+        VStack({ width: 5 }, [Text("BBB")]),
+        VStack({ width: 5 }, [Text("CCC")]),
+      ]);
+      const ln = layout(node, 12, 5);
+      const buf = new CellBuffer(12, 5);
+      paint(ln, buf);
+      // Row 1: "AAA" at x=0, "BBB" at x=6 (5+gap1)
+      // 5 + 1 + 5 = 11 ≤ 12, + 1 + 5 = 17 > 12
+      expect(buf.get(0, 0).char).toBe("A");
+      expect(buf.get(6, 0).char).toBe("B");
+      // Row 2: "CCC" at x=0, y=1+gap(1)=2... or y depends on row height
+      // Row height = 1 (Text is 1 line), gap between rows = 1
+      // So row 2 at y=2
+      expect(buf.get(0, 2).char).toBe("C");
+    });
+
+    test("wrapping HStack with bgColor fills all rows", () => {
+      const node = HStack(
+        { width: 10, height: 6, flexWrap: "wrap", bgColor: "blue" },
+        [
+          VStack({ width: 6, height: 2 }, []),
+          VStack({ width: 6, height: 2 }, []),
+        ],
+      );
+      const ln = layout(node, 10, 6);
+      const buf = new CellBuffer(10, 6);
+      paint(ln, buf);
+      // Background should fill the entire HStack rect
+      expect(buf.get(0, 0).bgColor).toBe("blue");
+      expect(buf.get(9, 3).bgColor).toBe("blue");
+    });
+
+    test("wrapping HStack clips children to container bounds", () => {
+      // Container is 10x3, wrapping creates rows beyond height
+      const node = HStack({ width: 10, height: 3, flexWrap: "wrap" }, [
+        VStack({ width: 10, height: 2 }, [Text("Row1")]),
+        VStack({ width: 10, height: 2 }, [Text("Row2")]),
+      ]);
+      const ln = layout(node, 10, 3);
+      const buf = new CellBuffer(10, 4);
+      paint(ln, buf);
+      // Row 1 at y=0, visible
+      expect(readRow(buf, 0)).toBe("Row1");
+      // Row 2 at y=2, first line visible (y=2 < height=3)
+      expect(readRow(buf, 2)).toBe("Row2");
+      // Row 2 second line at y=3, clipped (y=3 ≥ height=3)
+      expect(readRow(buf, 3)).toBe("");
+    });
+  });
+
   describe("nested layout", () => {
     test("editor-like layout paints correctly", () => {
       const node = HStack({ width: 30, height: 5 }, [

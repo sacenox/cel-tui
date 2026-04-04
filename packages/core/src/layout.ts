@@ -144,6 +144,47 @@ function intrinsicMainSize(
     return total + padMain;
   }
 
+  // Special case: wrapping HStack computing intrinsic height.
+  // Instead of max-of-children, simulate the row layout and sum row heights.
+  if (
+    node.type === "hstack" &&
+    (node.props as ContainerProps).flexWrap === "wrap"
+  ) {
+    const wrapWidths: number[] = [];
+    const wrapHeights: number[] = [];
+    for (const child of node.children) {
+      const cProps = getProps(child);
+      const flex = cProps?.flex ?? 0;
+      let w: number;
+      if (flex > 0) {
+        w = cProps?.minWidth ?? 0;
+      } else {
+        w =
+          resolveSizeValue(cProps?.width, innerCross) ??
+          intrinsicMainSize(child, false, innerCross);
+        if (cProps) {
+          w = clamp(w, cProps.minWidth ?? 0, cProps.maxWidth ?? Infinity);
+        }
+      }
+      wrapWidths.push(w);
+      const h =
+        resolveSizeValue(cProps?.height, 0) ??
+        intrinsicMainSize(child, true, innerCross);
+      wrapHeights.push(h);
+    }
+    const wrapRows = assignWrapRows(wrapWidths, innerCross, gap);
+    let total = 0;
+    for (let ri = 0; ri < wrapRows.length; ri++) {
+      let maxH = 0;
+      for (const idx of wrapRows[ri]!) {
+        if (wrapHeights[idx]! > maxH) maxH = wrapHeights[idx]!;
+      }
+      total += maxH;
+      if (ri < wrapRows.length - 1) total += gap;
+    }
+    return total + padMain;
+  }
+
   // Cross axis: max of children on the requested axis
   let maxSize = 0;
   for (const child of node.children) {
@@ -162,6 +203,45 @@ function intrinsicMainSize(
     if (childSize > maxSize) maxSize = childSize;
   }
   return maxSize + padMain;
+}
+
+// --- Wrap row assignment ---
+
+/**
+ * Assign children to rows for a wrapping HStack.
+ * Children are placed left-to-right; when adding the next child (plus gap)
+ * would exceed availWidth, a new row begins. A child wider than the
+ * container still gets its own row.
+ */
+function assignWrapRows(
+  widths: number[],
+  availWidth: number,
+  gap: number,
+): number[][] {
+  if (widths.length === 0) return [];
+  const rows: number[][] = [];
+  let currentRow: number[] = [];
+  let rowWidth = 0;
+
+  for (let i = 0; i < widths.length; i++) {
+    const w = widths[i]!;
+    if (currentRow.length === 0) {
+      currentRow.push(i);
+      rowWidth = w;
+    } else {
+      const needed = rowWidth + gap + w;
+      if (needed > availWidth) {
+        rows.push(currentRow);
+        currentRow = [i];
+        rowWidth = w;
+      } else {
+        currentRow.push(i);
+        rowWidth = needed;
+      }
+    }
+  }
+  if (currentRow.length > 0) rows.push(currentRow);
+  return rows;
 }
 
 // --- Largest remainder rounding ---
@@ -206,6 +286,203 @@ export function layout(
 }
 
 /**
+ * Layout a wrapping HStack. Children are assigned to rows based on their
+ * base widths, then each row is laid out as an independent flex context.
+ */
+function layoutWrapHStack(
+  node: Node,
+  rect: Rect,
+  props: ContainerProps,
+  children: Node[],
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+): LayoutNode {
+  const gap = props.gap ?? 0;
+  const align = props.alignItems ?? "stretch";
+  const justify = props.justifyContent ?? "start";
+
+  // Padding
+  const padX = props.padding?.x ?? 0;
+  const padY = props.padding?.y ?? 0;
+  const innerX = x + padX;
+  const innerY = y + padY;
+  const innerW = Math.max(0, width - padX * 2);
+  const innerH = Math.max(0, height - padY * 2);
+
+  // Phase 1: Measure each child's base width and cross (height) size
+  const baseWidths: number[] = [];
+  const crossSizes: number[] = [];
+  const flexValues: number[] = [];
+
+  for (const child of children) {
+    const cProps = getProps(child);
+    const flex = cProps?.flex ?? 0;
+    flexValues.push(flex);
+
+    let baseW: number;
+    if (flex > 0) {
+      // Flex children use minWidth for row assignment (like CSS flex-basis)
+      baseW = cProps?.minWidth ?? 0;
+    } else {
+      baseW =
+        resolveSizeValue(cProps?.width, innerW) ??
+        intrinsicMainSize(child, false, innerH);
+      if (cProps) {
+        baseW = clamp(baseW, cProps.minWidth ?? 0, cProps.maxWidth ?? Infinity);
+      }
+    }
+    baseWidths.push(baseW);
+
+    // Always compute real cross size (explicit or intrinsic) for row height
+    const cross =
+      resolveSizeValue(cProps?.height, innerH) ??
+      intrinsicMainSize(child, true, innerW);
+    crossSizes.push(cross);
+  }
+
+  // Phase 2: Assign children to rows
+  const rows = assignWrapRows(baseWidths, innerW, gap);
+
+  // Phase 3: Layout each row independently
+  const layoutChildren: LayoutNode[] = [];
+  let rowY = 0;
+
+  for (let ri = 0; ri < rows.length; ri++) {
+    const rowIdx = rows[ri]!;
+    const rowGapTotal = gap * (rowIdx.length - 1);
+    const rowAvail = innerW - rowGapTotal;
+
+    // Compute fixed and flex totals for this row
+    let fixedMain = 0;
+    let totalFlex = 0;
+    for (const idx of rowIdx) {
+      if (flexValues[idx]! > 0) {
+        totalFlex += flexValues[idx]!;
+      } else {
+        fixedMain += baseWidths[idx]!;
+      }
+    }
+
+    // Distribute flex space within this row
+    const flexSpace = Math.max(0, rowAvail - fixedMain);
+    const childWidths: number[] = new Array(rowIdx.length);
+
+    if (totalFlex > 0) {
+      const flexPositions: number[] = [];
+      for (let ci = 0; ci < rowIdx.length; ci++) {
+        if (flexValues[rowIdx[ci]!]! > 0) flexPositions.push(ci);
+      }
+      const rawSizes = flexPositions.map(
+        (ci) => (flexValues[rowIdx[ci]!]! / totalFlex) * flexSpace,
+      );
+      const rounded = largestRemainder(rawSizes, flexSpace);
+
+      for (let fi = 0; fi < flexPositions.length; fi++) {
+        const ci = flexPositions[fi]!;
+        let size = rounded[fi]!;
+        const cProps = getProps(children[rowIdx[ci]!]!);
+        if (cProps) {
+          size = clamp(size, cProps.minWidth ?? 0, cProps.maxWidth ?? Infinity);
+        }
+        childWidths[ci] = size;
+      }
+    }
+
+    // Non-flex children keep their base width
+    for (let ci = 0; ci < rowIdx.length; ci++) {
+      if (childWidths[ci] === undefined) {
+        childWidths[ci] = baseWidths[rowIdx[ci]!]!;
+      }
+    }
+
+    // Row height = max cross size of children in this row
+    let rowHeight = 0;
+    for (const idx of rowIdx) {
+      if (crossSizes[idx]! > rowHeight) rowHeight = crossSizes[idx]!;
+    }
+
+    // justifyContent: compute main-axis starting offset
+    let totalUsedWidth = rowGapTotal;
+    for (let ci = 0; ci < rowIdx.length; ci++) {
+      totalUsedWidth += childWidths[ci]!;
+    }
+    const remainingMain = Math.max(0, innerW - totalUsedWidth);
+
+    let mainStart = 0;
+    let betweenGaps: number[] | null = null;
+
+    if (justify === "end") {
+      mainStart = remainingMain;
+    } else if (justify === "center") {
+      mainStart = Math.floor(remainingMain / 2);
+    } else if (justify === "space-between" && rowIdx.length > 1) {
+      const gapCount = rowIdx.length - 1;
+      const rawGaps = Array.from(
+        { length: gapCount },
+        () => remainingMain / gapCount,
+      );
+      betweenGaps = largestRemainder(rawGaps, remainingMain);
+    }
+
+    // Position children in this row
+    let xOffset = mainStart;
+    for (let ci = 0; ci < rowIdx.length; ci++) {
+      const idx = rowIdx[ci]!;
+      const childW = childWidths[ci]!;
+
+      // Cross-axis sizing: stretch fills row height, others keep their size
+      let childH: number;
+      if (align === "stretch") {
+        const cProps = getProps(children[idx]!);
+        const explicitH = resolveSizeValue(cProps?.height, innerH);
+        childH = explicitH ?? rowHeight;
+      } else {
+        childH = crossSizes[idx]!;
+      }
+
+      // Cross-axis alignment within the row
+      let crossOffset = 0;
+      if (align === "center") {
+        crossOffset = Math.floor((rowHeight - childH) / 2);
+      } else if (align === "end") {
+        crossOffset = rowHeight - childH;
+      }
+
+      const childX = innerX + xOffset;
+      const childY = innerY + rowY + crossOffset;
+
+      layoutChildren.push(
+        layoutNode(children[idx]!, childX, childY, childW, childH),
+      );
+
+      xOffset += childW;
+      if (ci < rowIdx.length - 1) {
+        xOffset += gap;
+        if (betweenGaps) {
+          xOffset += betweenGaps[ci]!;
+        }
+      }
+    }
+
+    rowY += rowHeight;
+    if (ri < rows.length - 1) {
+      rowY += gap;
+    }
+  }
+
+  // Intrinsic height: if no explicit height, shrink to fit all rows
+  const hasExplicitHeight =
+    props.height !== undefined || props.flex !== undefined;
+  if (!hasExplicitHeight) {
+    rect.height = rowY + padY * 2;
+  }
+
+  return { node, rect, children: layoutChildren };
+}
+
+/**
  * Layout a node within the given available space.
  * Resolves the node's own explicit size (if any) against available space,
  * then lays out children within that.
@@ -237,6 +514,11 @@ function layoutNode(
 
   if (children.length === 0) {
     return { node, rect, children: [] };
+  }
+
+  // Wrapping HStack: separate layout path
+  if (node.type === "hstack" && props.flexWrap === "wrap") {
+    return layoutWrapHStack(node, rect, props, children, x, y, width, height);
   }
 
   // Padding

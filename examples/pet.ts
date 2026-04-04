@@ -491,32 +491,32 @@ function createView() {
           },
         }),
 
-        // Species picker
+        // Species picker — wrapping chips
         Text(""),
         Text("Species:", { bold: true, fgColor: "white" }),
-        ...PETS.map((p, i) => {
-          const sel = i === selectedKind;
-          return HStack(
-            {
-              onClick: () => {
-                selectedKind = i;
-                cel.render();
+        HStack(
+          { flexWrap: "wrap", gap: 1 },
+          PETS.map((p, i) => {
+            const sel = i === selectedKind;
+            return HStack(
+              {
+                onClick: () => {
+                  selectedKind = i;
+                  cel.render();
+                },
+                focusable: false,
               },
-              focusable: false,
-            },
-            [
-              Text(sel ? "  > " : "    ", {
-                fgColor: sel ? "cyan" : "brightBlack",
-                bold: sel,
-              }),
-              Text(p.kind, {
-                fgColor: sel ? "cyan" : "white",
-                bold: sel,
-              }),
-            ],
-          );
-        }),
-        Text("    ↑/↓ to change", {
+              [
+                Text(sel ? ` ● ${p.kind} ` : `   ${p.kind} `, {
+                  fgColor: sel ? "black" : "white",
+                  bgColor: sel ? "cyan" : undefined,
+                  bold: sel,
+                }),
+              ],
+            );
+          }),
+        ),
+        Text("  ↑/↓ to change", {
           fgColor: "brightBlack",
           italic: true,
         }),
@@ -544,12 +544,16 @@ function createView() {
           }),
         ]),
 
-        // Hints
-        HStack({ justifyContent: "center" }, [
-          Text("Tab", { fgColor: "brightBlack", bold: true }),
-          Text(" navigate  ", { fgColor: "brightBlack" }),
-          Text("Ctrl+Q", { fgColor: "brightBlack", bold: true }),
-          Text(" quit", { fgColor: "brightBlack" }),
+        // Hints — wrapping for narrow terminals
+        HStack({ justifyContent: "center", flexWrap: "wrap", gap: 1 }, [
+          HStack({}, [
+            Text("Tab", { fgColor: "brightBlack", bold: true }),
+            Text(" navigate", { fgColor: "brightBlack" }),
+          ]),
+          HStack({}, [
+            Text("Ctrl+Q", { fgColor: "brightBlack", bold: true }),
+            Text(" quit", { fgColor: "brightBlack" }),
+          ]),
         ]),
       ]),
       Spacer(),

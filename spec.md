@@ -78,6 +78,7 @@ Shared by both VStack and HStack. Containers also accept styling props (see [Sty
 | `gap`            | `number`                                      | Spacing between children (cells)                    |
 | `justifyContent` | `string`                                      | Distribute children along the main axis             |
 | `alignItems`     | `string`                                      | Align children along the cross axis                 |
+| `flexWrap`       | `"nowrap" \| "wrap"`                          | Wrap children to next line (HStack only)            |
 | `overflow`       | `"hidden" \| "scroll"`                        | Content overflow behavior (default: `"hidden"`)     |
 | `scrollbar`      | `boolean`                                     | Show scrollbar indicator                            |
 | `scrollOffset`   | `number`                                      | Scroll position in cells (controlled)               |
@@ -121,6 +122,44 @@ Inspired by Flexbox:
 
 - `justifyContent` — distribute children along the main axis
 - `alignItems` — align children along the cross axis
+
+### Flex Wrap
+
+HStack supports `flexWrap: "wrap"` to flow children onto multiple rows when they exceed the container width, like CSS `flex-wrap: wrap`.
+
+```ts
+HStack({ flexWrap: "wrap", gap: 1 }, [
+  VStack({ width: 30, height: 2 }, [Text("A")]),
+  VStack({ width: 30, height: 2 }, [Text("B")]),
+  VStack({ width: 30, height: 2 }, [Text("C")]),
+]);
+```
+
+In an 80-column container: A and B fit on row 1 (60 ≤ 80), C wraps to row 2.
+
+**Wrapping rules:**
+
+- Children are placed left-to-right. When adding the next child (plus gap) would exceed the available width, a new row begins.
+- A child wider than the container still gets its own row (never split across rows).
+- `gap` applies between items within a row **and** between rows.
+- `flexWrap` is only meaningful on HStack. VStack ignores it.
+
+**Per-row layout:**
+
+Each row is an independent flex context:
+
+- **Row height** = tallest child in that row.
+- **Flex distribution** — flex children share remaining space within their row.
+- **`justifyContent`** — applied per row.
+- **`alignItems`** — applied per row (children aligned within their row's height).
+
+**Intrinsic sizing:**
+
+A wrapping HStack with no explicit height sizes to fit all rows:
+
+```
+intrinsic height = sum of row heights + gap × (number of rows − 1)
+```
 
 ---
 
