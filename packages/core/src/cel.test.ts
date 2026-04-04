@@ -338,6 +338,36 @@ describe("cel end-to-end", () => {
       for (let x = 0; x < 6; x++) row2 += buf.get(x, 2).char;
       expect(row2).toBe("item 5");
     });
+
+    test("scroll clamps correctly with padding", async () => {
+      const term = setup(20, 7);
+      let scrollOffset = 0;
+      cel.viewport(() =>
+        VStack(
+          {
+            width: 20,
+            height: 7,
+            overflow: "scroll",
+            padding: { y: 1 },
+            scrollOffset: scrollOffset,
+            onScroll: (offset) => {
+              scrollOffset = offset;
+            },
+          },
+          // 7 items, viewport inner height = 5 (7 - 2*1), max offset = 2
+          Array.from({ length: 7 }, (_, i) => Text(`line ${i}`)),
+        ),
+      );
+      await waitForRender();
+
+      // Scroll down 10 times — should clamp at 2 (7 items - 5 visible = 2)
+      for (let i = 0; i < 10; i++) {
+        term.sendInput("\x1b[<65;4;4M");
+        await waitForRender();
+      }
+
+      expect(scrollOffset).toBe(2);
+    });
   });
 
   describe("focus system", () => {

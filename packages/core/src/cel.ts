@@ -408,6 +408,9 @@ function getMaxScrollOffset(target: LayoutNode): number {
   }
 
   const isVertical = target.node.type === "vstack";
+  const props = target.node.type !== "text" ? target.node.props : null;
+  const padX = (props as any)?.padding?.x ?? 0;
+  const padY = (props as any)?.padding?.y ?? 0;
 
   if (isVertical) {
     let contentHeight = 0;
@@ -415,14 +418,16 @@ function getMaxScrollOffset(target: LayoutNode): number {
       const childBottom = child.rect.y + child.rect.height - rect.y;
       if (childBottom > contentHeight) contentHeight = childBottom;
     }
-    return Math.max(0, contentHeight - rect.height);
+    // Viewport is the inner height (minus bottom padding)
+    // Content starts at padY, so contentHeight includes top padding offset
+    return Math.max(0, contentHeight + padY - rect.height);
   } else {
     let contentWidth = 0;
     for (const child of children) {
       const childRight = child.rect.x + child.rect.width - rect.x;
       if (childRight > contentWidth) contentWidth = childRight;
     }
-    return Math.max(0, contentWidth - rect.width);
+    return Math.max(0, contentWidth + padX - rect.width);
   }
 }
 
