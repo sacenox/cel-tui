@@ -64,6 +64,8 @@ export class ProcessTerminal implements Terminal {
     process.stdin.on("data", onInput);
     process.stdout.on("resize", this.resizeHandler);
 
+    // Switch to alternate screen buffer (restored on exit)
+    this.write("\x1b[?1049h");
     // Enable Kitty keyboard protocol level 1 (disambiguate) with push flag
     this.write("\x1b[>1u");
     // Enable mouse tracking (normal mode) + SGR encoding
@@ -103,6 +105,8 @@ export class ProcessTerminal implements Terminal {
     // Pop Kitty keyboard protocol mode
     this.write("\x1b[<u");
     this.showCursor();
+    // Restore main screen buffer
+    this.write("\x1b[?1049l");
 
     if (this.resizeHandler) {
       process.stdout.removeListener("resize", this.resizeHandler);
