@@ -203,6 +203,41 @@ describe("cel end-to-end", () => {
 
       expect(scrollOffset).toBe(1);
     });
+
+    test("batched mouse scroll events are all processed", async () => {
+      const term = setup(20, 5);
+      let scrollOffset = 0;
+      cel.viewport(() =>
+        VStack(
+          {
+            width: 20,
+            height: 5,
+            overflow: "scroll",
+            scrollOffset: scrollOffset,
+            onScroll: (offset) => {
+              scrollOffset = offset;
+            },
+          },
+          [
+            Text("line1"),
+            Text("line2"),
+            Text("line3"),
+            Text("line4"),
+            Text("line5"),
+            Text("line6"),
+            Text("line7"),
+            Text("line8"),
+          ],
+        ),
+      );
+      await waitForRender();
+
+      // 3 scroll-down events batched in one data chunk (as real terminals do)
+      term.sendInput("\x1b[<65;4;3M\x1b[<65;4;3M\x1b[<65;4;3M");
+      await waitForRender();
+
+      expect(scrollOffset).toBe(3);
+    });
   });
 
   describe("focus system", () => {
@@ -562,6 +597,239 @@ describe("cel end-to-end", () => {
       term.sendInput("z");
       await waitForRender();
       expect(rootKey).toBe("z");
+    });
+  });
+
+  describe("TextInput Tab handling", () => {
+    test("Tab inserts \\t when TextInput is focused", async () => {
+      const term = setup(20, 5);
+      let value = "hello";
+      cel.viewport(() =>
+        VStack({ width: 20, height: 5 }, [
+          TextInput({
+            value,
+            focused: true,
+            onChange: (v) => {
+              value = v;
+            },
+          }),
+        ]),
+      );
+      await waitForRender();
+
+      // Tab should insert \t, not traverse focus
+      term.sendInput("\t");
+      await waitForRender();
+      expect(value).toBe("hello\t");
+    });
+
+    test("Shift+Tab does not traverse focus when TextInput is focused", async () => {
+      const term = setup(20, 5);
+      let value = "hello";
+      let btnFocused = false;
+
+      cel.viewport(() =>
+        VStack({ width: 20, height: 5 }, [
+          HStack(
+            {
+              onClick: () => {},
+              focused: btnFocused,
+              onFocus: () => {
+                btnFocused = true;
+              },
+            },
+            [Text("Btn")],
+          ),
+          TextInput({
+            value,
+            focused: true,
+            onChange: (v) => {
+              value = v;
+            },
+          }),
+        ]),
+      );
+      await waitForRender();
+
+      // Shift+Tab should not move focus away from TextInput
+      term.sendInput("\x1b[Z");
+      await waitForRender();
+      expect(btnFocused).toBe(false);
+    });
+
+    test("Tab traverses focus when TextInput is NOT focused", async () => {
+      const term = setup(20, 5);
+      let tiFocused = false;
+
+      cel.viewport(() =>
+        VStack({ width: 20, height: 5 }, [
+          TextInput({
+            value: "text",
+            focused: tiFocused,
+            onChange: () => {},
+            onFocus: () => {
+              tiFocused = true;
+            },
+          }),
+        ]),
+      );
+      await waitForRender();
+
+      // Tab should traverse to the TextInput (it's not focused yet)
+      term.sendInput("\t");
+      await waitForRender();
+      expect(tiFocused).toBe(true);
+    });
+
+    test("Escape then Tab leaves TextInput and traverses", async () => {
+      const term = setup(20, 5);
+      let tiFocused = true;
+      let btnFocused = false;
+
+      cel.viewport(() =>
+        VStack({ width: 20, height: 5 }, [
+          HStack(
+            {
+              onClick: () => {},
+              focused: btnFocused,
+              onFocus: () => {
+                btnFocused = true;
+                tiFocused = false;
+              },
+            },
+            [Text("Btn")],
+          ),
+          TextInput({
+            value: "text",
+            focused: tiFocused,
+            onChange: () => {},
+            onBlur: () => {
+              tiFocused = false;
+            },
+          }),
+        ]),
+      );
+      await waitForRender();
+
+      // Escape to leave TextInput
+      term.sendInput("\x1b");
+      await waitForRender();
+      expect(tiFocused).toBe(false);
+
+      // Tab should now traverse to the button
+      term.sendInput("\t");
+      await waitForRender();
+      expect(btnFocused).toBe(true);
+    });
+  });
+
+  describe("TextInput mouse wheel scroll", () => {
+    test("mouse wheel scrolls TextInput content", async () => {
+      const term = setup(20, 3);
+      let value = "line1\nline2\nline3\nline4\nline5";
+      // Stable onChange ref so TextInput scroll state persists across re-renders
+      const onChange = (v: string) => {
+        value = v;
+      };
+
+      cel.viewport(() =>
+        VStack({ width: 20, height: 3 }, [
+          TextInput({
+            value,
+            height: 3,
+            onChange,
+          }),
+        ]),
+      );
+      await waitForRender();
+
+      // Initially line1 should be visible
+      const buf1 = cel._getBuffer()!;
+      let row0 = "";
+      for (let x = 0; x < 5; x++) row0 += buf1.get(x, 0).char;
+      expect(row0).toBe("line1");
+
+      // Scroll down at (5, 1)
+      term.sendInput("\x1b[<65;6;2M");
+      await waitForRender();
+
+      // After scrolling down, line1 should no longer be at row 0
+      const buf2 = cel._getBuffer()!;
+      let row0After = "";
+      for (let x = 0; x < 5; x++) row0After += buf2.get(x, 0).char;
+      expect(row0After).toBe("line2");
+    });
+
+    test("mouse wheel scroll up clamps at 0", async () => {
+      const term = setup(20, 3);
+      let value = "line1\nline2\nline3\nline4";
+      const onChange = (v: string) => {
+        value = v;
+      };
+
+      cel.viewport(() =>
+        VStack({ width: 20, height: 3 }, [
+          TextInput({
+            value,
+            height: 3,
+            onChange,
+          }),
+        ]),
+      );
+      await waitForRender();
+
+      // Scroll up (already at top, should clamp to 0)
+      term.sendInput("\x1b[<64;6;2M");
+      await waitForRender();
+
+      // line1 should still be at row 0
+      const buf = cel._getBuffer()!;
+      let row0 = "";
+      for (let x = 0; x < 5; x++) row0 += buf.get(x, 0).char;
+      expect(row0).toBe("line1");
+    });
+
+    test("mouse wheel prefers innermost TextInput over outer scrollable", async () => {
+      const term = setup(20, 3);
+      let outerScrolled = false;
+      let value = "line1\nline2\nline3\nline4";
+      const onChange = (v: string) => {
+        value = v;
+      };
+
+      cel.viewport(() =>
+        VStack(
+          {
+            width: 20,
+            height: 3,
+            overflow: "scroll",
+            scrollOffset: 0,
+            onScroll: () => {
+              outerScrolled = true;
+            },
+          },
+          [
+            TextInput({
+              value,
+              height: 3,
+              onChange,
+            }),
+          ],
+        ),
+      );
+      await waitForRender();
+
+      // Scroll down — should target TextInput, not outer VStack
+      term.sendInput("\x1b[<65;6;2M");
+      await waitForRender();
+
+      expect(outerScrolled).toBe(false);
+
+      // Verify TextInput scrolled
+      const buf = cel._getBuffer()!;
+      let row0 = "";
+      for (let x = 0; x < 5; x++) row0 += buf.get(x, 0).char;
+      expect(row0).toBe("line2");
     });
   });
 });

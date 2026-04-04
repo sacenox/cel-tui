@@ -12,9 +12,11 @@ Remaining work, known bugs, and planned improvements.
 
 ## Bugs & Spec Violations
 
-- 🔧 **Tab key consumed by TextInput when focused** — The spec says Tab is an editing key consumed by TextInput (inserts `\t`). Currently Tab always triggers focus traversal. The spec requires Escape to leave the input first, then Tab to traverse. Fix: skip Tab/Shift+Tab focus traversal when a TextInput is focused.
+- ✅ **Tab key consumed by TextInput when focused** — Fixed. Tab/Shift+Tab focus traversal is now skipped when a TextInput is focused. Tab inserts `\t` as an editing key. Press Escape first, then Tab to traverse.
 
-- 🔧 **Mouse wheel scroll inside TextInput** — `findScrollTarget` correctly identifies TextInput as a scroll target, but `cel.ts` scroll handling only updates containers with `overflow: "scroll"`. It should also update TextInput's framework-managed scroll offset when the mouse wheel targets a TextInput.
+- ✅ **Mouse wheel scroll inside TextInput** — Fixed. Scroll events targeting a TextInput now update its framework-managed scroll offset directly, instead of requiring `onScroll`/`overflow: "scroll"` container props.
+
+- ✅ **Batched mouse events dropped** — Fixed. Real terminals send multiple SGR mouse events in a single stdin data chunk (e.g., 3 scroll events concatenated). The parser expected one event per chunk and silently dropped batched input. Now scans for all events in the chunk and processes each one, with scroll offset accumulation for controlled scroll.
 
 ## API Improvements
 

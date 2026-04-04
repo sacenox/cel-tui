@@ -34,12 +34,12 @@ Dependency chain: `components → core → types`
 
 ## Implementation Status
 
-All core systems from the spec are implemented and tested (232 tests):
+All core systems from the spec are implemented and tested (240 tests):
 
 - **Layout engine** — flexbox sizing (fixed, intrinsic, flex, percentage), constraints, gap, padding, justifyContent, alignItems, largest-remainder rounding
 - **Rendering** — cell buffer, ANSI emitter with SGR styling, synchronized output (CSI 2026), differential rendering (emitDiff), full clear on resize
 - **Painting** — grapheme-aware text rendering (CJK/emoji via visibleWidth), overflow clipping via clip rect propagation, scroll content offsetting, scrollbar indicators
-- **Input** — key parsing/normalization, SGR mouse events, hit detection, click/scroll routing, focus traversal (Tab/Shift+Tab/Escape/Enter), onKeyPress bubbling from focused element through ancestors
+- **Input** — key parsing/normalization, SGR mouse events (with batched event support), hit detection, click/scroll routing, focus traversal (Tab/Shift+Tab/Escape/Enter), onKeyPress bubbling from focused element through ancestors
 - **TextInput** — text editing, cursor movement, cursor persistence across re-renders (keyed on onChange), auto-scroll to keep cursor visible, placeholder rendering
 - **Layering** — multi-layer compositing, transparency, topmost-layer input priority
 - **Terminal** — crash cleanup (SIGINT/SIGTERM/uncaughtException), resize clear
@@ -90,6 +90,8 @@ tmux kill-session -t cel
 
 This lets you see exactly what the user sees — rendered cells, alignment, clipping, colors — without needing a real interactive terminal.
 
+**Caveat:** tmux `send-keys -H` injects raw bytes one event at a time, but real terminals batch multiple mouse events into a single stdin chunk. Always verify mouse/scroll behavior in a real terminal, not just tmux.
+
 ## Spec
 
 The `spec.md` file is the source of truth for all API design decisions. Always read it before making changes to core framework behavior. The open questions at the bottom track what's been decided vs. still in progress.
@@ -139,7 +141,7 @@ chore: scaffold monorepo with types, core, components packages
 
 ## Architecture Notes
 
-- `cel.ts` — Framework entrypoint. Owns render loop, input dispatch, focus management. `cel.init(terminal)` starts, `cel.viewport(fn)` sets render function, `cel.render()` requests re-render, `cel.stop()` restores terminal.
+- `cel.ts` — Framework entrypoint. Owns render loop, input dispatch, focus management. `cel.init(terminal)` starts, `cel.viewport(fn)` sets render function, `cel.render()` requests re-render, `cel.stop()` restores terminal. Mouse input handles batched SGR events (terminals often send multiple events in a single data chunk).
 - `layout.ts` — Flexbox engine. `layout(root, width, height)` → `LayoutNode` tree with absolute screen rects.
 - `paint.ts` — Paints `LayoutNode` tree into `CellBuffer`. Handles clip rects, scroll offsets, scrollbars, grapheme-aware text rendering, TextInput cursor/scroll state.
 - `emitter.ts` — `emitBuffer()` for full renders, `emitDiff()` for differential. Both wrap in CSI 2026 synchronized output.
@@ -166,6 +168,12 @@ git checkout main
 
 - `.gitignore` does **not** exclude `docs/html/` or `docs/md/` (they're committed)
 - `.prettierignore` includes `docs/html` and `docs/md` (generated files fail format checks otherwise)
+
+## Destructive Actions
+
+**Never use `git checkout` or `git restore` on files you have modified.** A single `git checkout <file>` will silently discard all uncommitted changes in that file — including unrelated work. If you need to revert a specific edit, use `edit` to undo just that change. If you must use git to undo something, `git stash` first so the work can be recovered.
+
+More generally: before running any command that could destroy uncommitted work (`git checkout`, `git reset --hard`, `git clean`, `rm` on source files), stop and consider whether there are unsaved changes at risk. If in doubt, `git stash` or `git diff --stat` first.
 
 ## Conventions
 

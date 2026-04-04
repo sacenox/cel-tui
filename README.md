@@ -81,7 +81,7 @@ cel.viewport(() =>
 
 ```bash
 bun install           # install dependencies
-bun test              # run tests (230+)
+bun test              # run tests (240+)
 bun run check         # biome lint
 bun run format        # prettier check
 bun run typecheck     # tsc --noEmit

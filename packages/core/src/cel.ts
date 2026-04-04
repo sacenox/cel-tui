@@ -14,6 +14,7 @@ import {
   paint,
   getTextInputCursor,
   setTextInputCursor,
+  getTextInputScroll,
   setTextInputScroll,
   getContainerScroll,
   setContainerScroll,
@@ -81,11 +82,28 @@ function doRender(): void {
 
 // --- Input handling ---
 
+// Regex for a single SGR mouse event (non-anchored, for scanning batched input)
+const SGR_MOUSE_RE = /\x1b\[<(\d+);(\d+);(\d+)([Mm])/g;
+
+// Tracks accumulated scroll offsets during a batch of mouse events.
+// Controlled scroll reads scrollOffset from props, which doesn't update until
+// re-render. Within a single data chunk containing multiple scroll events, we
+// need to remember the offset we already dispatched via onScroll.
+let batchScrollOffsets: Map<object, number> | null = null;
+
 function handleInput(data: string): void {
-  // Try to parse as mouse event
-  const mouse = parseMouseEvent(data);
-  if (mouse) {
-    handleMouseEvent(mouse);
+  // Terminals may batch multiple mouse events into one data chunk.
+  // Scan for all SGR mouse sequences and handle each one.
+  SGR_MOUSE_RE.lastIndex = 0;
+  let match = SGR_MOUSE_RE.exec(data);
+  if (match) {
+    batchScrollOffsets = new Map();
+    while (match) {
+      const mouse = parseSgrMatch(match);
+      if (mouse) handleMouseEvent(mouse);
+      match = SGR_MOUSE_RE.exec(data);
+    }
+    batchScrollOffsets = null;
     return;
   }
 
@@ -100,11 +118,11 @@ interface MouseEvent {
   y: number;
 }
 
-function parseMouseEvent(data: string): MouseEvent | null {
-  // SGR mouse mode: ESC [ < Cb ; Cx ; Cy M (press) or m (release)
-  const match = data.match(/^\x1b\[<(\d+);(\d+);(\d+)([Mm])$/);
-  if (!match) return null;
-
+/**
+ * Parse a single SGR mouse event from a RegExp match.
+ * Returns a MouseEvent for scroll and click events, null for unhandled buttons.
+ */
+function parseSgrMatch(match: RegExpExecArray): MouseEvent | null {
   const cb = parseInt(match[1]!, 10);
   const x = parseInt(match[2]!, 10) - 1; // 1-indexed → 0-indexed
   const y = parseInt(match[3]!, 10) - 1;
@@ -190,19 +208,35 @@ function handleMouseEvent(event: MouseEvent): void {
     if (event.type === "scroll-up" || event.type === "scroll-down") {
       const target = findScrollTarget(path);
       if (target) {
-        const props = target.node.type !== "text" ? target.node.props : null;
-        if (props && "onScroll" in props) {
-          const delta = event.type === "scroll-up" ? -1 : 1;
-          if (props.onScroll) {
-            // Controlled scroll: notify app
-            const offset = (props as any).scrollOffset ?? 0;
-            props.onScroll(Math.max(0, offset + delta));
-          } else {
-            // Uncontrolled scroll: framework manages state
-            const current = getContainerScroll(props);
-            setContainerScroll(props, Math.max(0, current + delta));
-          }
+        const delta = event.type === "scroll-up" ? -1 : 1;
+
+        if (target.node.type === "textinput") {
+          // TextInput scroll is always framework-managed
+          const tiProps = target.node.props;
+          const current = getTextInputScroll(tiProps);
+          setTextInputScroll(tiProps, Math.max(0, current + delta));
           cel.render();
+        } else {
+          const props = target.node.type !== "text" ? target.node.props : null;
+          if (props && "onScroll" in props) {
+            if (props.onScroll) {
+              // Controlled scroll: notify app.
+              // Use batch accumulator if available (multiple events in one chunk),
+              // otherwise read from props.
+              const baseOffset =
+                batchScrollOffsets?.get(props) ??
+                (props as any).scrollOffset ??
+                0;
+              const newOffset = Math.max(0, baseOffset + delta);
+              batchScrollOffsets?.set(props, newOffset);
+              props.onScroll(newOffset);
+            } else {
+              // Uncontrolled scroll: framework manages state
+              const current = getContainerScroll(props);
+              setContainerScroll(props, Math.max(0, current + delta));
+            }
+            cel.render();
+          }
         }
       }
       return;
@@ -232,33 +266,40 @@ function handleKeyEvent(key: string, rawData?: string): void {
   // --- Focus traversal keys ---
 
   // Tab / Shift+Tab: cycle through focusable elements
+  // Skip focus traversal when a TextInput is focused — Tab is an editing key
+  // that inserts \t. The user must Escape first, then Tab to traverse.
   if (key === "tab" || key === "shift+tab") {
-    const topLayer = currentLayouts[currentLayouts.length - 1];
-    if (!topLayer) return;
-    const focusables = collectFocusable(topLayer);
-    if (focusables.length === 0) return;
-
-    const current = findFocusedElement();
-    let currentIdx = current ? focusables.indexOf(current) : -1;
-
-    // If current not found in focusables list, search by identity
-    if (currentIdx === -1 && current) {
-      currentIdx = focusables.findIndex((f) => f.node === current.node);
-    }
-
-    let nextIdx: number;
-    if (key === "tab") {
-      nextIdx = currentIdx === -1 ? 0 : (currentIdx + 1) % focusables.length;
+    const focusedTI = findFocusedTextInput();
+    if (focusedTI) {
+      // Fall through to TextInput key routing below
     } else {
-      nextIdx =
-        currentIdx === -1
-          ? focusables.length - 1
-          : (currentIdx - 1 + focusables.length) % focusables.length;
-    }
+      const topLayer = currentLayouts[currentLayouts.length - 1];
+      if (!topLayer) return;
+      const focusables = collectFocusable(topLayer);
+      if (focusables.length === 0) return;
 
-    changeFocus(focusables[nextIdx]!);
-    cel.render();
-    return;
+      const current = findFocusedElement();
+      let currentIdx = current ? focusables.indexOf(current) : -1;
+
+      // If current not found in focusables list, search by identity
+      if (currentIdx === -1 && current) {
+        currentIdx = focusables.findIndex((f) => f.node === current.node);
+      }
+
+      let nextIdx: number;
+      if (key === "tab") {
+        nextIdx = currentIdx === -1 ? 0 : (currentIdx + 1) % focusables.length;
+      } else {
+        nextIdx =
+          currentIdx === -1
+            ? focusables.length - 1
+            : (currentIdx - 1 + focusables.length) % focusables.length;
+      }
+
+      changeFocus(focusables[nextIdx]!);
+      cel.render();
+      return;
+    } // end: not a focused TextInput
   }
 
   // Escape: unfocus current element
