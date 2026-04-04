@@ -34,7 +34,7 @@ Dependency chain: `components → core → types`
 
 ## Implementation Status
 
-All core systems from the spec are implemented and tested (240 tests):
+All core systems from the spec are implemented and tested:
 
 - **Layout engine** — flexbox sizing (fixed, intrinsic, flex, percentage), constraints, gap, padding, justifyContent, alignItems, largest-remainder rounding
 - **Rendering** — cell buffer, ANSI emitter with SGR styling, synchronized output (CSI 2026), differential rendering (emitDiff), full clear on resize

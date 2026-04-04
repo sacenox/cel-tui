@@ -285,7 +285,7 @@ All lowercase, modifiers joined by `+`: `"ctrl+s"`, `"ctrl+shift+n"`, `"escape"`
 - **TextInput is a container** — accepts sizing props but no children.
 - **No style inheritance** — every node sets its own styles explicitly.
 - **Escape unfocuses** the current element.
-- **Tab/Shift+Tab** traverses focusable elements in document order (wraps around).
+- **Tab/Shift+Tab** traverses focusable elements in document order (wraps around). After Escape, traversal continues from the element that lost focus (not from the start).
 - **Enter** activates a focused clickable container (fires onClick).
 - **TextInput consumes editing keys** when focused (printable chars, arrows, backspace, delete). Modifier combos (ctrl+s) bubble up through ancestors via onKeyPress.
 - **Mouse click** on a focusable element fires onFocus (and onBlur on previous).

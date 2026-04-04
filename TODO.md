@@ -10,14 +10,6 @@ Remaining work, known bugs, and planned improvements.
 
 ---
 
-## Bugs & Spec Violations
-
-- ✅ **Tab key consumed by TextInput when focused** — Fixed. Tab/Shift+Tab focus traversal is now skipped when a TextInput is focused. Tab inserts `\t` as an editing key. Press Escape first, then Tab to traverse.
-
-- ✅ **Mouse wheel scroll inside TextInput** — Fixed. Scroll events targeting a TextInput now update its framework-managed scroll offset directly, instead of requiring `onScroll`/`overflow: "scroll"` container props.
-
-- ✅ **Batched mouse events dropped** — Fixed. Real terminals send multiple SGR mouse events in a single stdin data chunk (e.g., 3 scroll events concatenated). The parser expected one event per chunk and silently dropped batched input. Now scans for all events in the chunk and processes each one, with scroll offset accumulation for controlled scroll.
-
 ## API Improvements
 
 - ❌ **`bgColor` on containers** — Containers (VStack/HStack) have no background color. This forces manual per-row fills with `HStack({}, [Text(...), VStack({ flex: 1 }, [Text(" ", { repeat: "fill", bgColor })])])` to create solid panels, modals, or sidebars. Fix: add `bgColor` to `ContainerProps`. Paint should fill the container rect with bgColor before painting children. Single biggest DX win from the pet example.
@@ -32,6 +24,8 @@ Remaining work, known bugs, and planned improvements.
 
 ## Not Yet Implemented
 
+- ❌ Alt key combos (`alt+x`) — `parseKey` doesn't handle ESC-prefixed sequences as alt modifiers. The spec lists `"alt+up"` as a valid key format.
+- ❌ `"plus"` as a named key — the spec mentions `"ctrl+plus"` but `+` is the modifier separator and needs special handling.
 - ❌ Bracketed paste mode support
 - ❌ Kitty keyboard protocol detection
 
