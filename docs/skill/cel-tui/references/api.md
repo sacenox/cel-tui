@@ -1,0 +1,146 @@
+# cel-tui API Reference
+
+## Container Props
+
+All props accepted by `VStack` and `HStack`:
+
+```ts
+{
+  // Sizing
+  width, height,          // SizeValue (number | "50%")
+  flex,                   // number
+  minWidth, maxWidth,     // number
+  minHeight, maxHeight,   // number
+  padding,                // { x?: number, y?: number }
+  gap,                    // number (cells between children)
+  justifyContent,         // "start" | "end" | "center" | "space-between"
+  alignItems,             // "start" | "end" | "center" | "stretch"
+  overflow,               // "hidden" (default) | "scroll"
+  scrollbar,              // boolean
+  scrollOffset,           // number (controlled scroll)
+  onScroll,               // (offset: number) => void
+
+  // Styling (inherited by descendants)
+  bold, italic, underline,// boolean
+  fgColor, bgColor,       // Color (ANSI 16)
+  focusStyle,             // StyleProps — overrides when focused
+
+  // Interaction
+  onClick,                // () => void
+  focusable,              // boolean (default true if onClick set, or set true explicitly)
+  focused,                // boolean (controlled — omit for uncontrolled)
+  onFocus,                // () => void
+  onBlur,                 // () => void
+  onKeyPress,             // (key: string) => void
+}
+```
+
+## Text Props
+
+```ts
+Text("content", {
+  repeat: "fill" | number, // Repeat to fill width or N times
+  wrap: "none" | "word", // Default "none", hard-clips at edge
+  bold,
+  italic,
+  underline, // boolean
+  fgColor,
+  bgColor, // ANSI 16 Color
+});
+```
+
+Colors: `"black"`, `"red"`, `"green"`, `"yellow"`, `"blue"`, `"magenta"`, `"cyan"`, `"white"`, and bright variants (`"brightRed"`, etc.).
+
+## TextInput Props
+
+```ts
+TextInput({
+  value, // string (controlled)
+  onChange, // (value: string) => void
+  onSubmit, // () => void
+  submitKey, // string (default "enter")
+  placeholder, // Text() node shown when empty
+  // + all container props (sizing, styling, focus, etc.)
+});
+```
+
+## Sizing Strategies
+
+Containers accept 4 sizing strategies:
+
+```ts
+VStack({}, []); // Intrinsic — size to fit content (default)
+VStack({ width: 30, height: 10 }, []); // Fixed — exact cell count
+VStack({ flex: 1 }, []); // Flex — proportional to siblings
+VStack({ width: "50%", height: "100%" }, []); // Percentage — relative to parent
+```
+
+Constraints: `minWidth`, `maxWidth`, `minHeight`, `maxHeight`.
+
+Text has no sizing props — parent controls the box, height is intrinsic (content + wrapping).
+
+TextInput accepts container sizing props (`flex`, `width`, `height`, `padding`, `maxHeight`, etc.).
+
+## Key Format
+
+All lowercase, modifiers joined by `+`: `"ctrl+s"`, `"ctrl+shift+n"`, `"escape"`, `"enter"`, `"alt+up"`, `"f1"`. Framework normalizes modifier order.
+
+## Pre-made Components
+
+```ts
+import { Spacer, Divider, Button, Select } from "@cel-tui/components";
+
+Spacer(); // VStack({ flex: 1 }, [])
+Divider(); // Text("─", { repeat: "fill" })
+Divider({ char: "═", fgColor: "brightBlack" });
+Button("[OK]", { onClick: handleOk });
+Button("✕", { onClick: handleClose, focusable: false });
+```
+
+### Select (filterable list)
+
+```ts
+const mySelect = Select({
+  items: ["apple", "banana", "cherry"],
+  onSelect: (value) => {
+    chosen = value;
+    cel.render();
+  },
+  placeholder: "search fruits...",
+  maxVisible: 8,
+  onKeyPress: (key) => {
+    // Receives keys the Select doesn't handle (modifiers, etc.)
+    if (key === "ctrl+q") {
+      cel.stop();
+      process.exit();
+    }
+  },
+});
+
+// Inside cel.viewport — call each render to get the current node tree
+cel.viewport(() =>
+  VStack({ height: "100%" }, [Text("Pick a fruit:"), mySelect()]),
+);
+
+// Reset state programmatically
+mySelect.reset();
+```
+
+Rich items with separate display label, return value, and filter text:
+
+```ts
+const modelSelect = Select({
+  items: [
+    {
+      label: "claude-sonnet-4  (free)",
+      value: "anthropic/claude-sonnet-4",
+      filterText: "claude-sonnet-4",
+    },
+    { label: "gpt-4o", value: "openai/gpt-4o", filterText: "gpt-4o" },
+  ],
+  onSelect: (value) => {
+    model = value;
+    cel.render();
+  },
+});
+```
