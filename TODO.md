@@ -30,7 +30,9 @@ Remaining work, known bugs, and planned improvements.
 
 - ❌ Bracketed paste mode support
 
-- ❌ **Markdown inline styling** — The `Markdown` component renders block-level styling (headings, code blocks, lists, blockquotes, HR) but strips inline formatting (`**bold**`, `*italic*`, `` `code` ``, `[links](url)`) to plain text. Rendering inline styles requires either framework support for styled spans within `Text` content (e.g., ANSI-in-content parsing in paint.ts) or pre-computed line breaking with width knowledge. See `packages/components/src/markdown.ts`.
+- ❌ **`flexWrap: "wrap"` for HStack** — Add `flexWrap?: "nowrap" | "wrap"` to `ContainerProps`. When set to `"wrap"`, children that exceed the container width flow to the next line (like CSS `flex-wrap: wrap`). This is a general layout feature useful for tags, chips, and inline elements — but the primary motivation is enabling Markdown inline styling.
+
+- ❌ **Markdown inline styling** — The `Markdown` component strips inline formatting (`**bold**`, `*italic*`, `` `code` ``, `[links](url)`) to plain text. With `flexWrap: "wrap"` on HStack, the component can split inline spans at word boundaries into individual `Text` nodes and wrap them in `HStack({ flexWrap: "wrap" })`. The framework handles line wrapping; the component handles word splitting. Depends on `flexWrap` above.
 
 ## Future Enhancements
 
