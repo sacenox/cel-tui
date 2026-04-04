@@ -1,11 +1,11 @@
 pre-commit:
   parallel: false
   commands:
-    format:
-      run: bun run format
     check:
-      run: bun run check
-    typecheck:
-      run: bun run typecheck
+      run: bun run --silent check
+    format:
+      run: bun run --silent format -- --log-level warn
     test:
-      run: bun test
+      run: bun test --only-failures
+    typecheck:
+      run: bun run --silent typecheck
