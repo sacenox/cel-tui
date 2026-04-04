@@ -95,9 +95,14 @@ Divider(); // Text("─", { repeat: "fill" })
 Divider({ char: "═", fgColor: "brightBlack" });
 Button("[OK]", { onClick: handleOk });
 Button("✕", { onClick: handleClose, focusable: false });
+// Button accepts: onClick, bold, fgColor, bgColor, focusable
+// Note: Button does not forward focusStyle or container sizing props.
+// For full control, use HStack + Text directly.
 ```
 
 ### Select (filterable list)
+
+Select props: `items`, `onSelect`, `placeholder` (default `"type to filter..."`), `maxVisible` (default `10`), `indicator` (default `"›"`), `highlightColor` (default `"cyan"`), `onKeyPress` (receives unhandled keys), plus container/style props: `width`, `height`, `flex`, `fgColor`, `bgColor`, `focused`, `focusable`, `onFocus`, `onBlur`, `focusStyle`.
 
 ```ts
 const mySelect = Select({

@@ -26,7 +26,10 @@ cel.viewport(() =>
       height: "100%",
       fgColor: "white",
       onKeyPress: (key) => {
-        if (key === "ctrl+q") process.exit();
+        if (key === "ctrl+q") {
+          cel.stop();
+          process.exit();
+        }
       },
     },
     [
@@ -66,11 +69,11 @@ cel.viewport(() =>
 
 ## Packages
 
-| Package               | Description                                   |
-| --------------------- | --------------------------------------------- |
-| `@cel-tui/types`      | Shared type definitions                       |
-| `@cel-tui/core`       | Framework engine and primitives               |
-| `@cel-tui/components` | Pre-made components (Button, Spacer, Divider) |
+| Package               | Description                                           |
+| --------------------- | ----------------------------------------------------- |
+| `@cel-tui/types`      | Shared type definitions                               |
+| `@cel-tui/core`       | Framework engine and primitives                       |
+| `@cel-tui/components` | Pre-made components (Button, Spacer, Divider, Select) |
 
 ## Documentation
 
@@ -78,11 +81,20 @@ cel.viewport(() =>
 - **[Specification](spec.md)** — complete design spec covering layout, rendering, input, and focus
 - **[Agent Skill](docs/skill/cel-tui/SKILL.md)** — structured guide for AI coding agents to build apps with cel-tui
 
+## Performance
+
+cel-tui ships a [benchmark suite](benchmarks/) covering every pipeline stage (layout, paint, cell buffer, ANSI emission, hit testing, key parsing). On a comparable tree, the full end-to-end render completes in **~65 µs** — around 15,000 renders/sec. See [benchmarks/RESULTS.md](benchmarks/RESULTS.md) for detailed numbers and an Ink comparison.
+
+```bash
+bun run bench         # run all benchmarks
+```
+
 ## Development
 
 ```bash
 bun install           # install dependencies
 bun test              # run tests
+bun run bench         # run benchmarks
 bun run check         # biome lint
 bun run format        # prettier check
 bun run typecheck     # tsc --noEmit
