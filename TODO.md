@@ -33,9 +33,3 @@ Remaining work, known bugs, and planned improvements.
 - 💡 Additional example apps (chat UI, text editor from spec reference examples)
 - 💡 `overflow: "hidden"` as explicit prop (currently all containers clip by default, which matches the spec's default behavior, but the prop value is not checked)
 - 💡 Higher Kitty protocol levels — key-release events (level 2), associated text (level 3), and full event types (level 4) for advanced input patterns (games, physical key layout awareness)
-
----
-
-## Documentation Gaps
-
-- ❌ **No docs for uncontrolled scroll** — All examples/docs use controlled scroll (`scrollOffset` + `onScroll`). The spec's uncontrolled pattern should be shown in SKILL.md and api.md.

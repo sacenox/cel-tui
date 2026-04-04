@@ -95,9 +95,32 @@ HStack(
 
 ### Scrollable list
 
+Scroll is **uncontrolled by default** — the framework manages scroll position internally. Mouse wheel just works:
+
 ```ts
 VStack({ overflow: "scroll", scrollbar: true }, [...items]);
 ```
+
+Provide `scrollOffset` + `onScroll` to opt into **controlled mode** — you own the state:
+
+```ts
+let offset = 0;
+
+VStack(
+  {
+    overflow: "scroll",
+    scrollbar: true,
+    scrollOffset: offset,
+    onScroll: (newOffset) => {
+      offset = newOffset;
+      cel.render();
+    },
+  },
+  [...items],
+);
+```
+
+Controlled mode enables patterns like auto-scroll to bottom on new content.
 
 ### Layers (modals)
 
