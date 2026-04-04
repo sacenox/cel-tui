@@ -6,7 +6,7 @@
 
 # Interface: TextNode
 
-Defined in: [types/src/index.ts:296](https://github.com/sacenox/cel-tui/blob/f2a837959f6d7d9dca284e25c18a66f158f34f2f/packages/types/src/index.ts#L296)
+Defined in: [types/src/index.ts:311](https://github.com/sacenox/cel-tui/blob/a5941362efd130e2b0ae863d7be6a9f5fe664b2a/packages/types/src/index.ts#L311)
 
 A text leaf node in the UI tree.
 
@@ -20,7 +20,7 @@ content and wrapping).
 
 > **content**: `string`
 
-Defined in: [types/src/index.ts:299](https://github.com/sacenox/cel-tui/blob/f2a837959f6d7d9dca284e25c18a66f158f34f2f/packages/types/src/index.ts#L299)
+Defined in: [types/src/index.ts:314](https://github.com/sacenox/cel-tui/blob/a5941362efd130e2b0ae863d7be6a9f5fe664b2a/packages/types/src/index.ts#L314)
 
 The text content to display.
 
@@ -30,7 +30,7 @@ The text content to display.
 
 > **props**: [`TextProps`](TextProps.md)
 
-Defined in: [types/src/index.ts:301](https://github.com/sacenox/cel-tui/blob/f2a837959f6d7d9dca284e25c18a66f158f34f2f/packages/types/src/index.ts#L301)
+Defined in: [types/src/index.ts:316](https://github.com/sacenox/cel-tui/blob/a5941362efd130e2b0ae863d7be6a9f5fe664b2a/packages/types/src/index.ts#L316)
 
 Text styling and behavior props.
 
@@ -40,4 +40,4 @@ Text styling and behavior props.
 
 > **type**: `"text"`
 
-Defined in: [types/src/index.ts:297](https://github.com/sacenox/cel-tui/blob/f2a837959f6d7d9dca284e25c18a66f158f34f2f/packages/types/src/index.ts#L297)
+Defined in: [types/src/index.ts:312](https://github.com/sacenox/cel-tui/blob/a5941362efd130e2b0ae863d7be6a9f5fe664b2a/packages/types/src/index.ts#L312)

@@ -6,9 +6,18 @@
 
 # Interface: ButtonProps
 
-Defined in: [components/src/button.ts:5](https://github.com/sacenox/cel-tui/blob/f2a837959f6d7d9dca284e25c18a66f158f34f2f/packages/components/src/button.ts#L5)
+Defined in: [components/src/button.ts:12](https://github.com/sacenox/cel-tui/blob/a5941362efd130e2b0ae863d7be6a9f5fe664b2a/packages/components/src/button.ts#L12)
 
 Props for the [Button](../functions/Button.md) component.
+
+Extends [StyleProps](../../../types/src/interfaces/StyleProps.md) — all style props (`fgColor`, `bgColor`,
+`bold`, `italic`, `underline`) are set on the container and inherited
+by the label text. This enables `focusStyle` to override them when
+the button is focused.
+
+## Extends
+
+- [`StyleProps`](../../../types/src/interfaces/StyleProps.md)
 
 ## Properties
 
@@ -16,9 +25,13 @@ Props for the [Button](../functions/Button.md) component.
 
 > `optional` **bgColor?**: [`Color`](../../../types/src/type-aliases/Color.md)
 
-Defined in: [components/src/button.ts:13](https://github.com/sacenox/cel-tui/blob/f2a837959f6d7d9dca284e25c18a66f158f34f2f/packages/components/src/button.ts#L13)
+Defined in: [types/src/index.ts:42](https://github.com/sacenox/cel-tui/blob/a5941362efd130e2b0ae863d7be6a9f5fe664b2a/packages/types/src/index.ts#L42)
 
-Label background color.
+Background color.
+
+#### Inherited from
+
+[`StyleProps`](../../../types/src/interfaces/StyleProps.md).[`bgColor`](../../../types/src/interfaces/StyleProps.md#bgcolor)
 
 ***
 
@@ -26,9 +39,13 @@ Label background color.
 
 > `optional` **bold?**: `boolean`
 
-Defined in: [components/src/button.ts:9](https://github.com/sacenox/cel-tui/blob/f2a837959f6d7d9dca284e25c18a66f158f34f2f/packages/components/src/button.ts#L9)
+Defined in: [types/src/index.ts:34](https://github.com/sacenox/cel-tui/blob/a5941362efd130e2b0ae863d7be6a9f5fe664b2a/packages/types/src/index.ts#L34)
 
-Render the label in bold.
+Render text with bold weight.
+
+#### Inherited from
+
+[`StyleProps`](../../../types/src/interfaces/StyleProps.md).[`bold`](../../../types/src/interfaces/StyleProps.md#bold)
 
 ***
 
@@ -36,9 +53,13 @@ Render the label in bold.
 
 > `optional` **fgColor?**: [`Color`](../../../types/src/type-aliases/Color.md)
 
-Defined in: [components/src/button.ts:11](https://github.com/sacenox/cel-tui/blob/f2a837959f6d7d9dca284e25c18a66f158f34f2f/packages/components/src/button.ts#L11)
+Defined in: [types/src/index.ts:40](https://github.com/sacenox/cel-tui/blob/a5941362efd130e2b0ae863d7be6a9f5fe664b2a/packages/types/src/index.ts#L40)
 
-Label text color.
+Foreground (text) color.
+
+#### Inherited from
+
+[`StyleProps`](../../../types/src/interfaces/StyleProps.md).[`fgColor`](../../../types/src/interfaces/StyleProps.md#fgcolor)
 
 ***
 
@@ -46,7 +67,7 @@ Label text color.
 
 > `optional` **focusable?**: `boolean`
 
-Defined in: [components/src/button.ts:18](https://github.com/sacenox/cel-tui/blob/f2a837959f6d7d9dca284e25c18a66f158f34f2f/packages/components/src/button.ts#L18)
+Defined in: [components/src/button.ts:19](https://github.com/sacenox/cel-tui/blob/a5941362efd130e2b0ae863d7be6a9f5fe664b2a/packages/components/src/button.ts#L19)
 
 Whether the button participates in focus traversal.
 
@@ -58,14 +79,133 @@ true
 
 ***
 
+### focused?
+
+> `optional` **focused?**: `boolean`
+
+Defined in: [components/src/button.ts:25](https://github.com/sacenox/cel-tui/blob/a5941362efd130e2b0ae863d7be6a9f5fe664b2a/packages/components/src/button.ts#L25)
+
+Whether this button is currently focused (controlled mode).
+When provided, the app owns focus state and must update it
+via [onFocus](#onfocus)/[onBlur](#onblur).
+
+***
+
+### focusStyle?
+
+> `optional` **focusStyle?**: [`StyleProps`](../../../types/src/interfaces/StyleProps.md)
+
+Defined in: [components/src/button.ts:35](https://github.com/sacenox/cel-tui/blob/a5941362efd130e2b0ae863d7be6a9f5fe664b2a/packages/components/src/button.ts#L35)
+
+Style overrides applied when focused. Overridden values
+participate in inheritance — the label text sees the
+focused styles as its defaults.
+
+***
+
+### italic?
+
+> `optional` **italic?**: `boolean`
+
+Defined in: [types/src/index.ts:36](https://github.com/sacenox/cel-tui/blob/a5941362efd130e2b0ae863d7be6a9f5fe664b2a/packages/types/src/index.ts#L36)
+
+Render text in italic style.
+
+#### Inherited from
+
+[`StyleProps`](../../../types/src/interfaces/StyleProps.md).[`italic`](../../../types/src/interfaces/StyleProps.md#italic)
+
+***
+
+### onBlur?
+
+> `optional` **onBlur?**: () => `void`
+
+Defined in: [components/src/button.ts:29](https://github.com/sacenox/cel-tui/blob/a5941362efd130e2b0ae863d7be6a9f5fe664b2a/packages/components/src/button.ts#L29)
+
+Called when the button loses focus.
+
+#### Returns
+
+`void`
+
+***
+
 ### onClick
 
 > **onClick**: () => `void`
 
-Defined in: [components/src/button.ts:7](https://github.com/sacenox/cel-tui/blob/f2a837959f6d7d9dca284e25c18a66f158f34f2f/packages/components/src/button.ts#L7)
+Defined in: [components/src/button.ts:14](https://github.com/sacenox/cel-tui/blob/a5941362efd130e2b0ae863d7be6a9f5fe664b2a/packages/components/src/button.ts#L14)
 
 Called on mouse click or Enter when focused.
 
 #### Returns
 
 `void`
+
+***
+
+### onFocus?
+
+> `optional` **onFocus?**: () => `void`
+
+Defined in: [components/src/button.ts:27](https://github.com/sacenox/cel-tui/blob/a5941362efd130e2b0ae863d7be6a9f5fe664b2a/packages/components/src/button.ts#L27)
+
+Called when the button receives focus.
+
+#### Returns
+
+`void`
+
+***
+
+### onKeyPress?
+
+> `optional` **onKeyPress?**: (`key`) => `boolean` \| `void`
+
+Defined in: [components/src/button.ts:40](https://github.com/sacenox/cel-tui/blob/a5941362efd130e2b0ae863d7be6a9f5fe664b2a/packages/components/src/button.ts#L40)
+
+Key event handler. Receives keys that bubble up to this button.
+Return `false` to keep bubbling.
+
+#### Parameters
+
+##### key
+
+`string`
+
+#### Returns
+
+`boolean` \| `void`
+
+***
+
+### padding?
+
+> `optional` **padding?**: `object`
+
+Defined in: [components/src/button.ts:42](https://github.com/sacenox/cel-tui/blob/a5941362efd130e2b0ae863d7be6a9f5fe664b2a/packages/components/src/button.ts#L42)
+
+Internal padding in cells.
+
+#### x?
+
+> `optional` **x?**: `number`
+
+#### y?
+
+> `optional` **y?**: `number`
+
+***
+
+### underline?
+
+> `optional` **underline?**: `boolean`
+
+Defined in: [types/src/index.ts:38](https://github.com/sacenox/cel-tui/blob/a5941362efd130e2b0ae863d7be6a9f5fe664b2a/packages/types/src/index.ts#L38)
+
+Render text with an underline.
+
+#### Inherited from
+
+[`StyleProps`](../../../types/src/interfaces/StyleProps.md).[`underline`](../../../types/src/interfaces/StyleProps.md#underline)

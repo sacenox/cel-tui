@@ -8,7 +8,7 @@
 
 > `const` **cel**: `object`
 
-Defined in: [core/src/cel.ts:673](https://github.com/sacenox/cel-tui/blob/f2a837959f6d7d9dca284e25c18a66f158f34f2f/packages/core/src/cel.ts#L673)
+Defined in: [core/src/cel.ts:798](https://github.com/sacenox/cel-tui/blob/a5941362efd130e2b0ae863d7be6a9f5fe664b2a/packages/core/src/cel.ts#L798)
 
 cel-tui framework entrypoint.
 
@@ -25,6 +25,9 @@ state changes.
 
 Initialize the framework with a terminal implementation.
 Must be called before [cel.viewport](#viewport).
+
+Enables the Kitty keyboard protocol (level 1) via the terminal,
+enters raw mode, and starts mouse tracking.
 
 #### Parameters
 
@@ -56,6 +59,9 @@ tick produce a single render.
 > **stop**(): `void`
 
 Stop the framework and restore terminal state.
+
+Pops the Kitty keyboard protocol mode, disables mouse tracking,
+and restores the terminal to its previous state.
 
 #### Returns
 

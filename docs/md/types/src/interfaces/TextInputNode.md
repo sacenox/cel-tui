@@ -6,7 +6,7 @@
 
 # Interface: TextInputNode
 
-Defined in: [types/src/index.ts:310](https://github.com/sacenox/cel-tui/blob/f2a837959f6d7d9dca284e25c18a66f158f34f2f/packages/types/src/index.ts#L310)
+Defined in: [types/src/index.ts:325](https://github.com/sacenox/cel-tui/blob/a5941362efd130e2b0ae863d7be6a9f5fe664b2a/packages/types/src/index.ts#L325)
 
 An editable text container node in the UI tree.
 
@@ -19,7 +19,7 @@ props but has no children — its content is the `value` prop.
 
 > **props**: [`TextInputProps`](TextInputProps.md)
 
-Defined in: [types/src/index.ts:313](https://github.com/sacenox/cel-tui/blob/f2a837959f6d7d9dca284e25c18a66f158f34f2f/packages/types/src/index.ts#L313)
+Defined in: [types/src/index.ts:328](https://github.com/sacenox/cel-tui/blob/a5941362efd130e2b0ae863d7be6a9f5fe664b2a/packages/types/src/index.ts#L328)
 
 TextInput configuration and styling props.
 
@@ -29,4 +29,4 @@ TextInput configuration and styling props.
 
 > **type**: `"textinput"`
 
-Defined in: [types/src/index.ts:311](https://github.com/sacenox/cel-tui/blob/f2a837959f6d7d9dca284e25c18a66f158f34f2f/packages/types/src/index.ts#L311)
+Defined in: [types/src/index.ts:326](https://github.com/sacenox/cel-tui/blob/a5941362efd130e2b0ae863d7be6a9f5fe664b2a/packages/types/src/index.ts#L326)

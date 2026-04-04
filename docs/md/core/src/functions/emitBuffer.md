@@ -8,7 +8,7 @@
 
 > **emitBuffer**(`buf`): `string`
 
-Defined in: [core/src/emitter.ts:98](https://github.com/sacenox/cel-tui/blob/f2a837959f6d7d9dca284e25c18a66f158f34f2f/packages/core/src/emitter.ts#L98)
+Defined in: [core/src/emitter.ts:98](https://github.com/sacenox/cel-tui/blob/a5941362efd130e2b0ae863d7be6a9f5fe664b2a/packages/core/src/emitter.ts#L98)
 
 Emit a full cell buffer as an ANSI string for terminal output.
 

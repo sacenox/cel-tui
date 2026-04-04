@@ -8,7 +8,7 @@
 
 > **SelectItem** = `string` \| \{ `filterText?`: `string`; `label`: `string`; `value`: `string`; \}
 
-Defined in: [components/src/select.ts:23](https://github.com/sacenox/cel-tui/blob/f2a837959f6d7d9dca284e25c18a66f158f34f2f/packages/components/src/select.ts#L23)
+Defined in: [components/src/select.ts:23](https://github.com/sacenox/cel-tui/blob/a5941362efd130e2b0ae863d7be6a9f5fe664b2a/packages/components/src/select.ts#L23)
 
 An item in the select list.
 

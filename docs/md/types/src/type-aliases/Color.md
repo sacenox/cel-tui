@@ -8,7 +8,7 @@
 
 > **Color** = `"black"` \| `"red"` \| `"green"` \| `"yellow"` \| `"blue"` \| `"magenta"` \| `"cyan"` \| `"white"` \| `"brightBlack"` \| `"brightRed"` \| `"brightGreen"` \| `"brightYellow"` \| `"brightBlue"` \| `"brightMagenta"` \| `"brightCyan"` \| `"brightWhite"`
 
-Defined in: [types/src/index.ts:7](https://github.com/sacenox/cel-tui/blob/f2a837959f6d7d9dca284e25c18a66f158f34f2f/packages/types/src/index.ts#L7)
+Defined in: [types/src/index.ts:7](https://github.com/sacenox/cel-tui/blob/a5941362efd130e2b0ae863d7be6a9f5fe664b2a/packages/types/src/index.ts#L7)
 
 ANSI base 16 terminal color.
 

@@ -39,6 +39,7 @@ State is fully external to the framework. Use any state management approach — 
 | Layering                   | Multiple viewport layers, composited bottom-to-top        |
 | Mouse/scroll hit detection | Pointer-driven, topmost layer first, innermost node wins  |
 | Focus management           | Keyboard-driven, for `TextInput` and clickable containers |
+| Keyboard protocol          | Kitty keyboard protocol (required), unambiguous key input |
 
 ---
 
@@ -64,30 +65,31 @@ HStack(props, children);
 
 Shared by both VStack and HStack. Containers also accept styling props (see [Styling](#styling)).
 
-| Prop             | Type                               | Description                                         |
-| ---------------- | ---------------------------------- | --------------------------------------------------- |
-| `width`          | `number \| string`                 | Fixed cells or percentage (`"50%"`)                 |
-| `height`         | `number \| string`                 | Fixed cells or percentage (`"100%"`)                |
-| `flex`           | `number`                           | Flex grow factor, proportional to siblings          |
-| `minWidth`       | `number`                           | Minimum width constraint                            |
-| `maxWidth`       | `number`                           | Maximum width constraint                            |
-| `minHeight`      | `number`                           | Minimum height constraint                           |
-| `maxHeight`      | `number`                           | Maximum height constraint                           |
-| `padding`        | `{ x?: number, y?: number }`       | Internal padding (cells)                            |
-| `gap`            | `number`                           | Spacing between children (cells)                    |
-| `justifyContent` | `string`                           | Distribute children along the main axis             |
-| `alignItems`     | `string`                           | Align children along the cross axis                 |
-| `overflow`       | `"hidden" \| "scroll"`             | Content overflow behavior (default: `"hidden"`)     |
-| `scrollbar`      | `boolean`                          | Show scrollbar indicator                            |
-| `scrollOffset`   | `number`                           | Scroll position in cells (controlled)               |
-| `onScroll`       | `(offset: number) => void`         | Called on scroll input                              |
-| `onClick`        | `() => void`                       | Called on mouse click or Enter when focused         |
-| `focusable`      | `boolean`                          | Opt out of focus (default: `true` if `onClick`)     |
-| `focused`        | `boolean`                          | Whether this element is focused (controlled)        |
-| `onFocus`        | `() => void`                       | Called when element receives focus                  |
-| `onBlur`         | `() => void`                       | Called when element loses focus                     |
-| `focusStyle`     | `StyleProps`                       | Style overrides applied when focused                |
-| `onKeyPress`     | `(key: string) => boolean \| void` | Key event handler. Return `false` to keep bubbling. |
+| Prop             | Type                                          | Description                                         |
+| ---------------- | --------------------------------------------- | --------------------------------------------------- |
+| `width`          | `number \| string`                            | Fixed cells or percentage (`"50%"`)                 |
+| `height`         | `number \| string`                            | Fixed cells or percentage (`"100%"`)                |
+| `flex`           | `number`                                      | Flex grow factor, proportional to siblings          |
+| `minWidth`       | `number`                                      | Minimum width constraint                            |
+| `maxWidth`       | `number`                                      | Maximum width constraint                            |
+| `minHeight`      | `number`                                      | Minimum height constraint                           |
+| `maxHeight`      | `number`                                      | Maximum height constraint                           |
+| `padding`        | `{ x?: number, y?: number }`                  | Internal padding (cells)                            |
+| `gap`            | `number`                                      | Spacing between children (cells)                    |
+| `justifyContent` | `string`                                      | Distribute children along the main axis             |
+| `alignItems`     | `string`                                      | Align children along the cross axis                 |
+| `flexWrap`       | `"nowrap" \| "wrap"`                          | Wrap children to next line (HStack only)            |
+| `overflow`       | `"hidden" \| "scroll"`                        | Content overflow behavior (default: `"hidden"`)     |
+| `scrollbar`      | `boolean`                                     | Show scrollbar indicator                            |
+| `scrollOffset`   | `number`                                      | Scroll position in cells (controlled)               |
+| `onScroll`       | `(offset: number, maxOffset: number) => void` | Called on scroll input                              |
+| `onClick`        | `() => void`                                  | Called on mouse click or Enter when focused         |
+| `focusable`      | `boolean`                                     | Opt out of focus (default: `true` if `onClick`)     |
+| `focused`        | `boolean`                                     | Whether this element is focused (controlled)        |
+| `onFocus`        | `() => void`                                  | Called when element receives focus                  |
+| `onBlur`         | `() => void`                                  | Called when element loses focus                     |
+| `focusStyle`     | `StyleProps`                                  | Style overrides applied when focused                |
+| `onKeyPress`     | `(key: string) => boolean \| void`            | Key event handler. Return `false` to keep bubbling. |
 
 ### Sizing
 
@@ -120,6 +122,44 @@ Inspired by Flexbox:
 
 - `justifyContent` — distribute children along the main axis
 - `alignItems` — align children along the cross axis
+
+### Flex Wrap
+
+HStack supports `flexWrap: "wrap"` to flow children onto multiple rows when they exceed the container width, like CSS `flex-wrap: wrap`.
+
+```ts
+HStack({ flexWrap: "wrap", gap: 1 }, [
+  VStack({ width: 30, height: 2 }, [Text("A")]),
+  VStack({ width: 30, height: 2 }, [Text("B")]),
+  VStack({ width: 30, height: 2 }, [Text("C")]),
+]);
+```
+
+In an 80-column container: A and B fit on row 1 (60 ≤ 80), C wraps to row 2.
+
+**Wrapping rules:**
+
+- Children are placed left-to-right. When adding the next child (plus gap) would exceed the available width, a new row begins.
+- A child wider than the container still gets its own row (never split across rows).
+- `gap` applies between items within a row **and** between rows.
+- `flexWrap` is only meaningful on HStack. VStack ignores it.
+
+**Per-row layout:**
+
+Each row is an independent flex context:
+
+- **Row height** = tallest child in that row.
+- **Flex distribution** — flex children share remaining space within their row.
+- **`justifyContent`** — applied per row.
+- **`alignItems`** — applied per row (children aligned within their row's height).
+
+**Intrinsic sizing:**
+
+A wrapping HStack with no explicit height sizes to fit all rows:
+
+```
+intrinsic height = sum of row heights + gap × (number of rows − 1)
+```
 
 ---
 
@@ -182,13 +222,31 @@ VStack({ overflow: "scroll" }, [...])
 VStack({
   overflow: "scroll",
   scrollOffset: offset,
-  onScroll: (newOffset) => {
+  onScroll: (newOffset, maxOffset) => {
     offset = newOffset;
   },
 }, [...])
 ```
 
-In controlled mode, mouse wheel events fire `onScroll` with the new offset; the UI only moves when the app passes the updated `scrollOffset` back.
+In controlled mode, mouse wheel events fire `onScroll` with the new offset and maximum offset (total content size minus viewport size); the UI only moves when the app passes the updated `scrollOffset` back.
+
+Values exceeding the maximum scroll offset are clamped during rendering — passing `Infinity` means "scroll to the end". This enables patterns like sticky-bottom scroll:
+
+```ts
+let offset = 0;
+let stickToBottom = true;
+
+VStack({
+  overflow: "scroll",
+  scrollOffset: stickToBottom ? Infinity : offset,
+  onScroll: (newOffset, maxOffset) => {
+    offset = newOffset;
+    stickToBottom = newOffset >= maxOffset;
+  },
+}, [...])
+```
+
+While `stickToBottom` is true, `Infinity` is clamped to the current maximum on each render — new content automatically scrolls into view. When the user scrolls up, `stickToBottom` becomes false and the explicit offset takes over. Scrolling back to the bottom re-enables sticky mode.
 
 ---
 
@@ -312,6 +370,26 @@ When this element receives focus, the container background becomes cyan and desc
 
 Key events are routed through the focus and layer system, then bubble up the tree.
 
+### Kitty Keyboard Protocol
+
+cel-tui **requires** the [Kitty keyboard protocol](https://sw.kovidgoyal.net/kitty/keyboard-protocol/) for key input. This is a hard dependency — the framework will not function correctly without it.
+
+**Why:** Legacy terminal key encoding is fundamentally ambiguous. `Ctrl+I` and `Tab` produce the same byte. `Ctrl+M` and `Enter` are indistinguishable. Alt combos use an ESC prefix that's ambiguous with the Escape key itself. There is no standard encoding for `Ctrl++`, `Shift+Enter`, or many other combinations. The Kitty protocol solves all of this with an unambiguous, structured encoding where every key event includes explicit modifier flags.
+
+**Protocol level:** The framework uses **level 1** (disambiguate escape codes). This provides unambiguous key identification with explicit modifier reporting for all keys. Higher levels are not currently used.
+
+**Lifecycle:**
+
+1. `cel.init()` enables the Kitty keyboard protocol (`CSI > 1 u`) and sets a push flag so the mode is restored on exit
+2. All key input is parsed from the Kitty `CSI unicode-codepoint ; modifiers u` format, with fallback CSI parsing for functional keys (`CSI 1 ; modifiers <A-H>` arrows, `CSI number ; modifiers ~` function keys, etc.)
+3. `cel.stop()` pops the keyboard mode (`CSI < u`), restoring the terminal's previous state
+
+**Level 1 encoding details:** At level 1, unmodified special keys that have well-known legacy encodings (Tab, Enter, Escape, Backspace) retain those single-byte encodings. Only modified variants (e.g., Shift+Tab, Ctrl+Enter) use the CSI u format. The parser handles both paths.
+
+**Supported terminals:** Kitty, WezTerm, Ghostty, foot, Alacritty, Windows Terminal, and others. macOS Terminal.app and older xterm versions do not support this protocol.
+
+> **Future enhancement:** Higher protocol levels enable key-release events (`level 2`), associated text reporting (`level 3`), and full key event types (`level 4`). These would enable held-key detection for game-like UIs, distinguishing physical key layout from logical input, and other advanced input patterns. The framework may adopt higher levels in the future.
+
 ### Key Event Flow
 
 1. **Topmost layer** receives the key event
@@ -333,6 +411,7 @@ All lowercase, modifiers joined by `+` in canonical order `ctrl+alt+shift+<key>`
 "alt+up"
 "f1"
 "ctrl+plus"
+"shift+enter"
 ```
 
 **Modifiers:** `ctrl`, `alt`, `shift`
@@ -342,6 +421,8 @@ All lowercase, modifiers joined by `+` in canonical order `ctrl+alt+shift+<key>`
 **Printable characters:** lowercase letter or character itself — `"a"`, `"1"`, `"/"`
 
 The framework normalizes modifier order, so `"shift+ctrl+s"` and `"ctrl+shift+s"` both match.
+
+Because the Kitty protocol provides explicit modifier flags, all modifier combinations are fully supported — including `alt+<key>`, `ctrl+plus`, `shift+enter`, and other combos that are ambiguous or impossible in legacy terminal encoding.
 
 ### Activation
 
@@ -700,7 +781,7 @@ cel.viewport(() =>
                 bold: msg.role === "user",
                 fgColor: msg.role === "user" ? "blue" : "green",
               }),
-              ...msg.blocks.map((block) => Text(`  ${block.content}`)),
+              Text(`  ${msg.content}`),
             ]),
           ),
         ],
@@ -768,8 +849,8 @@ cel.viewport(() =>
           width: 20,
           overflow: "scroll",
           scrollOffset: sidebarScroll,
-          onScroll: (o) => {
-            sidebarScroll = o;
+          onScroll: (newOffset) => {
+            sidebarScroll = newOffset;
           },
         },
         [
