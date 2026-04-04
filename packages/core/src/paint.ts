@@ -442,28 +442,38 @@ function paintTextInput(
   const { x, y, width: w, height: h } = rect;
   if (w <= 0 || h <= 0) return;
 
+  // Apply padding — content is inset from the rect edges
+  const padX = props.padding?.x ?? 0;
+  const padY = props.padding?.y ?? 0;
+  const cx = x + padX;
+  const cy = y + padY;
+  const cw = Math.max(0, w - padX * 2);
+  const ch = Math.max(0, h - padY * 2);
+  if (cw <= 0 || ch <= 0) return;
+
   const value = props.value;
   const showPlaceholder = value.length === 0 && props.placeholder;
 
   if (showPlaceholder && props.placeholder) {
-    // Paint placeholder text
+    // Paint placeholder text in padded content area
+    const contentRect: Rect = { x: cx, y: cy, width: cw, height: ch };
     paintText(
       props.placeholder.content,
       props.placeholder.props,
-      rect,
+      contentRect,
       clipRect,
       buf,
     );
     return;
   }
 
-  // Word-wrap value (always on for TextInput)
+  // Word-wrap value (always on for TextInput) using content width
   const lines: string[] = [];
   for (const rawLine of value.split("\n")) {
-    if (visibleWidth(rawLine) <= w) {
+    if (visibleWidth(rawLine) <= cw) {
       lines.push(rawLine);
     } else {
-      wrapLine(rawLine, w, lines);
+      wrapLine(rawLine, cw, lines);
     }
   }
 
@@ -472,10 +482,10 @@ function paintTextInput(
 
   if (props.focused) {
     const cursorOffset = getTextInputCursor(props);
-    const cursorPos = offsetToWrappedPos(value, cursorOffset, w);
+    const cursorPos = offsetToWrappedPos(value, cursorOffset, cw);
     // Scroll down if cursor is below viewport
-    if (cursorPos.line >= scrollOffset + h) {
-      scrollOffset = cursorPos.line - h + 1;
+    if (cursorPos.line >= scrollOffset + ch) {
+      scrollOffset = cursorPos.line - ch + 1;
     }
     // Scroll up if cursor is above viewport
     if (cursorPos.line < scrollOffset) {
@@ -484,23 +494,23 @@ function paintTextInput(
     setTextInputScroll(props, scrollOffset);
   }
 
-  // Paint visible lines (grapheme-aware)
-  for (let row = 0; row < h; row++) {
+  // Paint visible lines (grapheme-aware) in content area
+  for (let row = 0; row < ch; row++) {
     const lineIdx = scrollOffset + row;
     if (lineIdx >= lines.length) break;
     const line = lines[lineIdx]!;
-    paintLineGraphemes(line, x, y + row, w, clipRect, props, buf);
+    paintLineGraphemes(line, cx, cy + row, cw, clipRect, props, buf);
   }
 
   // Paint cursor if focused
   if (props.focused) {
     const cursorOffset = getTextInputCursor(props);
-    const pos = offsetToWrappedPos(value, cursorOffset, w);
+    const pos = offsetToWrappedPos(value, cursorOffset, cw);
     const screenRow = pos.line - scrollOffset;
-    if (screenRow >= 0 && screenRow < h && pos.col < w) {
-      const existing = buf.get(x + pos.col, y + screenRow);
+    if (screenRow >= 0 && screenRow < ch && pos.col < cw) {
+      const existing = buf.get(cx + pos.col, cy + screenRow);
       // Invert colors for cursor visibility
-      buf.set(x + pos.col, y + screenRow, {
+      buf.set(cx + pos.col, cy + screenRow, {
         char: existing.char === " " && !existing.bgColor ? " " : existing.char,
         fgColor: existing.bgColor ?? "black",
         bgColor: existing.fgColor ?? "white",

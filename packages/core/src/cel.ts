@@ -642,11 +642,20 @@ function handleKeyEvent(key: string, rawData?: string): void {
         case "down":
         case "home":
         case "end":
-          newState = moveCursor(
-            editState,
-            key as "left" | "right" | "up" | "down" | "home" | "end",
-            focusedInput.rect.width,
-          );
+          {
+            const tiPadX =
+              (focusedInput.node as import("@cel-tui/types").TextInputNode)
+                .props.padding?.x ?? 0;
+            const contentWidth = Math.max(
+              0,
+              focusedInput.rect.width - tiPadX * 2,
+            );
+            newState = moveCursor(
+              editState,
+              key as "left" | "right" | "up" | "down" | "home" | "end",
+              contentWidth,
+            );
+          }
           break;
         case "enter":
           newState = insertChar(editState, "\n");

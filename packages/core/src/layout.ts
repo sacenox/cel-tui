@@ -86,20 +86,23 @@ function intrinsicMainSize(
   }
 
   if (node.type === "textinput") {
+    const tiPadX = (node.props.padding?.x ?? 0) * 2;
+    const tiPadY = (node.props.padding?.y ?? 0) * 2;
     if (isVertical) {
       const val = node.props.value || "";
-      if (val.length === 0) return 1;
+      const innerCrossForTI = Math.max(1, crossSize - tiPadX);
+      if (val.length === 0) return 1 + tiPadY;
       const lines = val.split("\n");
       let total = 0;
       for (const line of lines) {
         total += Math.max(
           1,
-          Math.ceil(visibleWidth(line) / Math.max(1, crossSize)),
+          Math.ceil(visibleWidth(line) / Math.max(1, innerCrossForTI)),
         );
       }
-      return total;
+      return total + tiPadY;
     }
-    return 0;
+    return 0 + tiPadX;
   }
 
   // Container: compute intrinsic size along the requested axis.
