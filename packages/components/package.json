@@ -31,7 +31,8 @@
   ],
   "dependencies": {
     "@cel-tui/types": "workspace:*",
-    "@cel-tui/core": "workspace:*"
+    "@cel-tui/core": "workspace:*",
+    "yoctomarkdown": "^0.1.0"
   },
   "peerDependencies": {
     "typescript": ">=5.0.0"

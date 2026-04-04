@@ -29,7 +29,6 @@ export {
 export {
   Markdown,
   tokenize,
-  parseInline,
   type MarkdownProps,
   type MarkdownTheme,
   type BlockToken,
