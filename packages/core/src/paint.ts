@@ -150,7 +150,7 @@ function paintLayoutNode(
         italic: node.props.italic ?? tiEffective.italic,
         underline: node.props.underline ?? tiEffective.underline,
       };
-      paintTextInput(tiProps, rect, clipped, buf);
+      paintTextInput(tiProps, rect, clipped, buf, tiEffective);
       break;
     }
     case "vstack":
@@ -438,6 +438,7 @@ function paintTextInput(
   rect: Rect,
   clipRect: Rect,
   buf: CellBuffer,
+  inherited: StyleProps = EMPTY_STYLE,
 ): void {
   const { x, y, width: w, height: h } = rect;
   if (w <= 0 || h <= 0) return;
@@ -455,11 +456,21 @@ function paintTextInput(
   const showPlaceholder = value.length === 0 && props.placeholder;
 
   if (showPlaceholder && props.placeholder) {
-    // Paint placeholder text in padded content area
+    // Paint placeholder text in padded content area, inheriting
+    // styles from the TextInput's resolved style chain
     const contentRect: Rect = { x: cx, y: cy, width: cw, height: ch };
+    const phProps = props.placeholder.props;
+    const effectivePh = {
+      ...phProps,
+      fgColor: phProps.fgColor ?? inherited.fgColor,
+      bgColor: phProps.bgColor ?? inherited.bgColor,
+      bold: phProps.bold ?? inherited.bold,
+      italic: phProps.italic ?? inherited.italic,
+      underline: phProps.underline ?? inherited.underline,
+    };
     paintText(
       props.placeholder.content,
-      props.placeholder.props,
+      effectivePh,
       contentRect,
       clipRect,
       buf,

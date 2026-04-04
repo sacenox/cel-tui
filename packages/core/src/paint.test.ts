@@ -604,6 +604,40 @@ describe("paint", () => {
       expect(buf.get(0, 0).char).toBe("h");
       expect(buf.get(0, 0).fgColor).toBe("cyan");
     });
+
+    test("TextInput placeholder inherits styles from parent container", () => {
+      const node = VStack({ width: 10, height: 1, fgColor: "green" }, [
+        TextInput({
+          value: "",
+          onChange: () => {},
+          placeholder: Text("type..."),
+        }),
+      ]);
+      const ln = layout(node, 10, 1);
+      const buf = new CellBuffer(10, 1);
+      paint(ln, buf);
+
+      // Placeholder "type..." should inherit fgColor: "green" from parent VStack
+      expect(buf.get(0, 0).char).toBe("t");
+      expect(buf.get(0, 0).fgColor).toBe("green");
+    });
+
+    test("TextInput placeholder explicit style overrides inherited", () => {
+      const node = VStack({ width: 10, height: 1, fgColor: "green" }, [
+        TextInput({
+          value: "",
+          onChange: () => {},
+          placeholder: Text("type...", { fgColor: "brightBlack" }),
+        }),
+      ]);
+      const ln = layout(node, 10, 1);
+      const buf = new CellBuffer(10, 1);
+      paint(ln, buf);
+
+      // Explicit fgColor on placeholder should win over inherited
+      expect(buf.get(0, 0).char).toBe("t");
+      expect(buf.get(0, 0).fgColor).toBe("brightBlack");
+    });
   });
 
   describe("focusStyle", () => {
