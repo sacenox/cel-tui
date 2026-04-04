@@ -327,16 +327,47 @@ function quit() {
   process.exit(0);
 }
 
+// ─── Terminal Size ──────────────────────────────────────────────
+
+const MIN_COLS = 40;
+const MIN_ROWS = 15;
+
+function termSize(): { cols: number; rows: number } {
+  return {
+    cols: process.stdout.columns || 80,
+    rows: process.stdout.rows || 24,
+  };
+}
+
+function tooSmallView() {
+  return VStack(
+    {
+      height: "100%",
+      justifyContent: "center",
+      alignItems: "center",
+      onKeyPress: (key) => {
+        if (key === "ctrl+q" || key === "ctrl+c") quit();
+      },
+    },
+    [
+      Text("┌─────────────────────────┐", { fgColor: "yellow" }),
+      Text("│  Terminal too small :(  │", { fgColor: "yellow" }),
+      Text("│                         │", { fgColor: "yellow" }),
+      Text("│  Please resize to at    │", { fgColor: "yellow" }),
+      Text(
+        `│  least ${String(MIN_COLS).padStart(3)}×${String(MIN_ROWS).padStart(2)} chars.   │`,
+        { fgColor: "yellow" },
+      ),
+      Text("│                         │", { fgColor: "yellow" }),
+      Text("│  Ctrl+Q to quit         │", { fgColor: "yellow" }),
+      Text("└─────────────────────────┘", { fgColor: "yellow" }),
+    ],
+  );
+}
+
 // ─── Art Helpers ────────────────────────────────────────────────
 
 function maxArtHeight(def: PetDef): number {
-  const all = [
-    ...def.idle.happy,
-    ...def.idle.hungry,
-    ...def.excited,
-    [def.dead],
-  ].flat();
-  // all is string[][] flattened once → string[][]; we need max of each frame's length
   const frames = [
     ...def.idle.happy,
     ...def.idle.hungry,
@@ -397,14 +428,17 @@ function barColor(val: number, invert = false): "green" | "yellow" | "red" {
 // ─── Create Screen ──────────────────────────────────────────────
 
 function createView() {
+  const { rows } = termSize();
   const preview = PETS[selectedKind]!;
   const previewArt = preview.idle.happy[frame % preview.idle.happy.length]!;
+  // Compact mode: drop art preview when height is tight
+  const showPreview = rows >= 22;
 
   return VStack(
     {
       height: "100%",
-      justifyContent: "center",
       alignItems: "center",
+      overflow: "scroll",
       onKeyPress: (key) => {
         if (key === "ctrl+q" || key === "ctrl+c") quit();
         // Arrow keys to pick species (only when name input is NOT focused)
@@ -420,7 +454,8 @@ function createView() {
       },
     },
     [
-      VStack({ width: 40, padding: { x: 2, y: 1 }, gap: 1 }, [
+      Spacer(),
+      VStack({ width: 40, padding: { x: 2 }, gap: 0 }, [
         // Title
         HStack({ justifyContent: "center" }, [
           Text("~ New Pet ~", { bold: true, fgColor: "cyan" }),
@@ -459,43 +494,45 @@ function createView() {
         }),
 
         // Species picker
+        Text(""),
         Text("Species:", { bold: true, fgColor: "white" }),
-        VStack({ padding: { x: 1 } }, [
-          ...PETS.map((p, i) => {
-            const sel = i === selectedKind;
-            return HStack(
-              {
-                onClick: () => {
-                  selectedKind = i;
-                  cel.render();
-                },
-                focusable: false,
+        ...PETS.map((p, i) => {
+          const sel = i === selectedKind;
+          return HStack(
+            {
+              onClick: () => {
+                selectedKind = i;
+                cel.render();
               },
-              [
-                Text(sel ? " > " : "   ", {
-                  fgColor: sel ? "cyan" : "brightBlack",
-                  bold: sel,
-                }),
-                Text(p.kind, {
-                  fgColor: sel ? "cyan" : "white",
-                  bold: sel,
-                }),
-              ],
-            );
-          }),
-        ]),
-        Text("  arrow keys to change", {
+              focusable: false,
+            },
+            [
+              Text(sel ? "  > " : "    ", {
+                fgColor: sel ? "cyan" : "brightBlack",
+                bold: sel,
+              }),
+              Text(p.kind, {
+                fgColor: sel ? "cyan" : "white",
+                bold: sel,
+              }),
+            ],
+          );
+        }),
+        Text("    ↑/↓ to change", {
           fgColor: "brightBlack",
           italic: true,
         }),
 
-        Divider({ fgColor: "brightBlack" }),
-
-        // Preview
-        VStack(
-          { alignItems: "center" },
-          previewArt.map((ln) => Text(ln, { fgColor: "yellow" })),
-        ),
+        // Preview (hidden when terminal is short)
+        ...(showPreview
+          ? [
+              Divider({ fgColor: "brightBlack" }),
+              VStack(
+                { alignItems: "center" },
+                previewArt.map((ln) => Text(ln, { fgColor: "yellow" })),
+              ),
+            ]
+          : []),
 
         Divider({ fgColor: "brightBlack" }),
 
@@ -531,6 +568,7 @@ function createView() {
           Text(" quit", { fgColor: "brightBlack" }),
         ]),
       ]),
+      Spacer(),
     ],
   );
 }
@@ -538,8 +576,89 @@ function createView() {
 // ─── Main Screen ────────────────────────────────────────────────
 
 function mainView() {
+  const { cols } = termSize();
   const art = currentArt();
   const color = artColor();
+  // Narrow mode: stack sidebar above pet pane instead of side-by-side
+  const narrow = cols < 50;
+
+  const statsPanel = VStack(
+    { ...(narrow ? {} : { width: 20 }), padding: { x: 1 }, gap: 0 },
+    [
+      ...(narrow
+        ? [
+            HStack({ gap: 2 }, [
+              StatBar("Health", health, barColor(health)),
+              StatBar("Food", 100 - hunger, barColor(hunger, true)),
+              StatBar("Happy", happiness, barColor(happiness)),
+            ]),
+          ]
+        : [
+            Text("  Stats", { bold: true, fgColor: "brightBlack" }),
+            Divider({ char: "─", fgColor: "brightBlack" }),
+            StatBar("Health", health, barColor(health)),
+            StatBar("Food", 100 - hunger, barColor(hunger, true)),
+            StatBar("Happy", happiness, barColor(happiness)),
+            Spacer(),
+            Divider({ char: "─", fgColor: "brightBlack" }),
+            Text(" [F] Feed", { fgColor: "yellow", bold: true }),
+            Text(" [P] Pet", { fgColor: "magenta", bold: true }),
+          ]),
+    ],
+  );
+
+  const petPane = VStack(
+    { flex: 1, justifyContent: "center", alignItems: "center", gap: 1 },
+    [
+      VStack(
+        { alignItems: "center" },
+        art.map((ln) => Text(ln, { fgColor: color, bold: anim === "excited" })),
+      ),
+      Text(""),
+      HStack({ gap: 3 }, [
+        HStack(
+          {
+            onClick: feed,
+            focused: focused === "feed",
+            onFocus: () => {
+              focused = "feed";
+              cel.render();
+            },
+            onBlur: () => {
+              if (focused === "feed") focused = null;
+              cel.render();
+            },
+          },
+          [
+            Text(focused === "feed" ? ">> Feed <<" : "[ Feed ]", {
+              bold: true,
+              fgColor: "yellow",
+            }),
+          ],
+        ),
+        HStack(
+          {
+            onClick: petIt,
+            focused: focused === "pet",
+            onFocus: () => {
+              focused = "pet";
+              cel.render();
+            },
+            onBlur: () => {
+              if (focused === "pet") focused = null;
+              cel.render();
+            },
+          },
+          [
+            Text(focused === "pet" ? ">> Pet <<" : "[ Pet ]", {
+              bold: true,
+              fgColor: "magenta",
+            }),
+          ],
+        ),
+      ]),
+    ],
+  );
 
   return VStack(
     {
@@ -572,81 +691,23 @@ function mainView() {
       Divider({ char: "═", fgColor: "brightBlack" }),
 
       // ── Body ──
-      HStack({ flex: 1 }, [
-        // Sidebar
-        VStack({ width: 20, padding: { x: 1, y: 1 }, gap: 1 }, [
-          Text("  Stats", { bold: true, fgColor: "brightBlack" }),
-          Divider({ char: "─", fgColor: "brightBlack" }),
-          StatBar("Health", health, barColor(health)),
-          StatBar("Food", 100 - hunger, barColor(hunger, true)),
-          StatBar("Happy", happiness, barColor(happiness)),
-          Spacer(),
-          Divider({ char: "─", fgColor: "brightBlack" }),
-          Text(" [F] Feed", { fgColor: "yellow", bold: true }),
-          Text(" [P] Pet", { fgColor: "magenta", bold: true }),
-        ]),
-
-        // Divider column
-        VStack({ width: 1, height: "100%" }, [
-          Text("│", { repeat: "fill", fgColor: "brightBlack" }),
-        ]),
-
-        // Main pane
-        VStack(
-          { flex: 1, justifyContent: "center", alignItems: "center", gap: 1 },
-          [
-            VStack(
-              { alignItems: "center" },
-              art.map((ln) =>
-                Text(ln, { fgColor: color, bold: anim === "excited" }),
-              ),
-            ),
-            Text(""),
-            HStack({ gap: 3 }, [
-              HStack(
-                {
-                  onClick: feed,
-                  focused: focused === "feed",
-                  onFocus: () => {
-                    focused = "feed";
-                    cel.render();
-                  },
-                  onBlur: () => {
-                    if (focused === "feed") focused = null;
-                    cel.render();
-                  },
-                },
-                [
-                  Text(focused === "feed" ? ">> Feed <<" : "[ Feed ]", {
-                    bold: true,
-                    fgColor: "yellow",
-                  }),
-                ],
-              ),
-              HStack(
-                {
-                  onClick: petIt,
-                  focused: focused === "pet",
-                  onFocus: () => {
-                    focused = "pet";
-                    cel.render();
-                  },
-                  onBlur: () => {
-                    if (focused === "pet") focused = null;
-                    cel.render();
-                  },
-                },
-                [
-                  Text(focused === "pet" ? ">> Pet <<" : "[ Pet ]", {
-                    bold: true,
-                    fgColor: "magenta",
-                  }),
-                ],
-              ),
+      ...(narrow
+        ? [
+            // Narrow: stats bar on top, pet below
+            statsPanel,
+            Divider({ char: "─", fgColor: "brightBlack" }),
+            petPane,
+          ]
+        : [
+            // Wide: sidebar | pet side-by-side
+            HStack({ flex: 1 }, [
+              statsPanel,
+              VStack({ width: 1, height: "100%" }, [
+                Text("│", { repeat: "fill", fgColor: "brightBlack" }),
+              ]),
+              petPane,
             ]),
-          ],
-        ),
-      ]),
+          ]),
     ],
   );
 }
@@ -654,11 +715,17 @@ function mainView() {
 // ─── Log Modal (Layer) ──────────────────────────────────────────
 
 function logView() {
+  const { cols, rows } = termSize();
   const bg = "black" as const;
   const closeLog = () => {
     showLog = false;
     cel.render();
   };
+
+  // Adapt modal size to terminal
+  const modalW = Math.min(60, cols - 4);
+  const modalH = Math.min(14, rows - 4);
+  const borderW = modalW - 2; // inner repeat count for ═ chars
 
   return VStack(
     {
@@ -673,11 +740,11 @@ function logView() {
       // Top border
       HStack({}, [
         Text("╔", { fgColor: "brightBlack", bgColor: bg }),
-        Text("═", { repeat: 58, fgColor: "brightBlack", bgColor: bg }),
+        Text("═", { repeat: borderW, fgColor: "brightBlack", bgColor: bg }),
         Text("╗", { fgColor: "brightBlack", bgColor: bg }),
       ]),
 
-      VStack({ width: 60, height: 14, padding: { x: 1 } }, [
+      VStack({ width: modalW, height: modalH, padding: { x: 1 } }, [
         // Header row
         HStack({}, [
           Text(" Activity Log ", { bold: true, fgColor: "cyan", bgColor: bg }),
@@ -719,7 +786,7 @@ function logView() {
                     Text(" ", { repeat: "fill", bgColor: bg }),
                   ]),
                 ]),
-                ...Array.from({ length: 9 }, blank),
+                ...Array.from({ length: Math.max(0, modalH - 5) }, blank),
               ];
             }
             const rows = log.map((entry) => {
@@ -747,7 +814,7 @@ function logView() {
               ]);
             });
             // Pad with blank rows so empty space has background
-            const visibleRows = 10;
+            const visibleRows = Math.max(0, modalH - 4);
             const pad = Math.max(0, visibleRows - rows.length);
             return [...rows, ...Array.from({ length: pad }, blank)];
           })(),
@@ -767,7 +834,7 @@ function logView() {
       // Bottom border
       HStack({}, [
         Text("╚", { fgColor: "brightBlack", bgColor: bg }),
-        Text("═", { repeat: 58, fgColor: "brightBlack", bgColor: bg }),
+        Text("═", { repeat: borderW, fgColor: "brightBlack", bgColor: bg }),
         Text("╝", { fgColor: "brightBlack", bgColor: bg }),
       ]),
     ],
@@ -781,8 +848,8 @@ function deadView() {
   return VStack(
     {
       height: "100%",
-      justifyContent: "center",
       alignItems: "center",
+      overflow: "scroll",
       onKeyPress: (key) => {
         if (key === "ctrl+q" || key === "ctrl+c") quit();
         if (key === "l") {
@@ -793,19 +860,20 @@ function deadView() {
       },
     },
     [
+      Spacer(),
       Text("╔═══════════════════════╗", { fgColor: "brightBlack" }),
       Text("║                       ║", { fgColor: "brightBlack" }),
       Text("║      R . I . P .      ║", { fgColor: "red", bold: true }),
       Text("║                       ║", { fgColor: "brightBlack" }),
       Text("╚═══════════════════════╝", { fgColor: "brightBlack" }),
-      Text("", {}),
+      Text(""),
       ...art.map((ln) => Text(ln, { fgColor: "brightBlack" })),
-      Text("", {}),
+      Text(""),
       Text(`${petName} has crossed the rainbow bridge.`, {
         fgColor: "brightBlack",
         italic: true,
       }),
-      Text("", {}),
+      Text(""),
       HStack({ gap: 3 }, [
         HStack(
           {
@@ -856,6 +924,7 @@ function deadView() {
         Text("Ctrl+Q", { fgColor: "brightBlack", bold: true }),
         Text(" quit", { fgColor: "brightBlack" }),
       ]),
+      Spacer(),
     ],
   );
 }
@@ -865,6 +934,9 @@ function deadView() {
 cel.init(new ProcessTerminal());
 
 cel.viewport(() => {
+  const { cols, rows } = termSize();
+  if (cols < MIN_COLS || rows < MIN_ROWS) return tooSmallView();
+
   let base;
   if (screen === "create") base = createView();
   else if (screen === "main") base = mainView();

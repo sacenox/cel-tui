@@ -6,6 +6,9 @@
  */
 import { cel, VStack, HStack, Text, ProcessTerminal } from "@cel-tui/core";
 
+const MIN_COLS = 30;
+const MIN_ROWS = 8;
+
 const items = Array.from({ length: 50 }, (_, i) => `Item ${i + 1} — ${fake()}`);
 
 function fake(): string {
@@ -38,16 +41,47 @@ function fake(): string {
 
 let scrollOffset = 0;
 
+function quit() {
+  cel.stop();
+  process.exit();
+}
+
 cel.init(new ProcessTerminal());
-cel.viewport(() =>
-  VStack(
+cel.viewport(() => {
+  const cols = process.stdout.columns || 80;
+  const rows = process.stdout.rows || 24;
+
+  if (cols < MIN_COLS || rows < MIN_ROWS) {
+    return VStack(
+      {
+        height: "100%",
+        justifyContent: "center",
+        alignItems: "center",
+        onKeyPress: (key) => {
+          if (key === "ctrl+q" || key === "ctrl+c") quit();
+        },
+      },
+      [
+        Text("┌─────────────────────────┐", { fgColor: "yellow" }),
+        Text("│  Terminal too small :(  │", { fgColor: "yellow" }),
+        Text("│                         │", { fgColor: "yellow" }),
+        Text("│  Please resize to at    │", { fgColor: "yellow" }),
+        Text(
+          `│  least ${String(MIN_COLS).padStart(3)}×${String(MIN_ROWS).padStart(2)} chars.   │`,
+          { fgColor: "yellow" },
+        ),
+        Text("│                         │", { fgColor: "yellow" }),
+        Text("│  Ctrl+Q to quit         │", { fgColor: "yellow" }),
+        Text("└─────────────────────────┘", { fgColor: "yellow" }),
+      ],
+    );
+  }
+
+  return VStack(
     {
       height: "100%",
       onKeyPress: (key) => {
-        if (key === "ctrl+q" || key === "ctrl+c") {
-          cel.stop();
-          process.exit();
-        }
+        if (key === "ctrl+q" || key === "ctrl+c") quit();
       },
     },
     [
@@ -82,5 +116,5 @@ cel.viewport(() =>
         Text("Mouse wheel to scroll · Ctrl+Q quit", { fgColor: "brightBlack" }),
       ]),
     ],
-  ),
-);
+  );
+});
