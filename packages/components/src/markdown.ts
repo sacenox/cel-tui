@@ -35,6 +35,14 @@ export interface MarkdownTheme {
   blockquoteText?: StyleProps;
   /** Divider color and character for horizontal rules. */
   hr?: { fgColor?: Color; char?: string };
+  /** Style for **bold** inline text. */
+  bold?: StyleProps;
+  /** Style for *italic* inline text. */
+  italic?: StyleProps;
+  /** Style for `inline code` text. */
+  inlineCode?: StyleProps;
+  /** Style for [link](url) text. */
+  link?: StyleProps;
 }
 
 const defaults: Required<MarkdownTheme> = {
@@ -47,6 +55,10 @@ const defaults: Required<MarkdownTheme> = {
   blockquoteBar: { fgColor: "green" },
   blockquoteText: { italic: true },
   hr: { fgColor: "brightBlack", char: "─" },
+  bold: { bold: true },
+  italic: { italic: true },
+  inlineCode: { fgColor: "yellow" },
+  link: { fgColor: "cyan", underline: true },
 };
 
 function resolveTheme(theme?: MarkdownTheme): Required<MarkdownTheme> {
@@ -61,6 +73,10 @@ function resolveTheme(theme?: MarkdownTheme): Required<MarkdownTheme> {
     blockquoteBar: theme.blockquoteBar ?? defaults.blockquoteBar,
     blockquoteText: theme.blockquoteText ?? defaults.blockquoteText,
     hr: theme.hr ?? defaults.hr,
+    bold: theme.bold ?? defaults.bold,
+    italic: theme.italic ?? defaults.italic,
+    inlineCode: theme.inlineCode ?? defaults.inlineCode,
+    link: theme.link ?? defaults.link,
   };
 }
 
@@ -69,6 +85,62 @@ function resolveTheme(theme?: MarkdownTheme): Required<MarkdownTheme> {
 /** Concatenate inline spans into plain text (markdown markers stripped). */
 function spansToText(spans: InlineSpan[]): string {
   return spans.map((s) => (s.type === "link" ? s.text : s.content)).join("");
+}
+
+/** Check whether spans contain any inline formatting. */
+function hasFormatting(spans: InlineSpan[]): boolean {
+  return spans.some((s) => s.type !== "text");
+}
+
+/**
+ * Convert inline spans into individual Text nodes for use inside a
+ * wrapping HStack. Text/bold/italic spans are split at word/whitespace
+ * boundaries (`/\S+|\s+/g`) so flexWrap can break between words.
+ * Code and link spans are kept atomic (single node, no split).
+ */
+function spansToNodes(
+  spans: InlineSpan[],
+  theme: Required<MarkdownTheme>,
+): Node[] {
+  const nodes: Node[] = [];
+
+  for (const span of spans) {
+    let style: StyleProps;
+    let text: string;
+
+    switch (span.type) {
+      case "text":
+        style = {};
+        text = span.content;
+        break;
+      case "bold":
+        style = theme.bold;
+        text = span.content;
+        break;
+      case "italic":
+        style = theme.italic;
+        text = span.content;
+        break;
+      case "code":
+        // Code spans are atomic — don't split at word boundaries
+        nodes.push(Text(span.content, theme.inlineCode));
+        continue;
+      case "link":
+        // Links are atomic — keep link text as one unit
+        nodes.push(Text(span.text, theme.link));
+        continue;
+    }
+
+    // Split at word/whitespace boundaries so flexWrap can break between words
+    const pieces = text.match(/\S+|\s+/g);
+    if (pieces) {
+      for (const piece of pieces) {
+        nodes.push(Text(piece, style));
+      }
+    }
+  }
+
+  return nodes;
 }
 
 // ─── Component ──────────────────────────────────────────────────
@@ -92,9 +164,11 @@ export interface MarkdownProps {
  *
  * **Block-level styling** is fully supported: headings, code blocks,
  * lists, blockquotes, and horizontal rules are rendered with distinct
- * styles. **Inline styling** (bold, italic, code, links within
- * paragraphs) is not yet rendered — inline-formatted text appears
- * as clean plain text with markdown markers stripped.
+ * styles. **Inline styling** (bold, italic, code, links) is rendered
+ * in paragraphs, list items, and blockquotes by splitting spans at
+ * word boundaries into individual `Text` nodes inside a wrapping
+ * `HStack({ flexWrap: "wrap" })`. Headings strip inline formatting
+ * to plain text (they're typically short and single-line).
  *
  * **Streaming** works naturally: append chunks to the content string
  * and call `cel.render()`. The component re-tokenizes the full string
@@ -145,7 +219,13 @@ export function Markdown(content: string, props?: MarkdownProps): Node[] {
       }
 
       case "paragraph":
-        nodes.push(Text(spansToText(token.spans), { wrap: "word" }));
+        if (hasFormatting(token.spans)) {
+          nodes.push(
+            HStack({ flexWrap: "wrap" }, spansToNodes(token.spans, theme)),
+          );
+        } else {
+          nodes.push(Text(spansToText(token.spans), { wrap: "word" }));
+        }
         break;
 
       case "code_block":
@@ -158,30 +238,36 @@ export function Markdown(content: string, props?: MarkdownProps): Node[] {
 
       case "list_item": {
         const marker = token.ordered ? `${token.index}.` : "•";
+        const liContent = hasFormatting(token.spans)
+          ? HStack({ flexWrap: "wrap" }, spansToNodes(token.spans, theme))
+          : Text(spansToText(token.spans), { wrap: "word" });
         nodes.push(
           HStack({}, [
             Text(`${marker} `, theme.listMarker),
-            VStack({ flex: 1 }, [
-              Text(spansToText(token.spans), { wrap: "word" }),
-            ]),
+            VStack({ flex: 1 }, [liContent]),
           ]),
         );
         break;
       }
 
-      case "blockquote":
+      case "blockquote": {
+        const bqContent = hasFormatting(token.spans)
+          ? HStack(
+              { flexWrap: "wrap", ...theme.blockquoteText },
+              spansToNodes(token.spans, theme),
+            )
+          : Text(spansToText(token.spans), {
+              wrap: "word",
+              ...theme.blockquoteText,
+            });
         nodes.push(
           HStack({}, [
             Text("│ ", theme.blockquoteBar),
-            VStack({ flex: 1 }, [
-              Text(spansToText(token.spans), {
-                wrap: "word",
-                ...theme.blockquoteText,
-              }),
-            ]),
+            VStack({ flex: 1 }, [bqContent]),
           ]),
         );
         break;
+      }
 
       case "hr":
         nodes.push(Divider({ fgColor: theme.hr.fgColor, char: theme.hr.char }));

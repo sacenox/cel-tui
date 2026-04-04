@@ -49,13 +49,73 @@ describe("Markdown", () => {
     expect(h3.props.fgColor).toBe("green");
   });
 
-  test("paragraph renders as wrapping Text", () => {
-    const nodes = Markdown("Hello **bold** world");
+  test("plain paragraph renders as wrapping Text", () => {
+    const nodes = Markdown("Hello world");
     expect(nodes).toHaveLength(1);
     const t = asText(nodes[0]!);
-    // Inline markers stripped, plain text content
-    expect(t.content).toBe("Hello bold world");
+    expect(t.content).toBe("Hello world");
     expect(t.props.wrap).toBe("word");
+  });
+
+  test("paragraph with bold renders as wrapping HStack", () => {
+    const nodes = Markdown("Hello **bold** world");
+    expect(nodes).toHaveLength(1);
+    const hstack = asContainer(nodes[0]!);
+    expect(hstack.type).toBe("hstack");
+    expect(hstack.props.flexWrap).toBe("wrap");
+    // Children: "Hello", " ", bold("bold"), " ", "world"
+    expect(hstack.children).toHaveLength(5);
+    expect(asText(hstack.children[0]!).content).toBe("Hello");
+    expect(asText(hstack.children[1]!).content).toBe(" ");
+    const boldNode = asText(hstack.children[2]!);
+    expect(boldNode.content).toBe("bold");
+    expect(boldNode.props.bold).toBe(true);
+    expect(asText(hstack.children[3]!).content).toBe(" ");
+    expect(asText(hstack.children[4]!).content).toBe("world");
+  });
+
+  test("paragraph with italic renders styled nodes", () => {
+    const nodes = Markdown("some *italic* text");
+    const hstack = asContainer(nodes[0]!);
+    expect(hstack.type).toBe("hstack");
+    // "some", " ", italic("italic"), " ", "text"
+    const italicNode = asText(hstack.children[2]!);
+    expect(italicNode.content).toBe("italic");
+    expect(italicNode.props.italic).toBe(true);
+  });
+
+  test("paragraph with inline code keeps code span atomic", () => {
+    const nodes = Markdown("use `foo bar` here");
+    const hstack = asContainer(nodes[0]!);
+    expect(hstack.type).toBe("hstack");
+    // "use", " ", code("foo bar"), " ", "here"
+    expect(hstack.children).toHaveLength(5);
+    const codeNode = asText(hstack.children[2]!);
+    expect(codeNode.content).toBe("foo bar");
+    expect(codeNode.props.fgColor).toBe("yellow");
+  });
+
+  test("paragraph with link keeps link text atomic", () => {
+    const nodes = Markdown("see [the docs](https://example.com) here");
+    const hstack = asContainer(nodes[0]!);
+    // "see", " ", link("the docs"), " ", "here"
+    expect(hstack.children).toHaveLength(5);
+    const linkNode = asText(hstack.children[2]!);
+    expect(linkNode.content).toBe("the docs");
+    expect(linkNode.props.fgColor).toBe("cyan");
+    expect(linkNode.props.underline).toBe(true);
+  });
+
+  test("paragraph with mixed formatting", () => {
+    const nodes = Markdown("Hello, **bold**!");
+    const hstack = asContainer(nodes[0]!);
+    // "Hello,", " ", bold("bold"), "!"
+    expect(hstack.children).toHaveLength(4);
+    expect(asText(hstack.children[0]!).content).toBe("Hello,");
+    expect(asText(hstack.children[1]!).content).toBe(" ");
+    expect(asText(hstack.children[2]!).props.bold).toBe(true);
+    // No space before "!" — punctuation is adjacent
+    expect(asText(hstack.children[3]!).content).toBe("!");
   });
 
   test("code block renders as VStack with Text", () => {
@@ -159,8 +219,16 @@ describe("Markdown", () => {
 
   test("link text is used, url is stripped", () => {
     const nodes = Markdown("See [the docs](https://example.com) here.");
-    const t = asText(nodes[0]!);
-    expect(t.content).toBe("See the docs here.");
+    const hstack = asContainer(nodes[0]!);
+    expect(hstack.type).toBe("hstack");
+    expect(hstack.props.flexWrap).toBe("wrap");
+    // "See", " ", link("the docs"), " ", "here."
+    expect(hstack.children).toHaveLength(5);
+    expect(asText(hstack.children[0]!).content).toBe("See");
+    const link = asText(hstack.children[2]!);
+    expect(link.content).toBe("the docs");
+    expect(link.props.fgColor).toBe("cyan");
+    expect(asText(hstack.children[4]!).content).toBe("here.");
   });
 
   test("streaming: unclosed code block renders as code", () => {
@@ -172,9 +240,49 @@ describe("Markdown", () => {
   });
 
   test("streaming: unclosed bold appears as plain text", () => {
+    // Unclosed ** is not parsed as bold — stays as text span
     const nodes = Markdown("hello **world");
     const t = asText(nodes[0]!);
     expect(t.content).toBe("hello **world");
+    expect(t.props.wrap).toBe("word");
+  });
+
+  test("list item with inline formatting", () => {
+    const nodes = Markdown("- hello **bold** world");
+    const row = asContainer(nodes[0]!);
+    expect(row.type).toBe("hstack");
+    const wrapper = asContainer(row.children[1]!);
+    expect(wrapper.type).toBe("vstack");
+    // Content is a wrapping HStack
+    const content = asContainer(wrapper.children[0]!);
+    expect(content.type).toBe("hstack");
+    expect(content.props.flexWrap).toBe("wrap");
+    // "hello", " ", bold("bold"), " ", "world"
+    expect(content.children).toHaveLength(5);
+    expect(asText(content.children[2]!).props.bold).toBe(true);
+  });
+
+  test("blockquote with inline formatting", () => {
+    const nodes = Markdown("> hello **bold** text");
+    const row = asContainer(nodes[0]!);
+    const wrapper = asContainer(row.children[1]!);
+    const content = asContainer(wrapper.children[0]!);
+    expect(content.type).toBe("hstack");
+    expect(content.props.flexWrap).toBe("wrap");
+    // blockquoteText style (italic) applied to the wrapping HStack
+    expect(content.props.italic).toBe(true);
+    // bold node inside inherits italic from parent, also has bold
+    expect(asText(content.children[2]!).props.bold).toBe(true);
+  });
+
+  test("inline code theme is customizable", () => {
+    const nodes = Markdown("use `code` here", {
+      theme: { inlineCode: { fgColor: "red", bgColor: "black" } },
+    });
+    const hstack = asContainer(nodes[0]!);
+    const codeNode = asText(hstack.children[2]!);
+    expect(codeNode.props.fgColor).toBe("red");
+    expect(codeNode.props.bgColor).toBe("black");
   });
 
   test("full document produces correct node sequence", () => {

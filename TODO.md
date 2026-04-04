@@ -30,7 +30,7 @@ Remaining work, known bugs, and planned improvements.
 
 - ❌ Bracketed paste mode support
 
-- ❌ **Markdown inline styling** — The `Markdown` component strips inline formatting (`**bold**`, `*italic*`, `` `code` ``, `[links](url)`) to plain text. With `flexWrap: "wrap"` on HStack (now implemented), the component can split inline spans at word boundaries into individual `Text` nodes and wrap them in `HStack({ flexWrap: "wrap" })`. The framework handles line wrapping; the component handles word splitting.
+- ❌ **Markdown heading inline styling** — Headings (`#`, `##`, `###`) still strip inline formatting to plain text. Since headings are short and single-line, this is low priority. Paragraphs, list items, and blockquotes now render inline formatting via wrapping HStack.
 
 ## Future Enhancements
 
