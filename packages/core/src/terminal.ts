@@ -61,8 +61,8 @@ export class ProcessTerminal implements Terminal {
     process.stdin.on("data", onInput);
     process.stdout.on("resize", this.resizeHandler);
 
-    // Enable mouse SGR mode
-    this.write("\x1b[?1006h");
+    // Enable mouse tracking (normal mode) + SGR encoding
+    this.write("\x1b[?1000h\x1b[?1006h");
     this.hideCursor();
 
     // Register cleanup handlers for crash/exit scenarios
@@ -93,8 +93,8 @@ export class ProcessTerminal implements Terminal {
     if (this.stopped) return;
     this.stopped = true;
 
-    // Disable mouse mode
-    this.write("\x1b[?1006l");
+    // Disable mouse tracking + SGR encoding
+    this.write("\x1b[?1006l\x1b[?1000l");
     this.showCursor();
 
     if (this.resizeHandler) {
