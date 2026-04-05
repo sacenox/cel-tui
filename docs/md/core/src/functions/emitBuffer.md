@@ -6,9 +6,9 @@
 
 # Function: emitBuffer()
 
-> **emitBuffer**(`buf`): `string`
+> **emitBuffer**(`buf`, `theme?`): `string`
 
-Defined in: [core/src/emitter.ts:98](https://github.com/sacenox/cel-tui/blob/a5941362efd130e2b0ae863d7be6a9f5fe664b2a/packages/core/src/emitter.ts#L98)
+Defined in: [core/src/emitter.ts:119](https://github.com/sacenox/cel-tui/blob/7a13002be0f32f691a11f759a0697d7adbbfd9b6/packages/core/src/emitter.ts#L119)
 
 Emit a full cell buffer as an ANSI string for terminal output.
 
@@ -26,6 +26,12 @@ only emitting SGR codes when the style changes.
 [`CellBuffer`](../classes/CellBuffer.md)
 
 The cell buffer to render.
+
+### theme?
+
+[`Theme`](../../../types/src/type-aliases/Theme.md) = `defaultTheme`
+
+Color theme mapping. Defaults to the ANSI 16 theme.
 
 ## Returns
 

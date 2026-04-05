@@ -8,7 +8,7 @@
 
 > `const` **cel**: `object`
 
-Defined in: [core/src/cel.ts:798](https://github.com/sacenox/cel-tui/blob/a5941362efd130e2b0ae863d7be6a9f5fe664b2a/packages/core/src/cel.ts#L798)
+Defined in: [core/src/cel.ts:863](https://github.com/sacenox/cel-tui/blob/7a13002be0f32f691a11f759a0697d7adbbfd9b6/packages/core/src/cel.ts#L863)
 
 cel-tui framework entrypoint.
 
@@ -21,7 +21,7 @@ state changes.
 
 ### init()
 
-> **init**(`term`): `void`
+> **init**(`term`, `options?`): `void`
 
 Initialize the framework with a terminal implementation.
 Must be called before [cel.viewport](#viewport).
@@ -36,6 +36,16 @@ enters raw mode, and starts mouse tracking.
 [`Terminal`](../interfaces/Terminal.md)
 
 Terminal to render to (ProcessTerminal or MockTerminal).
+
+##### options?
+
+Optional configuration.
+
+###### theme?
+
+[`Theme`](../../../types/src/type-aliases/Theme.md)
+
+Color theme mapping. Defaults to the ANSI 16 theme.
 
 #### Returns
 

@@ -8,7 +8,7 @@
 
 > **Divider**(`props?`): [`TextNode`](../../../types/src/interfaces/TextNode.md)
 
-Defined in: [components/src/divider.ts:34](https://github.com/sacenox/cel-tui/blob/a5941362efd130e2b0ae863d7be6a9f5fe664b2a/packages/components/src/divider.ts#L34)
+Defined in: [components/src/divider.ts:34](https://github.com/sacenox/cel-tui/blob/7a13002be0f32f691a11f759a0697d7adbbfd9b6/packages/components/src/divider.ts#L34)
 
 Horizontal divider that fills the available width.
 
@@ -36,7 +36,7 @@ A text node that fills the available width.
 Divider()
 
 // Thick line with color
-Divider({ char: "━", fgColor: "brightBlack" })
+Divider({ char: "━", fgColor: "color08" })
 
 // Double line
 Divider({ char: "═" })

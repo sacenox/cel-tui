@@ -28,7 +28,6 @@ cel.viewport(() =>
   VStack(
     {
       height: "100%",
-      fgColor: "white",
       onKeyPress: (key) => {
         if (key === "ctrl+q") {
           cel.stop();
@@ -37,8 +36,8 @@ cel.viewport(() =>
       },
     },
     [
-      Text("Hello, cel-tui!", { bold: true, fgColor: "cyan" }),
-      Text("─", { repeat: "fill", fgColor: "brightBlack" }),
+      Text("Hello, cel-tui!", { bold: true, fgColor: "color06" }),
+      Text("─", { repeat: "fill", fgColor: "color08" }),
       TextInput({
         flex: 1,
         value: input,
@@ -69,16 +68,17 @@ cel.viewport(() =>
 - **Layers** — return an array for multi-layer compositing (modals, overlays).
 - **Uncontrolled by default** — focus and scroll just work. Opt into controlled mode when needed.
 - **Style inheritance** — containers propagate styles to descendants. `bgColor` fills the rect.
+- **16-color palette** — numbered slots (`"color00"`–`"color15"`) mapped to ANSI 16 by default. Custom themes can remap to 256-color or true color.
 - **Cell buffer rendering** — styled cells, differential updates, synchronized output.
 - **Kitty keyboard protocol** — unambiguous key input with full modifier support. Requires a [compatible terminal](https://sw.kovidgoyal.net/kitty/keyboard-protocol/#progressive-enhancement) (Kitty, WezTerm, Ghostty, foot, Alacritty, Windows Terminal).
 
 ## Packages
 
-| Package               | Description                                           |
-| --------------------- | ----------------------------------------------------- |
-| `@cel-tui/types`      | Shared type definitions                               |
-| `@cel-tui/core`       | Framework engine and primitives                       |
-| `@cel-tui/components` | Pre-made components (Button, Spacer, Divider, Select) |
+| Package               | Description                                                               |
+| --------------------- | ------------------------------------------------------------------------- |
+| `@cel-tui/types`      | Shared type definitions                                                   |
+| `@cel-tui/core`       | Framework engine and primitives                                           |
+| `@cel-tui/components` | Pre-made components (Button, Spacer, Divider, VDivider, Select, Markdown) |
 
 ## Documentation
 

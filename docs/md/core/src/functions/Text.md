@@ -8,7 +8,7 @@
 
 > **Text**(`content`, `props?`): [`TextNode`](../../../types/src/interfaces/TextNode.md)
 
-Defined in: [core/src/primitives/text.ts:27](https://github.com/sacenox/cel-tui/blob/a5941362efd130e2b0ae863d7be6a9f5fe664b2a/packages/core/src/primitives/text.ts#L27)
+Defined in: [core/src/primitives/text.ts:27](https://github.com/sacenox/cel-tui/blob/7a13002be0f32f691a11f759a0697d7adbbfd9b6/packages/core/src/primitives/text.ts#L27)
 
 Create a styled text leaf node.
 
@@ -43,7 +43,7 @@ A text node for the UI tree.
 
 ```ts
 // Simple styled text
-Text("Hello", { bold: true, fgColor: "cyan" })
+Text("Hello", { bold: true, fgColor: "color06" })
 
 // Horizontal divider
 Text("─", { repeat: "fill" })

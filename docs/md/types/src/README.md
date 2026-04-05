@@ -21,3 +21,5 @@
 - [Color](type-aliases/Color.md)
 - [Node](type-aliases/Node.md)
 - [SizeValue](type-aliases/SizeValue.md)
+- [Theme](type-aliases/Theme.md)
+- [ThemeValue](type-aliases/ThemeValue.md)

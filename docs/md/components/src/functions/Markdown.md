@@ -8,7 +8,7 @@
 
 > **Markdown**(`content`, `props?`): [`Node`](../../../types/src/type-aliases/Node.md)[]
 
-Defined in: [components/src/markdown.ts:203](https://github.com/sacenox/cel-tui/blob/a5941362efd130e2b0ae863d7be6a9f5fe664b2a/packages/components/src/markdown.ts#L203)
+Defined in: [components/src/markdown.ts:203](https://github.com/sacenox/cel-tui/blob/7a13002be0f32f691a11f759a0697d7adbbfd9b6/packages/components/src/markdown.ts#L203)
 
 Render a markdown string as an array of cel-tui nodes.
 
@@ -70,6 +70,6 @@ VStack({ flex: 1, overflow: "scroll" },
 ```ts
 // Custom theme
 Markdown(content, {
-  theme: { heading1: { bold: true, fgColor: "magenta" } }
+  theme: { heading1: { bold: true, fgColor: "color05" } }
 })
 ```

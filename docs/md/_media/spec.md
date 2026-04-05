@@ -352,15 +352,13 @@ The `focusStyle` prop provides visual feedback when an element is focused. It ac
 HStack(
   {
     onClick: handleAction,
-    bgColor: "black",
-    fgColor: "white",
-    focusStyle: { bgColor: "cyan", fgColor: "black" },
+    focusStyle: { bgColor: "color06", fgColor: "color00" },
   },
   [Text("[ Action ]", { bold: true })],
 );
 ```
 
-When this element receives focus, the container background becomes cyan and descendant Text nodes that don't set their own `fgColor` inherit black instead of white. When focus leaves, the normal styles resume.
+When this element receives focus, the container background becomes color06 and descendant Text nodes that don't set their own `fgColor` inherit color00. When focus leaves, the normal styles resume and text returns to the terminal default foreground.
 
 `focusStyle` works in both uncontrolled and controlled modes.
 
@@ -468,22 +466,22 @@ cel.viewport(() => [
       onClick: dismissModal,
     },
     [
-      VStack({ width: 40, height: 15, bgColor: "black" }, [
+      VStack({ width: 40, height: 15, bgColor: "color08" }, [
         Text("Are you sure?"),
         HStack({ gap: 1 }, [
           HStack(
             {
               onClick: handleYes,
-              bgColor: "brightBlack",
-              focusStyle: { bgColor: "green" },
+              bgColor: "color08",
+              focusStyle: { bgColor: "color02" },
             },
             [Text(" Yes ", { bold: true })],
           ),
           HStack(
             {
               onClick: handleNo,
-              bgColor: "brightBlack",
-              focusStyle: { bgColor: "red" },
+              bgColor: "color08",
+              focusStyle: { bgColor: "color01" },
             },
             [Text(" No ", { bold: true })],
           ),
@@ -584,6 +582,55 @@ TextInput({
 
 ## Styling
 
+### Color System
+
+cel-tui exposes **16 numbered color slots** — `"color00"` through `"color15"`. These are abstract palette references, not color names. The framework never uses names like "white" or "black" because those imply absolute colors and are easily confused with the terminal's default foreground and background.
+
+The **default theme** maps these slots 1:1 to the terminal's ANSI 16 palette:
+
+| Slot        | Default ANSI mapping | Slot        | Default ANSI mapping     |
+| ----------- | -------------------- | ----------- | ------------------------ |
+| `"color00"` | ANSI 0 (black)       | `"color08"` | ANSI 8 (bright black)    |
+| `"color01"` | ANSI 1 (red)         | `"color09"` | ANSI 9 (bright red)      |
+| `"color02"` | ANSI 2 (green)       | `"color10"` | ANSI 10 (bright green)   |
+| `"color03"` | ANSI 3 (yellow)      | `"color11"` | ANSI 11 (bright yellow)  |
+| `"color04"` | ANSI 4 (blue)        | `"color12"` | ANSI 12 (bright blue)    |
+| `"color05"` | ANSI 5 (magenta)     | `"color13"` | ANSI 13 (bright magenta) |
+| `"color06"` | ANSI 6 (cyan)        | `"color14"` | ANSI 14 (bright cyan)    |
+| `"color07"` | ANSI 7 (white)       | `"color15"` | ANSI 15 (bright white)   |
+
+With the default theme, the app automatically inherits whatever terminal color scheme the user has configured — Solarized, Gruvbox, Dracula, etc. Switch themes in the terminal, and every color in the UI updates. No application-side configuration needed.
+
+#### Theme override
+
+A **theme** is a mapping from the 16 color slots to rendering output. The default theme maps to ANSI SGR codes. A custom theme can remap any slot to 256-color indices, 24-bit hex values, or a rearranged ANSI palette:
+
+```ts
+// Custom theme — remap slots to true color
+const myTheme: Theme = {
+  color00: "#1e1e2e",
+  color01: "#f38ba8",
+  color02: "#a6e3a1",
+  // ... remaining slots
+};
+
+cel.init(terminal, { theme: myTheme });
+```
+
+App code uses the same `"color00"`–`"color15"` values regardless of what theme is active. The theme is a rendering concern, not an app logic concern.
+
+#### Terminal defaults
+
+The terminal's **default foreground and background are not palette colors** — they are a separate pair, chosen by the terminal theme to always contrast with each other. Omitting `fgColor` (leaving it `undefined`) emits no SGR color code, so the terminal uses its default foreground. This is the only way to guarantee readable text across both dark and light themes. The same applies to `bgColor`.
+
+**Guidelines:**
+
+- **Normal text** — don't set `fgColor` or `bgColor`. Let the terminal defaults handle contrast.
+- **Semantic accents** — use palette colors for meaning: `"color06"` for highlights, `"color01"` for errors, `"color08"` for dimmed/muted text.
+- **Badges and chips** — when setting `bgColor`, always pair it with an explicit `fgColor` so both sides are controlled (e.g., `bgColor: "color04"`, `fgColor: "color00"`).
+
+For more background on terminal color complexity, see [Terminal colours are tricky](https://jvns.ca/blog/2024/10/01/terminal-colours/) by Julia Evans.
+
 ### Style Props
 
 | Prop        | Type      | Description      |
@@ -594,7 +641,7 @@ TextInput({
 | `fgColor`   | `Color`   | Foreground color |
 | `bgColor`   | `Color`   | Background color |
 
-**Colors:** ANSI base 16 — `"black"`, `"red"`, `"green"`, `"yellow"`, `"blue"`, `"magenta"`, `"cyan"`, `"white"`, and their bright variants (`"brightRed"`, `"brightGreen"`, etc.).
+**Colors:** 16 numbered palette slots — `"color00"` through `"color15"`. These are abstract references resolved through the active theme. With the default theme, they map to the terminal's ANSI 16 palette. Omitting a color prop means "use the terminal default."
 
 Style props are accepted by Text, TextInput, and containers (VStack, HStack).
 
@@ -603,12 +650,12 @@ Style props are accepted by Text, TextInput, and containers (VStack, HStack).
 Containers propagate their styles to descendants. A child node inherits the nearest ancestor's style values, unless it sets a value explicitly. Explicit props always win.
 
 ```ts
-VStack({ fgColor: "white", bgColor: "black" }, [
-  Text("inherits white on black"),
-  Text("explicit green on black", { fgColor: "green" }),
-  VStack({ fgColor: "cyan" }, [
-    Text("inherits cyan on black"),
-    Text("explicit red on black", { fgColor: "red" }),
+VStack({ fgColor: "color06" }, [
+  Text("inherits color06 on terminal default bg"),
+  Text("explicit color02", { fgColor: "color02" }),
+  VStack({ fgColor: "color01" }, [
+    Text("inherits color01"),
+    Text("explicit color03", { fgColor: "color03" }),
   ]),
 ]);
 ```
@@ -619,8 +666,10 @@ Resolution order for each style prop: **node's own prop → nearest ancestor →
 
 When a container has `bgColor` (explicitly or via inheritance), the framework fills the container's rect with that color before painting children. This provides solid backgrounds for panels, modals, and sidebars without manual fill workarounds.
 
+When setting `bgColor`, always pair it with an explicit `fgColor` to ensure contrast across themes:
+
 ```ts
-VStack({ bgColor: "blue", fgColor: "white", padding: { x: 1 } }, [
+VStack({ bgColor: "color04", fgColor: "color07", padding: { x: 1 } }, [
   Text("Status bar content"),
   Text(" ", { repeat: "fill" }),
   Text("Right side"),
@@ -635,15 +684,14 @@ The `focusStyle` prop on containers and TextInput overrides styles while the ele
 HStack(
   {
     onClick: handleSend,
-    bgColor: "brightBlack",
-    fgColor: "white",
-    focusStyle: { bgColor: "cyan", fgColor: "black" },
+    bgColor: "color08",
+    focusStyle: { bgColor: "color06", fgColor: "color00" },
   },
   [Text(" Send ", { bold: true })],
 );
 ```
 
-When focused: background is cyan, Text inherits `fgColor: "black"`. When not focused: background is brightBlack, Text inherits `fgColor: "white"`.
+When focused: background is color06, Text inherits `fgColor: "color00"`. When not focused: background is color08, Text inherits the terminal default foreground.
 
 ---
 
@@ -758,7 +806,6 @@ cel.viewport(() =>
   VStack(
     {
       height: "100%",
-      fgColor: "white",
       onKeyPress: (key) => {
         if (key === "ctrl+q") process.exit();
       },
@@ -768,7 +815,7 @@ cel.viewport(() =>
       HStack({ height: 1, padding: { x: 1 } }, [
         Text("Agent Name", { bold: true }),
         VStack({ flex: 1 }),
-        Text("model: gpt", { fgColor: "brightBlack" }),
+        Text("model: gpt", { fgColor: "color08" }),
       ]),
 
       // Message history
@@ -779,7 +826,7 @@ cel.viewport(() =>
             VStack({ gap: 0 }, [
               Text(`${msg.role === "user" ? "▶" : "▷"} ${msg.role}:`, {
                 bold: msg.role === "user",
-                fgColor: msg.role === "user" ? "blue" : "green",
+                fgColor: msg.role === "user" ? "color04" : "color02",
               }),
               Text(`  ${msg.content}`),
             ]),
@@ -795,14 +842,14 @@ cel.viewport(() =>
           maxHeight: 10,
           value: input,
           onChange: handleChange,
-          placeholder: Text("type a message...", { fgColor: "brightBlack" }),
+          placeholder: Text("type a message...", { fgColor: "color08" }),
           onSubmit: handleSend,
         }),
         HStack(
           {
             onClick: handleSend,
-            bgColor: "brightBlack",
-            focusStyle: { bgColor: "cyan", fgColor: "black" },
+            bgColor: "color08",
+            focusStyle: { bgColor: "color06", fgColor: "color00" },
           },
           [Text("[Send]", { bold: true })],
         ),
@@ -865,7 +912,7 @@ cel.viewport(() =>
                 Text(
                   `${file === activeFile ? "▸" : " "} ${file.name}`,
                   file === activeFile
-                    ? { fgColor: "cyan", bgColor: "brightBlack" }
+                    ? { fgColor: "color06", bgColor: "color08" }
                     : {},
                 ),
               ],
@@ -878,7 +925,7 @@ cel.viewport(() =>
       VStack({ flex: 1 }, [
         // Tab bar
         HStack({ height: 1 }, [
-          Text(` ${activeFile.name} `, { bold: true, bgColor: "brightBlack" }),
+          Text(` ${activeFile.name} `, { bold: true, bgColor: "color08" }),
           Text(" ", { repeat: "fill" }),
         ]),
 
@@ -897,7 +944,7 @@ cel.viewport(() =>
         }),
 
         // Status bar
-        HStack({ height: 1, bgColor: "blue", fgColor: "white" }, [
+        HStack({ height: 1, bgColor: "color04" }, [
           Text(` ${activeFile.name}`),
           Text(`  Ln ${cursor.line}, Col ${cursor.col}`),
           Text(" ", { repeat: "fill" }),

@@ -39,6 +39,7 @@ cel.viewport(() =>
 ## Variables
 
 - [cel](variables/cel.md)
+- [defaultTheme](variables/defaultTheme.md)
 - [EMPTY\_CELL](variables/EMPTY_CELL.md)
 
 ## Functions
@@ -110,3 +111,15 @@ Re-exports [TextNode](../../types/src/interfaces/TextNode.md)
 ### TextProps
 
 Re-exports [TextProps](../../types/src/interfaces/TextProps.md)
+
+***
+
+### Theme
+
+Re-exports [Theme](../../types/src/type-aliases/Theme.md)
+
+***
+
+### ThemeValue
+
+Re-exports [ThemeValue](../../types/src/type-aliases/ThemeValue.md)

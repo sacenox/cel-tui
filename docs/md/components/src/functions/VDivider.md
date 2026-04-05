@@ -8,7 +8,7 @@
 
 > **VDivider**(`props?`): [`ContainerNode`](../../../types/src/interfaces/ContainerNode.md)
 
-Defined in: [components/src/vdivider.ts:46](https://github.com/sacenox/cel-tui/blob/a5941362efd130e2b0ae863d7be6a9f5fe664b2a/packages/components/src/vdivider.ts#L46)
+Defined in: [components/src/vdivider.ts:46](https://github.com/sacenox/cel-tui/blob/7a13002be0f32f691a11f759a0697d7adbbfd9b6/packages/components/src/vdivider.ts#L46)
 
 Vertical divider that fills the available height.
 
@@ -40,12 +40,12 @@ A container node 1 cell wide, full parent height.
 VDivider()
 
 // Double line with color
-VDivider({ char: "║", fgColor: "brightBlack" })
+VDivider({ char: "║", fgColor: "color08" })
 
 // Separate sidebar from content
 HStack({ height: "100%" }, [
   VStack({ width: 20 }, [Text("sidebar")]),
-  VDivider({ fgColor: "brightBlack" }),
+  VDivider({ fgColor: "color08" }),
   VStack({ flex: 1 }, [Text("content")]),
 ])
 ```

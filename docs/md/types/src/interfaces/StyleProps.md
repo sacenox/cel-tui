@@ -6,7 +6,7 @@
 
 # Interface: StyleProps
 
-Defined in: [types/src/index.ts:32](https://github.com/sacenox/cel-tui/blob/a5941362efd130e2b0ae863d7be6a9f5fe664b2a/packages/types/src/index.ts#L32)
+Defined in: [types/src/index.ts:68](https://github.com/sacenox/cel-tui/blob/7a13002be0f32f691a11f759a0697d7adbbfd9b6/packages/types/src/index.ts#L68)
 
 Styling props shared by all node types.
 
@@ -26,7 +26,7 @@ the nearest ancestor's values unless they set a value explicitly.
 
 > `optional` **bgColor?**: [`Color`](../type-aliases/Color.md)
 
-Defined in: [types/src/index.ts:42](https://github.com/sacenox/cel-tui/blob/a5941362efd130e2b0ae863d7be6a9f5fe664b2a/packages/types/src/index.ts#L42)
+Defined in: [types/src/index.ts:78](https://github.com/sacenox/cel-tui/blob/7a13002be0f32f691a11f759a0697d7adbbfd9b6/packages/types/src/index.ts#L78)
 
 Background color.
 
@@ -36,7 +36,7 @@ Background color.
 
 > `optional` **bold?**: `boolean`
 
-Defined in: [types/src/index.ts:34](https://github.com/sacenox/cel-tui/blob/a5941362efd130e2b0ae863d7be6a9f5fe664b2a/packages/types/src/index.ts#L34)
+Defined in: [types/src/index.ts:70](https://github.com/sacenox/cel-tui/blob/7a13002be0f32f691a11f759a0697d7adbbfd9b6/packages/types/src/index.ts#L70)
 
 Render text with bold weight.
 
@@ -46,7 +46,7 @@ Render text with bold weight.
 
 > `optional` **fgColor?**: [`Color`](../type-aliases/Color.md)
 
-Defined in: [types/src/index.ts:40](https://github.com/sacenox/cel-tui/blob/a5941362efd130e2b0ae863d7be6a9f5fe664b2a/packages/types/src/index.ts#L40)
+Defined in: [types/src/index.ts:76](https://github.com/sacenox/cel-tui/blob/7a13002be0f32f691a11f759a0697d7adbbfd9b6/packages/types/src/index.ts#L76)
 
 Foreground (text) color.
 
@@ -56,7 +56,7 @@ Foreground (text) color.
 
 > `optional` **italic?**: `boolean`
 
-Defined in: [types/src/index.ts:36](https://github.com/sacenox/cel-tui/blob/a5941362efd130e2b0ae863d7be6a9f5fe664b2a/packages/types/src/index.ts#L36)
+Defined in: [types/src/index.ts:72](https://github.com/sacenox/cel-tui/blob/7a13002be0f32f691a11f759a0697d7adbbfd9b6/packages/types/src/index.ts#L72)
 
 Render text in italic style.
 
@@ -66,6 +66,6 @@ Render text in italic style.
 
 > `optional` **underline?**: `boolean`
 
-Defined in: [types/src/index.ts:38](https://github.com/sacenox/cel-tui/blob/a5941362efd130e2b0ae863d7be6a9f5fe664b2a/packages/types/src/index.ts#L38)
+Defined in: [types/src/index.ts:74](https://github.com/sacenox/cel-tui/blob/7a13002be0f32f691a11f759a0697d7adbbfd9b6/packages/types/src/index.ts#L74)
 
 Render text with an underline.

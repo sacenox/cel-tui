@@ -6,7 +6,7 @@
 
 # Interface: MarkdownTheme
 
-Defined in: [components/src/markdown.ts:19](https://github.com/sacenox/cel-tui/blob/a5941362efd130e2b0ae863d7be6a9f5fe664b2a/packages/components/src/markdown.ts#L19)
+Defined in: [components/src/markdown.ts:19](https://github.com/sacenox/cel-tui/blob/7a13002be0f32f691a11f759a0697d7adbbfd9b6/packages/components/src/markdown.ts#L19)
 
 Style configuration for the [Markdown](../functions/Markdown.md) component.
 
@@ -20,7 +20,7 @@ built-in default theme.
 
 > `optional` **blockquoteBar?**: [`StyleProps`](../../../types/src/interfaces/StyleProps.md)
 
-Defined in: [components/src/markdown.ts:33](https://github.com/sacenox/cel-tui/blob/a5941362efd130e2b0ae863d7be6a9f5fe664b2a/packages/components/src/markdown.ts#L33)
+Defined in: [components/src/markdown.ts:33](https://github.com/sacenox/cel-tui/blob/7a13002be0f32f691a11f759a0697d7adbbfd9b6/packages/components/src/markdown.ts#L33)
 
 Style for the blockquote bar character (`│`).
 
@@ -30,7 +30,7 @@ Style for the blockquote bar character (`│`).
 
 > `optional` **blockquoteText?**: [`StyleProps`](../../../types/src/interfaces/StyleProps.md)
 
-Defined in: [components/src/markdown.ts:35](https://github.com/sacenox/cel-tui/blob/a5941362efd130e2b0ae863d7be6a9f5fe664b2a/packages/components/src/markdown.ts#L35)
+Defined in: [components/src/markdown.ts:35](https://github.com/sacenox/cel-tui/blob/7a13002be0f32f691a11f759a0697d7adbbfd9b6/packages/components/src/markdown.ts#L35)
 
 Text style for blockquote content.
 
@@ -40,7 +40,7 @@ Text style for blockquote content.
 
 > `optional` **bold?**: [`StyleProps`](../../../types/src/interfaces/StyleProps.md)
 
-Defined in: [components/src/markdown.ts:39](https://github.com/sacenox/cel-tui/blob/a5941362efd130e2b0ae863d7be6a9f5fe664b2a/packages/components/src/markdown.ts#L39)
+Defined in: [components/src/markdown.ts:39](https://github.com/sacenox/cel-tui/blob/7a13002be0f32f691a11f759a0697d7adbbfd9b6/packages/components/src/markdown.ts#L39)
 
 Style for **bold** inline text.
 
@@ -50,7 +50,7 @@ Style for **bold** inline text.
 
 > `optional` **codeBlock?**: [`StyleProps`](../../../types/src/interfaces/StyleProps.md)
 
-Defined in: [components/src/markdown.ts:27](https://github.com/sacenox/cel-tui/blob/a5941362efd130e2b0ae863d7be6a9f5fe664b2a/packages/components/src/markdown.ts#L27)
+Defined in: [components/src/markdown.ts:27](https://github.com/sacenox/cel-tui/blob/7a13002be0f32f691a11f759a0697d7adbbfd9b6/packages/components/src/markdown.ts#L27)
 
 Container style for fenced code blocks (applied to the wrapping VStack).
 
@@ -60,7 +60,7 @@ Container style for fenced code blocks (applied to the wrapping VStack).
 
 > `optional` **codeContent?**: [`StyleProps`](../../../types/src/interfaces/StyleProps.md)
 
-Defined in: [components/src/markdown.ts:29](https://github.com/sacenox/cel-tui/blob/a5941362efd130e2b0ae863d7be6a9f5fe664b2a/packages/components/src/markdown.ts#L29)
+Defined in: [components/src/markdown.ts:29](https://github.com/sacenox/cel-tui/blob/7a13002be0f32f691a11f759a0697d7adbbfd9b6/packages/components/src/markdown.ts#L29)
 
 Text style inside fenced code blocks.
 
@@ -70,7 +70,7 @@ Text style inside fenced code blocks.
 
 > `optional` **heading1?**: [`StyleProps`](../../../types/src/interfaces/StyleProps.md)
 
-Defined in: [components/src/markdown.ts:21](https://github.com/sacenox/cel-tui/blob/a5941362efd130e2b0ae863d7be6a9f5fe664b2a/packages/components/src/markdown.ts#L21)
+Defined in: [components/src/markdown.ts:21](https://github.com/sacenox/cel-tui/blob/7a13002be0f32f691a11f759a0697d7adbbfd9b6/packages/components/src/markdown.ts#L21)
 
 Style for `# heading` (level 1).
 
@@ -80,7 +80,7 @@ Style for `# heading` (level 1).
 
 > `optional` **heading2?**: [`StyleProps`](../../../types/src/interfaces/StyleProps.md)
 
-Defined in: [components/src/markdown.ts:23](https://github.com/sacenox/cel-tui/blob/a5941362efd130e2b0ae863d7be6a9f5fe664b2a/packages/components/src/markdown.ts#L23)
+Defined in: [components/src/markdown.ts:23](https://github.com/sacenox/cel-tui/blob/7a13002be0f32f691a11f759a0697d7adbbfd9b6/packages/components/src/markdown.ts#L23)
 
 Style for `## heading` (level 2).
 
@@ -90,7 +90,7 @@ Style for `## heading` (level 2).
 
 > `optional` **heading3?**: [`StyleProps`](../../../types/src/interfaces/StyleProps.md)
 
-Defined in: [components/src/markdown.ts:25](https://github.com/sacenox/cel-tui/blob/a5941362efd130e2b0ae863d7be6a9f5fe664b2a/packages/components/src/markdown.ts#L25)
+Defined in: [components/src/markdown.ts:25](https://github.com/sacenox/cel-tui/blob/7a13002be0f32f691a11f759a0697d7adbbfd9b6/packages/components/src/markdown.ts#L25)
 
 Style for `### heading` (level 3).
 
@@ -100,7 +100,7 @@ Style for `### heading` (level 3).
 
 > `optional` **hr?**: `object`
 
-Defined in: [components/src/markdown.ts:37](https://github.com/sacenox/cel-tui/blob/a5941362efd130e2b0ae863d7be6a9f5fe664b2a/packages/components/src/markdown.ts#L37)
+Defined in: [components/src/markdown.ts:37](https://github.com/sacenox/cel-tui/blob/7a13002be0f32f691a11f759a0697d7adbbfd9b6/packages/components/src/markdown.ts#L37)
 
 Divider color and character for horizontal rules.
 
@@ -118,7 +118,7 @@ Divider color and character for horizontal rules.
 
 > `optional` **inlineCode?**: [`StyleProps`](../../../types/src/interfaces/StyleProps.md)
 
-Defined in: [components/src/markdown.ts:43](https://github.com/sacenox/cel-tui/blob/a5941362efd130e2b0ae863d7be6a9f5fe664b2a/packages/components/src/markdown.ts#L43)
+Defined in: [components/src/markdown.ts:43](https://github.com/sacenox/cel-tui/blob/7a13002be0f32f691a11f759a0697d7adbbfd9b6/packages/components/src/markdown.ts#L43)
 
 Style for `inline code` text.
 
@@ -128,7 +128,7 @@ Style for `inline code` text.
 
 > `optional` **italic?**: [`StyleProps`](../../../types/src/interfaces/StyleProps.md)
 
-Defined in: [components/src/markdown.ts:41](https://github.com/sacenox/cel-tui/blob/a5941362efd130e2b0ae863d7be6a9f5fe664b2a/packages/components/src/markdown.ts#L41)
+Defined in: [components/src/markdown.ts:41](https://github.com/sacenox/cel-tui/blob/7a13002be0f32f691a11f759a0697d7adbbfd9b6/packages/components/src/markdown.ts#L41)
 
 Style for *italic* inline text.
 
@@ -138,7 +138,7 @@ Style for *italic* inline text.
 
 > `optional` **link?**: [`StyleProps`](../../../types/src/interfaces/StyleProps.md)
 
-Defined in: [components/src/markdown.ts:45](https://github.com/sacenox/cel-tui/blob/a5941362efd130e2b0ae863d7be6a9f5fe664b2a/packages/components/src/markdown.ts#L45)
+Defined in: [components/src/markdown.ts:45](https://github.com/sacenox/cel-tui/blob/7a13002be0f32f691a11f759a0697d7adbbfd9b6/packages/components/src/markdown.ts#L45)
 
 Style for [link](url) text.
 
@@ -148,6 +148,6 @@ Style for [link](url) text.
 
 > `optional` **listMarker?**: [`StyleProps`](../../../types/src/interfaces/StyleProps.md)
 
-Defined in: [components/src/markdown.ts:31](https://github.com/sacenox/cel-tui/blob/a5941362efd130e2b0ae863d7be6a9f5fe664b2a/packages/components/src/markdown.ts#L31)
+Defined in: [components/src/markdown.ts:31](https://github.com/sacenox/cel-tui/blob/7a13002be0f32f691a11f759a0697d7adbbfd9b6/packages/components/src/markdown.ts#L31)
 
 Style for list markers (`•`, `1.`).

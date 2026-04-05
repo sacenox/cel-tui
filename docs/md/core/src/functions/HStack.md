@@ -8,7 +8,7 @@
 
 > **HStack**(`props`, `children`): [`ContainerNode`](../../../types/src/interfaces/ContainerNode.md)
 
-Defined in: [core/src/primitives/stacks.ts:40](https://github.com/sacenox/cel-tui/blob/a5941362efd130e2b0ae863d7be6a9f5fe664b2a/packages/core/src/primitives/stacks.ts#L40)
+Defined in: [core/src/primitives/stacks.ts:40](https://github.com/sacenox/cel-tui/blob/7a13002be0f32f691a11f759a0697d7adbbfd9b6/packages/core/src/primitives/stacks.ts#L40)
 
 Create a horizontal stack container — children laid out left to right.
 
@@ -41,6 +41,6 @@ A container node for the UI tree.
 HStack({ height: 1, gap: 1 }, [
   Text("Name", { bold: true }),
   VStack({ flex: 1 }, []),
-  Text("value", { fgColor: "brightBlack" }),
+  Text("value", { fgColor: "color08" }),
 ])
 ```

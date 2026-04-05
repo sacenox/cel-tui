@@ -8,7 +8,7 @@
 
 > **Button**(`label`, `props`): [`ContainerNode`](../../../types/src/interfaces/ContainerNode.md)
 
-Defined in: [components/src/button.ts:76](https://github.com/sacenox/cel-tui/blob/a5941362efd130e2b0ae863d7be6a9f5fe664b2a/packages/components/src/button.ts#L76)
+Defined in: [components/src/button.ts:76](https://github.com/sacenox/cel-tui/blob/7a13002be0f32f691a11f759a0697d7adbbfd9b6/packages/components/src/button.ts#L76)
 
 Clickable button with a styled text label.
 
@@ -44,15 +44,15 @@ A clickable container node.
 
 ```ts
 // Basic styled button
-Button("[Send]", { onClick: handleSend, bold: true, fgColor: "cyan" })
+Button("[Send]", { onClick: handleSend, bold: true, fgColor: "color06" })
 ```
 
 ```ts
 // Button with focus style (keyboard navigation)
 Button("[OK]", {
   onClick: handleOk,
-  bgColor: "brightBlack",
-  focusStyle: { bgColor: "green", fgColor: "black" },
+  bgColor: "color08",
+  focusStyle: { bgColor: "color02", fgColor: "color00" },
 })
 ```
 
