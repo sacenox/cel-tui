@@ -46,19 +46,19 @@ export interface MarkdownTheme {
 }
 
 const defaults: Required<MarkdownTheme> = {
-  heading1: { bold: true, fgColor: "cyan" },
-  heading2: { bold: true, fgColor: "yellow" },
-  heading3: { bold: true, fgColor: "green" },
-  codeBlock: { bgColor: "brightBlack" },
+  heading1: { bold: true, fgColor: "color06" },
+  heading2: { bold: true, fgColor: "color03" },
+  heading3: { bold: true, fgColor: "color02" },
+  codeBlock: { bgColor: "color08" },
   codeContent: {},
-  listMarker: { fgColor: "yellow", bold: true },
-  blockquoteBar: { fgColor: "green" },
+  listMarker: { fgColor: "color03", bold: true },
+  blockquoteBar: { fgColor: "color02" },
   blockquoteText: { italic: true },
-  hr: { fgColor: "brightBlack", char: "─" },
+  hr: { fgColor: "color08", char: "─" },
   bold: { bold: true },
   italic: { italic: true },
-  inlineCode: { fgColor: "yellow" },
-  link: { fgColor: "cyan", underline: true },
+  inlineCode: { fgColor: "color03" },
+  link: { fgColor: "color06", underline: true },
 };
 
 function resolveTheme(theme?: MarkdownTheme): Required<MarkdownTheme> {
@@ -197,7 +197,7 @@ export interface MarkdownProps {
  * @example
  * // Custom theme
  * Markdown(content, {
- *   theme: { heading1: { bold: true, fgColor: "magenta" } }
+ *   theme: { heading1: { bold: true, fgColor: "color05" } }
  * })
  */
 export function Markdown(content: string, props?: MarkdownProps): Node[] {

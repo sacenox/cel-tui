@@ -34,7 +34,7 @@ import type { TextInputNode, TextInputProps } from "@cel-tui/types";
  *   onChange: handleChange,
  *   onSubmit: handleSend,
  *   submitKey: "ctrl+enter",
- *   placeholder: Text("type a message...", { fgColor: "brightBlack" }),
+ *   placeholder: Text("type a message...", { fgColor: "color08" }),
  * })
  */
 export function TextInput(props: TextInputProps): TextInputNode {

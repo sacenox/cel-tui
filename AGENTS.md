@@ -36,11 +36,11 @@ Dependency chain: `components → core → types`
 
 All core systems from the spec are implemented and tested:
 
-- **Layout engine** — flexbox sizing (fixed, intrinsic, flex, percentage), constraints, gap, padding, justifyContent, alignItems, largest-remainder rounding
+- **Layout engine** — flexbox sizing (fixed, intrinsic, flex, percentage), constraints (including cross-axis min/max), gap, padding, justifyContent, alignItems, flexWrap, largest-remainder rounding
 - **Rendering** — cell buffer, ANSI emitter with SGR styling, synchronized output (CSI 2026), differential rendering (emitDiff), full clear on resize
 - **Painting** — grapheme-aware text rendering (CJK/emoji via visibleWidth), overflow clipping via clip rect propagation, scroll content offsetting, scrollbar indicators, container bgColor fill, style inheritance, focusStyle overrides
 - **Input** — Kitty keyboard protocol (level 1, required), key parsing/normalization for CSI u / CSI letter / CSI tilde formats, SGR mouse events (with batched event support), hit detection, click/scroll routing, focus traversal (Tab/Shift+Tab/Escape/Enter) with uncontrolled and controlled modes, onKeyPress bubbling from focused element through ancestors
-- **TextInput** — text editing, cursor movement, cursor persistence across re-renders (keyed on onChange), auto-scroll to keep cursor visible, placeholder rendering
+- **TextInput** — grapheme-aware text editing (Intl.Segmenter for emoji/ZWJ), cursor movement, cursor persistence across re-renders (keyed on onChange, clamped on external value changes), auto-scroll to keep cursor visible, inverted-cell cursor with native terminal cursor positioning (blinking), background fill, placeholder rendering
 - **Layering** — multi-layer compositing, transparency, topmost-layer input priority
 - **Terminal** — Kitty keyboard protocol enable/disable, crash cleanup (SIGINT/SIGTERM/uncaughtException), resize clear
 
@@ -203,13 +203,13 @@ chore: scaffold monorepo with types, core, components packages
 
 ## Architecture Notes
 
-- `cel.ts` — Framework entrypoint. Owns render loop, input dispatch, focus management. `cel.init(terminal)` starts, `cel.viewport(fn)` sets render function, `cel.render()` requests re-render, `cel.stop()` restores terminal. Mouse input handles batched SGR events (terminals often send multiple events in a single data chunk).
+- `cel.ts` — Framework entrypoint. Owns render loop, input dispatch, focus management. `cel.init(terminal, options?)` starts (accepts optional `{ theme }` for custom color themes), `cel.viewport(fn)` sets render function, `cel.render()` requests re-render, `cel.stop()` restores terminal. Mouse input handles batched SGR events (terminals often send multiple events in a single data chunk).
 - `layout.ts` — Flexbox engine. `layout(root, width, height)` → `LayoutNode` tree with absolute screen rects.
-- `paint.ts` — Paints `LayoutNode` tree into `CellBuffer`. Handles clip rects, scroll offsets (clamped to max — apps can pass `Infinity` to mean "scroll to end"), scrollbars, grapheme-aware text rendering, TextInput cursor/scroll state, container bgColor fill, style inheritance threading, focusStyle resolution.
-- `emitter.ts` — `emitBuffer()` for full renders, `emitDiff()` for differential. Both wrap in CSI 2026 synchronized output.
+- `paint.ts` — Paints `LayoutNode` tree into `CellBuffer`. Handles clip rects, scroll offsets (clamped to max — apps can pass `Infinity` to mean "scroll to end"), scrollbars, grapheme-aware text rendering, TextInput cursor/scroll state (with cursor screen position export for native cursor), TextInput background fill, container bgColor fill, style inheritance threading, focusStyle resolution.
+- `emitter.ts` — `emitBuffer()` for full renders, `emitDiff()` for differential. Both accept an optional `Theme` for color resolution and wrap in CSI 2026 synchronized output. Exports `defaultTheme` (ANSI 16 mapping).
 - `hit-test.ts` — `hitTest(root, x, y)` → path from root to deepest node. `findClickHandler`, `findScrollTarget`, `collectKeyPressHandlers`, `collectFocusable` walk paths.
 - `keys.ts` — Kitty keyboard protocol parser. `parseKey(data)` handles CSI u sequences (special keys, modifier combos), CSI letter sequences (arrows, Home/End with modifiers), CSI tilde sequences (Delete, PageUp/Down, F-keys with modifiers), and raw printable bytes. Maps `" "` → `"space"`, `"+"` → `"plus"` as named keys. `isEditingKey()` identifies keys consumed by TextInput. `normalizeKey()` reorders modifiers to canonical `ctrl+alt+shift+<key>` order.
-- `text-edit.ts` — Pure text editing functions (`insertChar`, `deleteBackward`, `deleteForward`, `moveCursor`). Operates on `EditState` (value + cursor position). Used by `cel.ts` to handle TextInput key events.
+- `text-edit.ts` — Pure text editing functions (`insertChar`, `deleteBackward`, `deleteForward`, `moveCursor`). Operates on `EditState` (value + cursor position). Uses `Intl.Segmenter` with grapheme granularity for cursor movement and deletion (handles emoji, ZWJ sequences, combining marks). Used by `cel.ts` to handle TextInput key events.
 - `width.ts` — `visibleWidth(str)` measures terminal column width. Fast ASCII path, grapheme segmentation, East Asian width, ANSI stripping, LRU cache.
 - `terminal.ts` — `ProcessTerminal` (real I/O, raw mode, Kitty keyboard protocol level 1, SGR mouse, crash cleanup) and `MockTerminal` (testing).
 
@@ -288,4 +288,4 @@ More generally: before running any command that could destroy uncommitted work (
 - Primitives are functions that return typed Node objects (not classes)
 - Components in `packages/components/` are plain functions using core primitives
 - Key format: all lowercase, modifiers joined by `+` (e.g., `"ctrl+shift+s"`)
-- Colors: ANSI base 16 only (Color type in types package)
+- Colors: 16 numbered palette slots (`"color00"`–`"color15"`), mapped to ANSI 16 by default via `defaultTheme`. Custom themes can remap slots to 256-color or true color. Omit `fgColor`/`bgColor` for terminal defaults. Always pair `bgColor` with `fgColor` for contrast.

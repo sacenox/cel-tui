@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { layout, type LayoutNode, type Rect } from "./layout.js";
 import { VStack, HStack } from "./primitives/stacks.js";
 import { Text } from "./primitives/text.js";
+import { TextInput } from "./primitives/text-input.js";
 
 /** Helper to extract just the rect from a layout result. */
 function rect(ln: LayoutNode): Rect {
@@ -1127,6 +1128,107 @@ describe("layout", () => {
         width: 60,
         height: 1,
       });
+    });
+  });
+
+  describe("cross-axis constraints", () => {
+    test("maxHeight on child in HStack is respected", () => {
+      const node = HStack({ width: 40, height: 10 }, [
+        VStack({ flex: 1, maxHeight: 3 }, [Text("hello")]),
+      ]);
+      const result = layout(node, 80, 24);
+      expect(childRects(result)).toEqual([
+        { x: 0, y: 0, width: 40, height: 3 },
+      ]);
+    });
+
+    test("minHeight on child in HStack is respected", () => {
+      const node = HStack({ width: 40, height: 10, alignItems: "start" }, [
+        VStack({ flex: 1, minHeight: 5 }, [Text("hi")]),
+      ]);
+      const result = layout(node, 80, 24);
+      // Intrinsic height of VStack containing "hi" is 1, but minHeight is 5
+      expect(childRects(result)[0]!.height).toBe(5);
+    });
+
+    test("maxWidth on child in VStack is respected", () => {
+      const node = VStack({ width: 40, height: 10 }, [
+        HStack({ flex: 1, maxWidth: 20 }, [Text("x")]),
+      ]);
+      const result = layout(node, 80, 24);
+      expect(childRects(result)[0]!.width).toBe(20);
+    });
+
+    test("TextInput maxHeight in HStack creates autogrowing input", () => {
+      // Nest HStack in VStack so HStack gets intrinsic height
+      // Empty value → height 1
+      const node1 = VStack({ width: 80, height: 24 }, [
+        HStack({}, [
+          TextInput({
+            flex: 1,
+            maxHeight: 5,
+            value: "",
+            onChange: () => {},
+          }),
+        ]),
+        Text("after"),
+      ]);
+      const r1 = layout(node1, 80, 24);
+      expect(r1.children[0]!.rect.height).toBe(1);
+      expect(r1.children[0]!.children[0]!.rect.height).toBe(1);
+
+      // Multi-line value → grows to content height
+      const node2 = VStack({ width: 80, height: 24 }, [
+        HStack({}, [
+          TextInput({
+            flex: 1,
+            maxHeight: 5,
+            value: "line1\nline2\nline3",
+            onChange: () => {},
+          }),
+        ]),
+        Text("after"),
+      ]);
+      const r2 = layout(node2, 80, 24);
+      expect(r2.children[0]!.rect.height).toBe(3);
+      expect(r2.children[0]!.children[0]!.rect.height).toBe(3);
+
+      // Many lines → capped at maxHeight
+      const node3 = VStack({ width: 80, height: 24 }, [
+        HStack({}, [
+          TextInput({
+            flex: 1,
+            maxHeight: 5,
+            value: "1\n2\n3\n4\n5\n6\n7\n8",
+            onChange: () => {},
+          }),
+        ]),
+        Text("after"),
+      ]);
+      const r3 = layout(node3, 80, 24);
+      expect(r3.children[0]!.rect.height).toBe(5);
+      expect(r3.children[0]!.children[0]!.rect.height).toBe(5);
+    });
+
+    test("cross-axis constraints in intrinsic container sizing", () => {
+      // HStack with no explicit height, child has maxHeight:
+      // HStack intrinsic height should respect child's maxHeight
+      const node = VStack({ width: 80, height: 24 }, [
+        HStack({}, [
+          TextInput({
+            flex: 1,
+            maxHeight: 3,
+            value: "1\n2\n3\n4\n5",
+            onChange: () => {},
+          }),
+        ]),
+        Text("after"),
+      ]);
+      const result = layout(node, 80, 24);
+      // HStack should be 3 tall (capped by TextInput's maxHeight)
+      expect(result.children[0]!.rect.height).toBe(3);
+      // Text "after" should be right after it
+      expect(result.children[1]!.rect.y).toBe(3);
     });
   });
 });

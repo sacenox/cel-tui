@@ -200,6 +200,17 @@ function intrinsicMainSize(
         resolveSizeValue(cProps?.width, 0) ??
         intrinsicMainSize(child, false, innerCross);
     }
+    // Apply child's cross-axis constraints (e.g. maxHeight on a TextInput
+    // inside an HStack) so the container's intrinsic size respects them.
+    if (cProps) {
+      const minCross = isVertical
+        ? (cProps.minHeight ?? 0)
+        : (cProps.minWidth ?? 0);
+      const maxCross = isVertical
+        ? (cProps.maxHeight ?? Infinity)
+        : (cProps.maxWidth ?? Infinity);
+      childSize = clamp(childSize, minCross, maxCross);
+    }
     if (childSize > maxSize) maxSize = childSize;
   }
   return maxSize + padMain;
@@ -336,9 +347,13 @@ function layoutWrapHStack(
     baseWidths.push(baseW);
 
     // Always compute real cross size (explicit or intrinsic) for row height
-    const cross =
+    let cross =
       resolveSizeValue(cProps?.height, innerH) ??
       intrinsicMainSize(child, true, innerW);
+    // Apply cross-axis constraints (e.g. maxHeight)
+    if (cProps) {
+      cross = clamp(cross, cProps.minHeight ?? 0, cProps.maxHeight ?? Infinity);
+    }
     crossSizes.push(cross);
   }
 
@@ -566,6 +581,16 @@ function layoutNode(
           resolveSizeValue(cProps?.height, innerH) ??
           (useIntrinsicCross ? intrinsicMainSize(child, true, innerW) : innerH);
       }
+      // Apply cross-axis constraints
+      if (cProps) {
+        const minCross = isVertical
+          ? (cProps.minWidth ?? 0)
+          : (cProps.minHeight ?? 0);
+        const maxCross = isVertical
+          ? (cProps.maxWidth ?? Infinity)
+          : (cProps.maxHeight ?? Infinity);
+        cross = clamp(cross, minCross, maxCross);
+      }
       infos.push({ node: child, mainSize: 0, crossSize: cross, flex });
     } else {
       // Main-axis: explicit → percentage → intrinsic
@@ -589,7 +614,7 @@ function layoutNode(
           (useIntrinsicCross ? intrinsicMainSize(child, true, innerW) : innerH);
       }
 
-      // Apply constraints
+      // Apply main-axis constraints
       if (cProps) {
         const minMain = isVertical
           ? (cProps.minHeight ?? 0)
@@ -598,6 +623,16 @@ function layoutNode(
           ? (cProps.maxHeight ?? Infinity)
           : (cProps.maxWidth ?? Infinity);
         main = clamp(main, minMain, maxMain);
+      }
+      // Apply cross-axis constraints
+      if (cProps) {
+        const minCross = isVertical
+          ? (cProps.minWidth ?? 0)
+          : (cProps.minHeight ?? 0);
+        const maxCross = isVertical
+          ? (cProps.maxWidth ?? Infinity)
+          : (cProps.maxHeight ?? Infinity);
+        cross = clamp(cross, minCross, maxCross);
       }
 
       fixedMain += main;

@@ -64,17 +64,17 @@ cel.viewport(() => {
         },
       },
       [
-        Text("┌─────────────────────────┐", { fgColor: "yellow" }),
-        Text("│  Terminal too small :(  │", { fgColor: "yellow" }),
-        Text("│                         │", { fgColor: "yellow" }),
-        Text("│  Please resize to at    │", { fgColor: "yellow" }),
+        Text("┌─────────────────────────┐", { fgColor: "color03" }),
+        Text("│  Terminal too small :(  │", { fgColor: "color03" }),
+        Text("│                         │", { fgColor: "color03" }),
+        Text("│  Please resize to at    │", { fgColor: "color03" }),
         Text(
           `│  least ${String(MIN_COLS).padStart(3)}×${String(MIN_ROWS).padStart(2)} chars.   │`,
-          { fgColor: "yellow" },
+          { fgColor: "color03" },
         ),
-        Text("│                         │", { fgColor: "yellow" }),
-        Text("│  Ctrl+Q to quit         │", { fgColor: "yellow" }),
-        Text("└─────────────────────────┘", { fgColor: "yellow" }),
+        Text("│                         │", { fgColor: "color03" }),
+        Text("│  Ctrl+Q to quit         │", { fgColor: "color03" }),
+        Text("└─────────────────────────┘", { fgColor: "color03" }),
       ],
     );
   }
@@ -88,26 +88,26 @@ cel.viewport(() => {
     },
     [
       HStack({ padding: { x: 1 } }, [
-        Text("Scroll Test", { bold: true, fgColor: "cyan" }),
+        Text("Scroll Test", { bold: true, fgColor: "color06" }),
         Spacer(),
-        Text("uncontrolled", { fgColor: "brightBlack" }),
+        Text("uncontrolled", { fgColor: "color08" }),
       ]),
-      Divider({ fgColor: "brightBlack" }),
+      Divider({ fgColor: "color08" }),
 
       VStack(
         { flex: 1, overflow: "scroll", scrollbar: true },
         items.map((item, i) =>
           HStack({ padding: { x: 1 } }, [
-            Text(`${String(i + 1).padStart(3)}.`, { fgColor: "yellow" }),
+            Text(`${String(i + 1).padStart(3)}.`, { fgColor: "color03" }),
             Text(` ${item}`),
           ]),
         ),
       ),
 
-      Divider({ fgColor: "brightBlack" }),
+      Divider({ fgColor: "color08" }),
       HStack({ padding: { x: 1 } }, [
         Text("Mouse wheel to scroll · Ctrl+Q quit", {
-          fgColor: "brightBlack",
+          fgColor: "color08",
         }),
       ]),
     ],

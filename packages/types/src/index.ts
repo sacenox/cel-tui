@@ -1,26 +1,62 @@
 /**
- * ANSI base 16 terminal color.
+ * A numbered color slot in the 16-color palette.
  *
- * The 8 standard colors and their bright variants. These map directly
- * to the terminal's configured color palette.
+ * Colors are abstract palette references — `"color00"` through `"color15"`.
+ * The active {@link Theme} determines what each slot actually looks like.
+ * With the default ANSI 16 theme, they map to the terminal's configured
+ * color palette (matching standard ANSI indices 0–15).
+ *
+ * Omitting a color prop (`undefined`) means "use the terminal default",
+ * which is separate from any palette slot.
  */
 export type Color =
-  | "black"
-  | "red"
-  | "green"
-  | "yellow"
-  | "blue"
-  | "magenta"
-  | "cyan"
-  | "white"
-  | "brightBlack"
-  | "brightRed"
-  | "brightGreen"
-  | "brightYellow"
-  | "brightBlue"
-  | "brightMagenta"
-  | "brightCyan"
-  | "brightWhite";
+  | "color00"
+  | "color01"
+  | "color02"
+  | "color03"
+  | "color04"
+  | "color05"
+  | "color06"
+  | "color07"
+  | "color08"
+  | "color09"
+  | "color10"
+  | "color11"
+  | "color12"
+  | "color13"
+  | "color14"
+  | "color15";
+
+/**
+ * A theme value for a single color slot.
+ *
+ * - `number` (0–15) — ANSI palette index. Emitted as standard SGR codes
+ *   (e.g., index 1 → fg 31, bg 41).
+ * - `string` — 24-bit hex color (e.g., `"#ff0000"`). Emitted as
+ *   true-color SGR codes (`38;2;r;g;b` / `48;2;r;g;b`).
+ */
+export type ThemeValue = number | string;
+
+/**
+ * A mapping from the 16 color slots to rendering output.
+ *
+ * The default theme maps each slot to its matching ANSI palette index
+ * (color00 → 0, color01 → 1, etc.), inheriting the terminal's configured
+ * color scheme automatically.
+ *
+ * Custom themes can remap slots to different ANSI indices, 24-bit hex
+ * colors, or a mix of both.
+ *
+ * @example
+ * // Catppuccin Mocha (true color)
+ * const mocha: Theme = {
+ *   color00: "#1e1e2e",
+ *   color01: "#f38ba8",
+ *   color02: "#a6e3a1",
+ *   // ... remaining slots
+ * };
+ */
+export type Theme = Record<Color, ThemeValue>;
 
 /**
  * Styling props shared by all node types.
@@ -203,7 +239,7 @@ export interface ContainerProps extends StyleProps {
    * Works in both uncontrolled and controlled focus modes.
    *
    * @example
-   * { bgColor: "cyan", fgColor: "black" }  // reverse-video effect
+   * { bgColor: "color06", fgColor: "color00" }  // reverse-video effect
    */
   focusStyle?: StyleProps;
 
@@ -296,7 +332,7 @@ export interface TextInputProps extends ContainerProps {
    * Fully stylable — pass a `Text()` call with any styling props.
    *
    * @example
-   * placeholder: Text("type a message...", { fgColor: "brightBlack" })
+   * placeholder: Text("type a message...", { fgColor: "color08" })
    */
   placeholder?: TextNode;
 }

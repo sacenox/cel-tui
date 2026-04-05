@@ -44,7 +44,7 @@ describe("TextInput integration", () => {
         TextInput({
           value: "",
           onChange: () => {},
-          placeholder: Text("type here...", { fgColor: "brightBlack" }),
+          placeholder: Text("type here...", { fgColor: "color08" }),
         }),
       ]),
     );
@@ -346,6 +346,52 @@ describe("TextInput integration", () => {
     expect(buf.get(0, 0).char).toBe(" "); // padding
     expect(buf.get(1, 0).char).toBe(" "); // padding
     expect(buf.get(2, 1).char).not.toBe(" "); // content area — "h" or cursor
+  });
+
+  test("cursor resets when value is cleared externally", async () => {
+    const term = setup(30, 3);
+    let value = "hello";
+    const onChange = (v: string) => {
+      value = v;
+      cel.render();
+    };
+
+    cel.viewport(() =>
+      VStack({}, [
+        TextInput({
+          value,
+          focused: true,
+          onChange,
+        }),
+      ]),
+    );
+    await waitForRender();
+
+    // Type a character to confirm cursor is at end
+    term.sendInput("!");
+    await waitForRender();
+    expect(value).toBe("hello!");
+
+    // Simulate external clear (e.g. after send)
+    value = "";
+    cel.render();
+    await waitForRender();
+
+    // Now type again — should appear at position 0, not at stale cursor
+    term.sendInput("a");
+    await waitForRender();
+    expect(value).toBe("a");
+
+    // Verify the text is actually visible in the buffer
+    const buf = cel._getBuffer()!;
+    let found = false;
+    for (let x = 0; x < 30; x++) {
+      if (buf.get(x, 0).char === "a") {
+        found = true;
+        break;
+      }
+    }
+    expect(found).toBe(true);
   });
 
   test("padding affects intrinsic height", async () => {

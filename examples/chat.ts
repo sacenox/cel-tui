@@ -180,7 +180,7 @@ function renderMessage(msg: Message, idx: number) {
   const isUser = msg.role === "user";
   const icon = isUser ? "▶" : "▷";
   const label = isUser ? "You" : "Agent";
-  const color = isUser ? "blue" : "green";
+  const color = isUser ? "color04" : "color02";
 
   const spinner =
     msg.streaming && msg.content.length > 0
@@ -205,7 +205,7 @@ function renderMessage(msg: Message, idx: number) {
         : [
             Text(
               `  ${spinnerFrames[spinnerTick % spinnerFrames.length]} thinking...`,
-              { fgColor: "brightBlack", italic: true },
+              { fgColor: "color08", italic: true },
             ),
           ]),
   ]);
@@ -219,19 +219,22 @@ cel.viewport(() =>
   VStack(
     {
       height: "100%",
-      fgColor: "white",
       onKeyPress: (key) => {
         if (key === "ctrl+q" || key === "ctrl+c") quit();
       },
     },
     [
       // ── Header ──
-      HStack({ height: 1, padding: { x: 1 }, bgColor: "blue" }, [
-        Text(" Agent ", { bold: true, fgColor: "white", bgColor: "blue" }),
-        Spacer(),
-        Text("model: gpt-4", { fgColor: "brightBlack" }),
-      ]),
-      Divider({ fgColor: "brightBlack" }),
+      HStack(
+        {
+          height: 1,
+          padding: { x: 1 },
+          bgColor: "color04",
+          fgColor: "color07",
+        },
+        [Text(" Agent ", { bold: true }), Spacer(), Text("model: gpt-4")],
+      ),
+      Divider({ fgColor: "color08" }),
 
       // ── Message History ──
       VStack(
@@ -256,11 +259,11 @@ cel.viewport(() =>
               Spacer(),
               VStack({ alignItems: "center" }, [
                 Text("No messages yet.", {
-                  fgColor: "brightBlack",
+                  fgColor: "color08",
                   italic: true,
                 }),
                 Text("Type a message below to start.", {
-                  fgColor: "brightBlack",
+                  fgColor: "color08",
                 }),
               ]),
               Spacer(),
@@ -268,15 +271,15 @@ cel.viewport(() =>
       ),
 
       // ── Input Area ──
-      Divider({ fgColor: "brightBlack" }),
+      Divider({ fgColor: "color08" }),
       HStack({ padding: { x: 1 }, gap: 1 }, [
-        Text(">", { fgColor: "cyan", bold: true }),
+        Text(">", { fgColor: "color06", bold: true }),
         TextInput({
           flex: 1,
           maxHeight: 5,
           value: input,
           onChange: handleChange,
-          placeholder: Text("type a message...", { fgColor: "brightBlack" }),
+          placeholder: Text("type a message...", { fgColor: "color08" }),
           onSubmit: handleSend,
           focused: inputFocused,
           onFocus: () => {
@@ -290,9 +293,10 @@ cel.viewport(() =>
         }),
         Button(" Send ", {
           onClick: handleSend,
-          bgColor: "brightBlack",
+          bgColor: "color08",
+          fgColor: "color00",
           bold: true,
-          focusStyle: { bgColor: "cyan", fgColor: "black" },
+          focusStyle: { bgColor: "color06", fgColor: "color00" },
         }),
       ]),
     ],

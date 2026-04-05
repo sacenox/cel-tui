@@ -26,7 +26,7 @@ export interface DividerProps {
  * Divider()
  *
  * // Thick line with color
- * Divider({ char: "━", fgColor: "brightBlack" })
+ * Divider({ char: "━", fgColor: "color08" })
  *
  * // Double line
  * Divider({ char: "═" })

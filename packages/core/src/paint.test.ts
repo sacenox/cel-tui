@@ -76,23 +76,23 @@ describe("paint", () => {
 
     test("applies foreground color", () => {
       const node = VStack({ width: 10, height: 1 }, [
-        Text("Hi", { fgColor: "red" }),
+        Text("Hi", { fgColor: "color01" }),
       ]);
       const ln = layout(node, 10, 1);
       const buf = new CellBuffer(10, 1);
       paint(ln, buf);
-      expect(buf.get(0, 0).fgColor).toBe("red");
-      expect(buf.get(1, 0).fgColor).toBe("red");
+      expect(buf.get(0, 0).fgColor).toBe("color01");
+      expect(buf.get(1, 0).fgColor).toBe("color01");
     });
 
     test("applies background color", () => {
       const node = VStack({ width: 10, height: 1 }, [
-        Text("Hi", { bgColor: "blue" }),
+        Text("Hi", { bgColor: "color04" }),
       ]);
       const ln = layout(node, 10, 1);
       const buf = new CellBuffer(10, 1);
       paint(ln, buf);
-      expect(buf.get(0, 0).bgColor).toBe("blue");
+      expect(buf.get(0, 0).bgColor).toBe("color04");
     });
 
     test("applies bold/italic/underline", () => {
@@ -436,7 +436,7 @@ describe("paint", () => {
 
     test("wrapping HStack with bgColor fills all rows", () => {
       const node = HStack(
-        { width: 10, height: 6, flexWrap: "wrap", bgColor: "blue" },
+        { width: 10, height: 6, flexWrap: "wrap", bgColor: "color04" },
         [
           VStack({ width: 6, height: 2 }, []),
           VStack({ width: 6, height: 2 }, []),
@@ -446,8 +446,8 @@ describe("paint", () => {
       const buf = new CellBuffer(10, 6);
       paint(ln, buf);
       // Background should fill the entire HStack rect
-      expect(buf.get(0, 0).bgColor).toBe("blue");
-      expect(buf.get(9, 3).bgColor).toBe("blue");
+      expect(buf.get(0, 0).bgColor).toBe("color04");
+      expect(buf.get(9, 3).bgColor).toBe("color04");
     });
 
     test("wrapping HStack clips children to container bounds", () => {
@@ -495,20 +495,20 @@ describe("paint", () => {
 
   describe("container background", () => {
     test("bgColor fills the container rect", () => {
-      const node = VStack({ width: 5, height: 3, bgColor: "blue" }, []);
+      const node = VStack({ width: 5, height: 3, bgColor: "color04" }, []);
       const ln = layout(node, 5, 3);
       const buf = new CellBuffer(5, 3);
       paint(ln, buf);
 
       for (let y = 0; y < 3; y++) {
         for (let x = 0; x < 5; x++) {
-          expect(buf.get(x, y).bgColor).toBe("blue");
+          expect(buf.get(x, y).bgColor).toBe("color04");
         }
       }
     });
 
     test("bgColor fills behind child text", () => {
-      const node = VStack({ width: 10, height: 3, bgColor: "blue" }, [
+      const node = VStack({ width: 10, height: 3, bgColor: "color04" }, [
         Text("Hi"),
       ]);
       const ln = layout(node, 10, 3);
@@ -517,23 +517,23 @@ describe("paint", () => {
 
       // Text cells have the container background
       expect(buf.get(0, 0).char).toBe("H");
-      expect(buf.get(0, 0).bgColor).toBe("blue");
+      expect(buf.get(0, 0).bgColor).toBe("color04");
       // Empty cells in the container also have the background
-      expect(buf.get(5, 0).bgColor).toBe("blue");
-      expect(buf.get(0, 2).bgColor).toBe("blue");
+      expect(buf.get(5, 0).bgColor).toBe("color04");
+      expect(buf.get(0, 2).bgColor).toBe("color04");
     });
 
     test("nested container bgColor only fills inner rect", () => {
       const node = VStack({ width: 10, height: 5 }, [
-        VStack({ width: 6, height: 2, bgColor: "red" }, [Text("X")]),
+        VStack({ width: 6, height: 2, bgColor: "color01" }, [Text("X")]),
       ]);
       const ln = layout(node, 10, 5);
       const buf = new CellBuffer(10, 5);
       paint(ln, buf);
 
       // Inner rect (0,0)-(5,1) has red background
-      expect(buf.get(0, 0).bgColor).toBe("red");
-      expect(buf.get(5, 1).bgColor).toBe("red");
+      expect(buf.get(0, 0).bgColor).toBe("color01");
+      expect(buf.get(5, 1).bgColor).toBe("color01");
       // Outside inner rect has no background
       expect(buf.get(7, 0).bgColor).toBeNull();
       expect(buf.get(0, 3).bgColor).toBeNull();
@@ -550,7 +550,7 @@ describe("paint", () => {
     });
 
     test("HStack bgColor fills its rect", () => {
-      const node = HStack({ width: 8, height: 2, bgColor: "green" }, [
+      const node = HStack({ width: 8, height: 2, bgColor: "color02" }, [
         VStack({ width: 4 }, [Text("AB")]),
       ]);
       const ln = layout(node, 8, 2);
@@ -558,14 +558,14 @@ describe("paint", () => {
       paint(ln, buf);
 
       // All cells in the HStack rect have green background
-      expect(buf.get(0, 0).bgColor).toBe("green");
-      expect(buf.get(7, 1).bgColor).toBe("green");
+      expect(buf.get(0, 0).bgColor).toBe("color02");
+      expect(buf.get(7, 1).bgColor).toBe("color02");
     });
   });
 
   describe("style inheritance", () => {
     test("Text inherits fgColor from parent container", () => {
-      const node = VStack({ width: 10, height: 1, fgColor: "red" }, [
+      const node = VStack({ width: 10, height: 1, fgColor: "color01" }, [
         Text("hello"),
       ]);
       const ln = layout(node, 10, 1);
@@ -573,11 +573,11 @@ describe("paint", () => {
       paint(ln, buf);
 
       expect(buf.get(0, 0).char).toBe("h");
-      expect(buf.get(0, 0).fgColor).toBe("red");
+      expect(buf.get(0, 0).fgColor).toBe("color01");
     });
 
     test("Text inherits bgColor from parent container", () => {
-      const node = VStack({ width: 10, height: 1, bgColor: "blue" }, [
+      const node = VStack({ width: 10, height: 1, bgColor: "color04" }, [
         Text("hello"),
       ]);
       const ln = layout(node, 10, 1);
@@ -585,42 +585,42 @@ describe("paint", () => {
       paint(ln, buf);
 
       expect(buf.get(0, 0).char).toBe("h");
-      expect(buf.get(0, 0).bgColor).toBe("blue");
+      expect(buf.get(0, 0).bgColor).toBe("color04");
     });
 
     test("Text explicit fgColor overrides inherited", () => {
-      const node = VStack({ width: 10, height: 1, fgColor: "red" }, [
-        Text("hello", { fgColor: "green" }),
+      const node = VStack({ width: 10, height: 1, fgColor: "color01" }, [
+        Text("hello", { fgColor: "color02" }),
       ]);
       const ln = layout(node, 10, 1);
       const buf = new CellBuffer(10, 1);
       paint(ln, buf);
 
-      expect(buf.get(0, 0).fgColor).toBe("green");
+      expect(buf.get(0, 0).fgColor).toBe("color02");
     });
 
     test("Text explicit bgColor overrides inherited", () => {
-      const node = VStack({ width: 10, height: 1, bgColor: "blue" }, [
-        Text("hello", { bgColor: "red" }),
+      const node = VStack({ width: 10, height: 1, bgColor: "color04" }, [
+        Text("hello", { bgColor: "color01" }),
       ]);
       const ln = layout(node, 10, 1);
       const buf = new CellBuffer(10, 1);
       paint(ln, buf);
 
-      expect(buf.get(0, 0).bgColor).toBe("red");
+      expect(buf.get(0, 0).bgColor).toBe("color01");
     });
 
     test("nested container overrides outer fgColor", () => {
-      const node = VStack({ width: 10, height: 2, fgColor: "red" }, [
+      const node = VStack({ width: 10, height: 2, fgColor: "color01" }, [
         Text("outer"),
-        VStack({ fgColor: "cyan" }, [Text("inner")]),
+        VStack({ fgColor: "color06" }, [Text("inner")]),
       ]);
       const ln = layout(node, 10, 2);
       const buf = new CellBuffer(10, 2);
       paint(ln, buf);
 
-      expect(buf.get(0, 0).fgColor).toBe("red");
-      expect(buf.get(0, 1).fgColor).toBe("cyan");
+      expect(buf.get(0, 0).fgColor).toBe("color01");
+      expect(buf.get(0, 1).fgColor).toBe("color06");
     });
 
     test("Text inherits bold from parent container", () => {
@@ -635,21 +635,21 @@ describe("paint", () => {
     });
 
     test("inheritance crosses multiple nesting levels", () => {
-      const node = VStack({ width: 10, height: 1, fgColor: "red" }, [
+      const node = VStack({ width: 10, height: 1, fgColor: "color01" }, [
         HStack({}, [VStack({}, [Text("deep")])]),
       ]);
       const ln = layout(node, 10, 1);
       const buf = new CellBuffer(10, 1);
       paint(ln, buf);
 
-      expect(buf.get(0, 0).fgColor).toBe("red");
+      expect(buf.get(0, 0).fgColor).toBe("color01");
     });
 
     test("HStack inherits from parent VStack and propagates to children", () => {
-      const node = VStack({ width: 20, height: 1, fgColor: "yellow" }, [
+      const node = VStack({ width: 20, height: 1, fgColor: "color03" }, [
         HStack({}, [
           VStack({ width: 5 }, [Text("A")]),
-          VStack({ width: 5 }, [Text("B", { fgColor: "blue" })]),
+          VStack({ width: 5 }, [Text("B", { fgColor: "color04" })]),
         ]),
       ]);
       const ln = layout(node, 20, 1);
@@ -657,14 +657,14 @@ describe("paint", () => {
       paint(ln, buf);
 
       // A inherits yellow from root
-      expect(buf.get(0, 0).fgColor).toBe("yellow");
+      expect(buf.get(0, 0).fgColor).toBe("color03");
       // B overrides with blue
-      expect(buf.get(5, 0).fgColor).toBe("blue");
+      expect(buf.get(5, 0).fgColor).toBe("color04");
     });
 
     test("repeat fill text inherits styles from container", () => {
       const node = VStack(
-        { width: 10, height: 1, fgColor: "red", bgColor: "blue" },
+        { width: 10, height: 1, fgColor: "color01", bgColor: "color04" },
         [Text("-", { repeat: "fill" })],
       );
       const ln = layout(node, 10, 1);
@@ -672,12 +672,12 @@ describe("paint", () => {
       paint(ln, buf);
 
       expect(buf.get(0, 0).char).toBe("-");
-      expect(buf.get(0, 0).fgColor).toBe("red");
-      expect(buf.get(0, 0).bgColor).toBe("blue");
+      expect(buf.get(0, 0).fgColor).toBe("color01");
+      expect(buf.get(0, 0).bgColor).toBe("color04");
     });
 
     test("TextInput inherits styles from parent container", () => {
-      const node = VStack({ width: 10, height: 1, fgColor: "cyan" }, [
+      const node = VStack({ width: 10, height: 1, fgColor: "color06" }, [
         TextInput({ value: "hi", onChange: () => {} }),
       ]);
       const ln = layout(node, 10, 1);
@@ -685,11 +685,11 @@ describe("paint", () => {
       paint(ln, buf);
 
       expect(buf.get(0, 0).char).toBe("h");
-      expect(buf.get(0, 0).fgColor).toBe("cyan");
+      expect(buf.get(0, 0).fgColor).toBe("color06");
     });
 
     test("TextInput placeholder inherits styles from parent container", () => {
-      const node = VStack({ width: 10, height: 1, fgColor: "green" }, [
+      const node = VStack({ width: 10, height: 1, fgColor: "color02" }, [
         TextInput({
           value: "",
           onChange: () => {},
@@ -700,17 +700,17 @@ describe("paint", () => {
       const buf = new CellBuffer(10, 1);
       paint(ln, buf);
 
-      // Placeholder "type..." should inherit fgColor: "green" from parent VStack
+      // Placeholder "type..." should inherit fgColor: "color02" from parent VStack
       expect(buf.get(0, 0).char).toBe("t");
-      expect(buf.get(0, 0).fgColor).toBe("green");
+      expect(buf.get(0, 0).fgColor).toBe("color02");
     });
 
     test("TextInput placeholder explicit style overrides inherited", () => {
-      const node = VStack({ width: 10, height: 1, fgColor: "green" }, [
+      const node = VStack({ width: 10, height: 1, fgColor: "color02" }, [
         TextInput({
           value: "",
           onChange: () => {},
-          placeholder: Text("type...", { fgColor: "brightBlack" }),
+          placeholder: Text("type...", { fgColor: "color08" }),
         }),
       ]);
       const ln = layout(node, 10, 1);
@@ -719,7 +719,7 @@ describe("paint", () => {
 
       // Explicit fgColor on placeholder should win over inherited
       expect(buf.get(0, 0).char).toBe("t");
-      expect(buf.get(0, 0).fgColor).toBe("brightBlack");
+      expect(buf.get(0, 0).fgColor).toBe("color08");
     });
   });
 
@@ -730,8 +730,8 @@ describe("paint", () => {
           {
             onClick: () => {},
             focused: true,
-            bgColor: "black",
-            focusStyle: { bgColor: "cyan" },
+            bgColor: "color00",
+            focusStyle: { bgColor: "color06" },
           },
           [Text("Btn")],
         ),
@@ -741,7 +741,7 @@ describe("paint", () => {
       paint(ln, buf);
 
       // The focused element's bgColor should be overridden to cyan
-      expect(buf.get(0, 0).bgColor).toBe("cyan");
+      expect(buf.get(0, 0).bgColor).toBe("color06");
     });
 
     test("focusStyle fgColor is inherited by child Text", () => {
@@ -750,8 +750,8 @@ describe("paint", () => {
           {
             onClick: () => {},
             focused: true,
-            fgColor: "white",
-            focusStyle: { fgColor: "black" },
+            fgColor: "color07",
+            focusStyle: { fgColor: "color00" },
           },
           [Text("Btn")],
         ),
@@ -762,7 +762,7 @@ describe("paint", () => {
 
       // Text should inherit the focusStyle fgColor
       expect(buf.get(0, 0).char).toBe("B");
-      expect(buf.get(0, 0).fgColor).toBe("black");
+      expect(buf.get(0, 0).fgColor).toBe("color00");
     });
 
     test("container with focused=false uses normal style", () => {
@@ -771,9 +771,9 @@ describe("paint", () => {
           {
             onClick: () => {},
             focused: false,
-            bgColor: "black",
-            fgColor: "white",
-            focusStyle: { bgColor: "cyan", fgColor: "black" },
+            bgColor: "color00",
+            fgColor: "color07",
+            focusStyle: { bgColor: "color06", fgColor: "color00" },
           },
           [Text("Btn")],
         ),
@@ -783,8 +783,8 @@ describe("paint", () => {
       paint(ln, buf);
 
       // Not focused — normal styles apply
-      expect(buf.get(0, 0).bgColor).toBe("black");
-      expect(buf.get(0, 0).fgColor).toBe("white");
+      expect(buf.get(0, 0).bgColor).toBe("color00");
+      expect(buf.get(0, 0).fgColor).toBe("color07");
     });
 
     test("Text explicit fgColor overrides focusStyle inheritance", () => {
@@ -793,10 +793,10 @@ describe("paint", () => {
           {
             onClick: () => {},
             focused: true,
-            fgColor: "white",
-            focusStyle: { fgColor: "black" },
+            fgColor: "color07",
+            focusStyle: { fgColor: "color00" },
           },
-          [Text("Btn", { fgColor: "red" })],
+          [Text("Btn", { fgColor: "color01" })],
         ),
       ]);
       const ln = layout(node, 10, 1);
@@ -804,7 +804,7 @@ describe("paint", () => {
       paint(ln, buf);
 
       // Text's explicit fgColor wins over focusStyle inheritance
-      expect(buf.get(0, 0).fgColor).toBe("red");
+      expect(buf.get(0, 0).fgColor).toBe("color01");
     });
 
     test("focusStyle with no focused prop uses normal style", () => {
@@ -812,8 +812,8 @@ describe("paint", () => {
         HStack(
           {
             onClick: () => {},
-            bgColor: "black",
-            focusStyle: { bgColor: "cyan" },
+            bgColor: "color00",
+            focusStyle: { bgColor: "color06" },
           },
           [Text("Btn")],
         ),
@@ -823,7 +823,7 @@ describe("paint", () => {
       paint(ln, buf);
 
       // No focused prop — normal style applies
-      expect(buf.get(0, 0).bgColor).toBe("black");
+      expect(buf.get(0, 0).bgColor).toBe("color00");
     });
   });
 });

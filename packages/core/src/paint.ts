@@ -287,7 +287,7 @@ function paintScrollbar(
       const isThumb = row >= thumbPos && row < thumbPos + thumbSize;
       buf.set(barX, absY, {
         char: isThumb ? "┃" : "│",
-        fgColor: isThumb ? "white" : "brightBlack",
+        fgColor: isThumb ? null : "color08",
         bgColor: null,
         bold: false,
         italic: false,
@@ -322,7 +322,7 @@ function paintScrollbar(
       const isThumb = col >= thumbPos && col < thumbPos + thumbSize;
       buf.set(absX, barY, {
         char: isThumb ? "━" : "─",
-        fgColor: isThumb ? "white" : "brightBlack",
+        fgColor: isThumb ? null : "color08",
         bgColor: null,
         bold: false,
         italic: false,
@@ -477,6 +477,13 @@ function paintTextInput(
   const ch = Math.max(0, h - padY * 2);
   if (cw <= 0 || ch <= 0) return;
 
+  // Fill the TextInput rect with background color (like containers do)
+  // so that cursor inversion and empty cells have correct colors.
+  const effectiveBg = props.bgColor ?? inherited.bgColor;
+  if (effectiveBg) {
+    fillBackground(rect, clipRect, effectiveBg, buf);
+  }
+
   const value = props.value;
   const showPlaceholder = value.length === 0 && props.placeholder;
 
@@ -538,22 +545,38 @@ function paintTextInput(
     paintLineGraphemes(line, cx, cy + row, cw, clipRect, props, buf);
   }
 
-  // Paint cursor if focused
+  // Paint cursor if focused — invert colors at cursor position so it's
+  // always visible regardless of terminal cursor configuration. The
+  // framework also positions the native terminal cursor here (in cel.ts)
+  // for blinking.
   if (props.focused) {
     const cursorOffset = getTextInputCursor(props);
     const pos = offsetToWrappedPos(value, cursorOffset, cw);
     const screenRow = pos.line - scrollOffset;
     if (screenRow >= 0 && screenRow < ch && pos.col < cw) {
-      const existing = buf.get(cx + pos.col, cy + screenRow);
-      // Invert colors for cursor visibility
-      buf.set(cx + pos.col, cy + screenRow, {
-        char: existing.char === " " && !existing.bgColor ? " " : existing.char,
-        fgColor: existing.bgColor ?? "black",
-        bgColor: existing.fgColor ?? "white",
-        bold: existing.bold,
-        italic: existing.italic,
-        underline: existing.underline,
-      });
+      const absX = cx + pos.col;
+      const absY = cy + screenRow;
+      if (
+        absX >= clipRect.x &&
+        absX < clipRect.x + clipRect.width &&
+        absY >= clipRect.y &&
+        absY < clipRect.y + clipRect.height
+      ) {
+        const existing = buf.get(absX, absY);
+        // Resolve null colors against inherited style so the inversion
+        // always produces visible contrast (e.g. on bg-filled empty cells
+        // where fgColor is null).
+        const resolvedFg = existing.fgColor ?? inherited.fgColor ?? "color07";
+        const resolvedBg = existing.bgColor ?? inherited.bgColor ?? "color00";
+        buf.set(absX, absY, {
+          char: existing.char,
+          fgColor: resolvedBg,
+          bgColor: resolvedFg,
+          bold: existing.bold,
+          italic: existing.italic,
+          underline: existing.underline,
+        });
+      }
     }
   }
 }
@@ -609,9 +632,44 @@ type OnChangeFn = (value: string) => void;
 const textInputCursors = new WeakMap<OnChangeFn, number>();
 const textInputScrolls = new WeakMap<OnChangeFn, number>();
 
+/**
+ * Compute the screen position of the cursor for a focused TextInput.
+ * Returns `{ x, y }` in 0-indexed screen coordinates, or `null` if
+ * the cursor is not visible (clipped or not focused).
+ */
+export function getTextInputCursorScreenPos(
+  props: TextInputProps,
+  rect: Rect,
+): { x: number; y: number } | null {
+  const { x, y, width: w, height: h } = rect;
+  if (w <= 0 || h <= 0) return null;
+
+  const padX = props.padding?.x ?? 0;
+  const padY = props.padding?.y ?? 0;
+  const cx = x + padX;
+  const cy = y + padY;
+  const cw = Math.max(0, w - padX * 2);
+  const ch = Math.max(0, h - padY * 2);
+  if (cw <= 0 || ch <= 0) return null;
+
+  const cursorOffset = getTextInputCursor(props);
+  const pos = offsetToWrappedPos(props.value, cursorOffset, cw);
+  const scrollOffset = getTextInputScroll(props);
+  const screenRow = pos.line - scrollOffset;
+
+  if (screenRow >= 0 && screenRow < ch && pos.col < cw) {
+    return { x: cx + pos.col, y: cy + screenRow };
+  }
+  return null;
+}
+
 /** Get the cursor offset for a TextInput (framework-managed). */
 export function getTextInputCursor(props: TextInputProps): number {
-  return textInputCursors.get(props.onChange) ?? props.value.length;
+  const stored = textInputCursors.get(props.onChange);
+  if (stored === undefined) return props.value.length;
+  // Clamp to value length — the app may have cleared or shortened the value
+  // externally (e.g. after submit) while the WeakMap still holds the old cursor.
+  return Math.min(stored, props.value.length);
 }
 
 /** Set the cursor offset for a TextInput. */

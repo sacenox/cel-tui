@@ -45,7 +45,6 @@ const fruitSelect = Select({
     selected = value;
     cel.render();
   },
-  focusStyle: { fgColor: "white" },
 });
 
 cel.init(new ProcessTerminal());
@@ -54,7 +53,6 @@ cel.viewport(() =>
     {
       height: "100%",
       padding: { x: 2, y: 1 },
-      fgColor: "white",
       onKeyPress: (key) => {
         if (key === "ctrl+q") {
           cel.stop();
@@ -68,23 +66,23 @@ cel.viewport(() =>
       },
     },
     [
-      Text("Select Component Demo", { bold: true, fgColor: "cyan" }),
+      Text("Select Component Demo", { bold: true, fgColor: "color06" }),
       Text("Tab to focus · type to filter · ↑↓ to navigate · Enter to select", {
-        fgColor: "brightBlack",
+        fgColor: "color08",
       }),
-      Divider({ fgColor: "brightBlack" }),
+      Divider({ fgColor: "color08" }),
       Text(""),
       fruitSelect(),
       Text(""),
-      Divider({ fgColor: "brightBlack" }),
+      Divider({ fgColor: "color08" }),
       selected
         ? HStack({}, [
-            Text("Selected: ", { fgColor: "brightBlack" }),
-            Text(selected, { bold: true, fgColor: "green" }),
+            Text("Selected: ", { fgColor: "color08" }),
+            Text(selected, { bold: true, fgColor: "color02" }),
           ])
-        : Text("No selection yet", { fgColor: "brightBlack" }),
+        : Text("No selection yet", { fgColor: "color08" }),
       Spacer(),
-      Text("Ctrl+R reset · Ctrl+Q quit", { fgColor: "brightBlack" }),
+      Text("Ctrl+R reset · Ctrl+Q quit", { fgColor: "color08" }),
     ],
   ),
 );

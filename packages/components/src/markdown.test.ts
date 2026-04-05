@@ -36,7 +36,7 @@ describe("Markdown", () => {
     const t = asText(nodes[0]!);
     expect(t.content).toBe("Hello");
     expect(t.props.bold).toBe(true);
-    expect(t.props.fgColor).toBe("cyan");
+    expect(t.props.fgColor).toBe("color06");
   });
 
   test("heading levels have different styles", () => {
@@ -44,9 +44,9 @@ describe("Markdown", () => {
     const h1 = asText(nodes[0]!);
     const h2 = asText(nodes[1]!);
     const h3 = asText(nodes[2]!);
-    expect(h1.props.fgColor).toBe("cyan");
-    expect(h2.props.fgColor).toBe("yellow");
-    expect(h3.props.fgColor).toBe("green");
+    expect(h1.props.fgColor).toBe("color06");
+    expect(h2.props.fgColor).toBe("color03");
+    expect(h3.props.fgColor).toBe("color02");
   });
 
   test("plain paragraph renders as wrapping Text", () => {
@@ -92,7 +92,7 @@ describe("Markdown", () => {
     expect(hstack.children).toHaveLength(5);
     const codeNode = asText(hstack.children[2]!);
     expect(codeNode.content).toBe("foo bar");
-    expect(codeNode.props.fgColor).toBe("yellow");
+    expect(codeNode.props.fgColor).toBe("color03");
   });
 
   test("paragraph with link keeps link text atomic", () => {
@@ -102,7 +102,7 @@ describe("Markdown", () => {
     expect(hstack.children).toHaveLength(5);
     const linkNode = asText(hstack.children[2]!);
     expect(linkNode.content).toBe("the docs");
-    expect(linkNode.props.fgColor).toBe("cyan");
+    expect(linkNode.props.fgColor).toBe("color06");
     expect(linkNode.props.underline).toBe(true);
   });
 
@@ -124,7 +124,7 @@ describe("Markdown", () => {
     const container = asContainer(nodes[0]!);
     expect(container.type).toBe("vstack");
     expect(container.props.padding).toEqual({ x: 1 });
-    expect(container.props.bgColor).toBe("brightBlack");
+    expect(container.props.bgColor).toBe("color08");
     expect(container.children).toHaveLength(1);
     expect(textContent(container.children[0]!)).toBe("const x = 1;");
   });
@@ -139,7 +139,7 @@ describe("Markdown", () => {
     // Marker
     const marker = asText(row.children[0]!);
     expect(marker.content).toBe("• ");
-    expect(marker.props.fgColor).toBe("yellow");
+    expect(marker.props.fgColor).toBe("color03");
 
     // Content in flex VStack
     const wrapper = asContainer(row.children[1]!);
@@ -166,7 +166,7 @@ describe("Markdown", () => {
     // Bar
     const bar = asText(row.children[0]!);
     expect(bar.content).toBe("│ ");
-    expect(bar.props.fgColor).toBe("green");
+    expect(bar.props.fgColor).toBe("color02");
 
     // Content
     const wrapper = asContainer(row.children[1]!);
@@ -183,7 +183,7 @@ describe("Markdown", () => {
     // Divider is a Text with repeat: "fill"
     expect(t.content).toBe("─");
     expect(t.props.repeat).toBe("fill");
-    expect(t.props.fgColor).toBe("brightBlack");
+    expect(t.props.fgColor).toBe("color08");
   });
 
   test("blank line renders as empty Text", () => {
@@ -194,21 +194,21 @@ describe("Markdown", () => {
 
   test("custom theme overrides defaults", () => {
     const nodes = Markdown("# Hello", {
-      theme: { heading1: { bold: true, fgColor: "magenta" } },
+      theme: { heading1: { bold: true, fgColor: "color05" } },
     });
     const t = asText(nodes[0]!);
-    expect(t.props.fgColor).toBe("magenta");
+    expect(t.props.fgColor).toBe("color05");
   });
 
   test("custom theme partial — unset properties use defaults", () => {
     const nodes = Markdown("# H1\n> quote", {
-      theme: { heading1: { fgColor: "red" } },
+      theme: { heading1: { fgColor: "color01" } },
     });
     // Heading uses custom
-    expect(asText(nodes[0]!).props.fgColor).toBe("red");
+    expect(asText(nodes[0]!).props.fgColor).toBe("color01");
     // Blockquote bar uses default
     const row = asContainer(nodes[1]!);
-    expect(asText(row.children[0]!).props.fgColor).toBe("green");
+    expect(asText(row.children[0]!).props.fgColor).toBe("color02");
   });
 
   test("inline formatting in headings is stripped to plain text", () => {
@@ -227,7 +227,7 @@ describe("Markdown", () => {
     expect(asText(hstack.children[0]!).content).toBe("See");
     const link = asText(hstack.children[2]!);
     expect(link.content).toBe("the docs");
-    expect(link.props.fgColor).toBe("cyan");
+    expect(link.props.fgColor).toBe("color06");
     expect(asText(hstack.children[4]!).content).toBe("here.");
   });
 
@@ -235,7 +235,7 @@ describe("Markdown", () => {
     const nodes = Markdown("```js\nconst x = 1;");
     expect(nodes).toHaveLength(1);
     const container = asContainer(nodes[0]!);
-    expect(container.props.bgColor).toBe("brightBlack");
+    expect(container.props.bgColor).toBe("color08");
     expect(textContent(container.children[0]!)).toBe("const x = 1;");
   });
 
@@ -277,12 +277,12 @@ describe("Markdown", () => {
 
   test("inline code theme is customizable", () => {
     const nodes = Markdown("use `code` here", {
-      theme: { inlineCode: { fgColor: "red", bgColor: "black" } },
+      theme: { inlineCode: { fgColor: "color01", bgColor: "color00" } },
     });
     const hstack = asContainer(nodes[0]!);
     const codeNode = asText(hstack.children[2]!);
-    expect(codeNode.props.fgColor).toBe("red");
-    expect(codeNode.props.bgColor).toBe("black");
+    expect(codeNode.props.fgColor).toBe("color01");
+    expect(codeNode.props.bgColor).toBe("color00");
   });
 
   test("full document produces correct node sequence", () => {

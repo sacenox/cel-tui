@@ -59,14 +59,14 @@ export interface ButtonProps extends StyleProps {
  *
  * @example
  * // Basic styled button
- * Button("[Send]", { onClick: handleSend, bold: true, fgColor: "cyan" })
+ * Button("[Send]", { onClick: handleSend, bold: true, fgColor: "color06" })
  *
  * @example
  * // Button with focus style (keyboard navigation)
  * Button("[OK]", {
  *   onClick: handleOk,
- *   bgColor: "brightBlack",
- *   focusStyle: { bgColor: "green", fgColor: "black" },
+ *   bgColor: "color08",
+ *   focusStyle: { bgColor: "color02", fgColor: "color00" },
  * })
  *
  * @example

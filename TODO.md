@@ -12,10 +12,6 @@ Remaining work, known bugs, and planned improvements.
 
 ## Bugs / Spec Violations
 
-- 🔧 **TextInput cursor movement doesn't handle multi-codepoint graphemes** — `deleteBackward`/`deleteForward` in `text-edit.ts` operate on single string indices. For multi-codepoint characters (emoji ZWJ sequences, combining marks), this leaves the cursor mid-grapheme. `moveCursor` has the same issue.
-
-- 🔧 **Controlled-focus TextInput traps Tab traversal** — When a controlled-focus TextInput (`focused` prop provided) is the first focusable element, Tab from unfocused state always focuses it. Once focused, Tab is consumed as an editing key. Escape unfocuses it, but the next Tab re-focuses it again — the user can never Tab past it to reach subsequent focusable elements. Visible in `examples/pet.ts` on the create screen: the name TextInput prevents keyboard access to the Create Pet button. Possible fixes: (1) make Escape+Tab advance past the previously-focused element, (2) let controlled-focus elements participate differently in traversal ordering, or (3) add a dedicated "skip" key.
-
 - 🔧 **Scrollbar thumb position ignores padding** — `paintScrollbar` in `paint.ts` computes `maxOffset = contentHeight - rect.height` without accounting for container padding, while the scroll clamping logic uses `contentHeight + padY - rect.height`. For padded scrollable containers the thumb position is slightly off.
 
 - 🔧 **Duplicate max scroll offset calculation** — `getMaxScrollOffset` in `cel.ts` and `computeMaxScrollOffset` in `paint.ts` implement the same logic. Should be extracted to a shared function.
@@ -36,7 +32,19 @@ Remaining work, known bugs, and planned improvements.
 
 - ❌ **Markdown heading inline styling** — Headings (`#`, `##`, `###`) still strip inline formatting to plain text. Since headings are short and single-line, this is low priority. Paragraphs, list items, and blockquotes now render inline formatting via wrapping HStack.
 
+## Toolchain
+
+- 🔧 **Biome formatter clashes with Prettier on generic type arguments** — When a chained `.method<TypeArgs>(longString)` call exceeds `lineWidth`, biome's formatter breaks at the function args `(` while prettier breaks at the type args `<`. They never converge. Current config has biome formatter enabled (`indentStyle: "space"`), which means both formatters fight on this pattern. Fix: either disable biome's formatter (set `formatter.enabled: false` — `organizeImports` still works as an error under `assist`) and let prettier own all formatting, or drop prettier for TS files entirely. The mini-coder repo chose the former approach successfully.
+
 ## Future Enhancements
+
+- 💡 **Cursor style/shape customization** — TextInput currently renders the cursor as an inverted cell (block cursor). There's no way to choose bar (`│` between characters), underline, or custom cursor characters. A `cursorStyle` prop on TextInput (`"block" | "bar" | "underline"`) would cover the common cases. The native terminal cursor shape could also be set via DECSCUSR (`CSI q`) sequences to match.
+
+- 💡 **Scrollbar styling** — Scrollbar characters (`┃`/`│` vertical, `━`/`─` horizontal) and colors are hardcoded in `paintScrollbar`. A `scrollbarStyle` prop on containers (or a global theme option) would allow customizing thumb/track characters and colors. Currently the only two visual elements the framework doesn't support styling.
+
+- 💡 **Textarea component** (`packages/components`) — A higher-level wrapper around TextInput that handles the autogrowing pattern out of the box. Props like `maxLines`, `minLines`, `submitKey`, and `placeholder` would cover the common chat-input / form-field use case without requiring the `HStack + flex + maxHeight` boilerplate. Could also include optional line-count display and character limit.
+
+- 💡 **Editor component** (`packages/components`) — A TextInput with a line-number gutter, built as a component. Would compose an HStack with a fixed-width line-number column (styled, right-aligned) alongside a flex TextInput, keeping scroll synchronized. Useful for code/config editing use cases like the markdown editor example.
 
 - 💡 Additional example apps (text editor from spec reference example)
 - 💡 `overflow: "hidden"` as explicit prop (currently all containers clip by default, which matches the spec's default behavior, but the prop value is not checked)

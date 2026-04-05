@@ -1,56 +1,76 @@
-import type { Color } from "@cel-tui/types";
+import type { Color, Theme, ThemeValue } from "@cel-tui/types";
 import type { Cell } from "./cell-buffer.js";
 import { CellBuffer, EMPTY_CELL } from "./cell-buffer.js";
 
-// --- Color mapping ---
+// --- Default ANSI 16 theme ---
 
-const FG_CODES: Record<Color, number> = {
-  black: 30,
-  red: 31,
-  green: 32,
-  yellow: 33,
-  blue: 34,
-  magenta: 35,
-  cyan: 36,
-  white: 37,
-  brightBlack: 90,
-  brightRed: 91,
-  brightGreen: 92,
-  brightYellow: 93,
-  brightBlue: 94,
-  brightMagenta: 95,
-  brightCyan: 96,
-  brightWhite: 97,
+/**
+ * The default theme — maps each color slot to its matching ANSI palette
+ * index. With this theme, colors inherit the terminal's configured
+ * color scheme automatically.
+ */
+export const defaultTheme: Theme = {
+  color00: 0,
+  color01: 1,
+  color02: 2,
+  color03: 3,
+  color04: 4,
+  color05: 5,
+  color06: 6,
+  color07: 7,
+  color08: 8,
+  color09: 9,
+  color10: 10,
+  color11: 11,
+  color12: 12,
+  color13: 13,
+  color14: 14,
+  color15: 15,
 };
 
-const BG_CODES: Record<Color, number> = {
-  black: 40,
-  red: 41,
-  green: 42,
-  yellow: 43,
-  blue: 44,
-  magenta: 45,
-  cyan: 46,
-  white: 47,
-  brightBlack: 100,
-  brightRed: 101,
-  brightGreen: 102,
-  brightYellow: 103,
-  brightBlue: 104,
-  brightMagenta: 105,
-  brightCyan: 106,
-  brightWhite: 107,
-};
+// --- Color resolution ---
+
+/** Parse a hex color string "#rrggbb" into [r, g, b]. */
+function parseHex(hex: string): [number, number, number] {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return [r, g, b];
+}
+
+/** Resolve a color slot to an SGR code fragment for foreground. */
+function fgSgr(color: Color, theme: Theme): string {
+  const val: ThemeValue = theme[color];
+  if (typeof val === "number") {
+    // ANSI palette index 0-15
+    return String(val < 8 ? 30 + val : 82 + val);
+  }
+  // Hex true color
+  const [r, g, b] = parseHex(val);
+  return `38;2;${r};${g};${b}`;
+}
+
+/** Resolve a color slot to an SGR code fragment for background. */
+function bgSgr(color: Color, theme: Theme): string {
+  const val: ThemeValue = theme[color];
+  if (typeof val === "number") {
+    // ANSI palette index 0-15
+    return String(val < 8 ? 40 + val : 92 + val);
+  }
+  // Hex true color
+  const [r, g, b] = parseHex(val);
+  return `48;2;${r};${g};${b}`;
+}
 
 // --- SGR generation ---
 
-function sgrForCell(cell: Cell): string {
-  const codes: number[] = [];
-  if (cell.bold) codes.push(1);
-  if (cell.italic) codes.push(3);
-  if (cell.underline) codes.push(4);
-  if (cell.fgColor) codes.push(FG_CODES[cell.fgColor]);
-  if (cell.bgColor) codes.push(BG_CODES[cell.bgColor]);
+function sgrForCell(cell: Cell, theme: Theme): string {
+  const codes: string[] = [];
+  if (cell.bold) codes.push("1");
+  if (cell.italic) codes.push("3");
+  if (cell.underline) codes.push("4");
+  if (cell.fgColor) codes.push(fgSgr(cell.fgColor, theme));
+  if (cell.bgColor) codes.push(bgSgr(cell.bgColor, theme));
   if (codes.length === 0) return "";
   return `\x1b[${codes.join(";")}m`;
 }
@@ -93,9 +113,13 @@ const RESET = "\x1b[0m";
  * only emitting SGR codes when the style changes.
  *
  * @param buf - The cell buffer to render.
+ * @param theme - Color theme mapping. Defaults to the ANSI 16 theme.
  * @returns A complete ANSI string ready to write to the terminal.
  */
-export function emitBuffer(buf: CellBuffer): string {
+export function emitBuffer(
+  buf: CellBuffer,
+  theme: Theme = defaultTheme,
+): string {
   let out = SYNC_START + CURSOR_HOME;
 
   let lastStyle: Cell | null = null;
@@ -115,7 +139,7 @@ export function emitBuffer(buf: CellBuffer): string {
         if (lastStyle !== null && hasStyle(lastStyle)) {
           out += RESET;
         }
-        const sgr = sgrForCell(cell);
+        const sgr = sgrForCell(cell, theme);
         if (sgr) out += sgr;
         lastStyle = cell;
       }
@@ -142,9 +166,14 @@ export function emitBuffer(buf: CellBuffer): string {
  *
  * @param prev - The previous buffer.
  * @param next - The new buffer.
+ * @param theme - Color theme mapping. Defaults to the ANSI 16 theme.
  * @returns An ANSI string with only the changed cells.
  */
-export function emitDiff(prev: CellBuffer, next: CellBuffer): string {
+export function emitDiff(
+  prev: CellBuffer,
+  next: CellBuffer,
+  theme: Theme = defaultTheme,
+): string {
   let out = SYNC_START;
 
   const changes = prev.diff(next);
@@ -178,7 +207,7 @@ export function emitDiff(prev: CellBuffer, next: CellBuffer): string {
       if (lastStyle !== null && hasStyle(lastStyle)) {
         out += RESET;
       }
-      const sgr = sgrForCell(cell);
+      const sgr = sgrForCell(cell, theme);
       if (sgr) out += sgr;
       lastStyle = cell;
     }

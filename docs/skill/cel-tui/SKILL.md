@@ -5,7 +5,7 @@ license: MIT
 compatibility: Requires Bun runtime and a terminal with SGR mouse mode support.
 metadata:
   author: sacenox
-  version: "0.1.0"
+  version: "0.2.0"
 ---
 
 # Building TUIs with cel-tui
@@ -41,7 +41,6 @@ cel.viewport(() =>
   VStack(
     {
       height: "100%",
-      fgColor: "white",
       onKeyPress: (key) => {
         if (key === "ctrl+q") {
           cel.stop();
@@ -50,7 +49,7 @@ cel.viewport(() =>
       },
     },
     [
-      Text("My App", { bold: true, fgColor: "cyan" }),
+      Text("My App", { bold: true, fgColor: "color06" }),
       Text("─", { repeat: "fill" }),
       TextInput({
         flex: 1,
@@ -76,7 +75,7 @@ The steps: `cel.init(terminal)` → `cel.viewport(() => tree)` → mutate state 
 | `Text(content, props?)`   | Leaf                    | Styled text, no children                  |
 | `TextInput(props)`        | Container (no children) | Multi-line editable text                  |
 
-Containers accept sizing (`width`, `height`, `flex`, `"50%"`, `minWidth`/`maxWidth`), layout (`padding`, `gap`, `justifyContent`, `alignItems`), scroll (`overflow: "scroll"`, `scrollbar`), styling (`fgColor`, `bgColor`, `bold`, `focusStyle`), and interaction (`onClick`, `focusable`, `focused`, `onKeyPress`).
+Containers accept sizing (`width`, `height`, `flex`, `"50%"`, `minWidth`/`maxWidth`), layout (`padding`, `gap`, `justifyContent`, `alignItems`, `flexWrap`), scroll (`overflow: "scroll"`, `scrollbar`), styling (`fgColor`, `bgColor`, `bold`, `focusStyle`), and interaction (`onClick`, `focusable`, `focused`, `onKeyPress`). Colors are numbered palette slots (`"color00"`–`"color15"`), mapped to ANSI 16 by default. Custom themes can remap slots to true color via `cel.init(terminal, { theme })`.
 
 Read [references/api.md](references/api.md) for the full props listing, sizing strategies, text props, and component reference.
 
@@ -86,9 +85,12 @@ Read [references/api.md](references/api.md) for the full props listing, sizing s
 
 ```ts
 HStack({ height: 1 }, [Text("left"), VStack({ flex: 1 }, []), Text("right")]);
-Text("─", { repeat: "fill", fgColor: "brightBlack" });
+Text("─", { repeat: "fill", fgColor: "color08" });
 HStack(
-  { onClick: handleClick, focusStyle: { bgColor: "cyan", fgColor: "black" } },
+  {
+    onClick: handleClick,
+    focusStyle: { bgColor: "color06", fgColor: "color00" },
+  },
   [Text(" Send ", { bold: true })],
 );
 ```
@@ -111,7 +113,7 @@ VStack(
     overflow: "scroll",
     scrollbar: true,
     scrollOffset: offset,
-    onScroll: (newOffset) => {
+    onScroll: (newOffset, maxOffset) => {
       offset = newOffset;
       cel.render();
     },
@@ -134,9 +136,10 @@ cel.viewport(() => [
         VStack(
           { height: "100%", justifyContent: "center", alignItems: "center" },
           [
-            VStack({ width: 40, height: 10, bgColor: "black" }, [
-              ...modalContent,
-            ]),
+            VStack(
+              { width: 40, height: 10, bgColor: "color08", fgColor: "color07" },
+              [...modalContent],
+            ),
           ],
         ),
       ]
@@ -169,9 +172,9 @@ TextInput({
 Containers propagate styles to descendants. Explicit props always win:
 
 ```ts
-VStack({ fgColor: "white", bgColor: "blue" }, [
-  Text("inherits white on blue"),
-  Text("explicit green on blue", { fgColor: "green" }),
+VStack({ fgColor: "color07", bgColor: "color04" }, [
+  Text("inherits color07 on color04"),
+  Text("explicit color02", { fgColor: "color02" }),
 ]);
 ```
 
@@ -216,12 +219,13 @@ mySelect.reset(); // clear filter/highlight programmatically
 - **Enter activates** a focused container's `onClick`. If no `onClick`, Enter reaches `onKeyPress`.
 - **`focusable: true`** without `onClick` makes a container keyboard-focusable (receives `onKeyPress` events via Tab). Used by stateful components like `Select`.
 - **Innermost handler wins** — for `onClick` and `onScroll`. For `onKeyPress`, keys **bubble up** through ancestors: return `false` from a handler to let the key continue to the next ancestor. Returning `void`/`undefined` consumes the key (stops bubbling). This is backward-compatible.
-- **Container `bgColor`** fills the rect with opaque background before painting children.
+- **Container `bgColor`** fills the rect with opaque background before painting children. Always pair `bgColor` with `fgColor` for contrast — terminal default fg is designed for the terminal default bg, not for arbitrary palette backgrounds.
+- **Colors are numbered slots** (`"color00"`–`"color15"`), not names. The default theme maps to ANSI 16. Omit `fgColor`/`bgColor` for terminal defaults (guaranteed readable across themes).
 - **`repeat: "fill"` in HStack** gets width 0 (intrinsic width is 0). Workaround: wrap in `VStack({ flex: 1 }, [Text(" ", { repeat: "fill" })])`.
 - **Crash cleanup** — terminal state is restored on SIGINT, SIGTERM, uncaughtException.
 - **Always call `cel.stop()` before `process.exit()`** — restores raw mode, mouse tracking, and alternate screen.
 - **Kitty keyboard protocol required** — the framework requires the Kitty keyboard protocol (level 1). All modifier combos (`alt+x`, `ctrl+plus`, `shift+enter`) are fully supported. The terminal must support this protocol (Kitty, WezTerm, Ghostty, foot, Alacritty, Windows Terminal). macOS Terminal.app and older xterm are not supported.
-- **Button limitations** — `Button` from `@cel-tui/components` does not forward `focusStyle`, container sizing, or all style props. Use `HStack` + `Text` directly when you need full control.
+- **Button limitations** — `Button` from `@cel-tui/components` does not forward container sizing props (`width`, `height`, `flex`, `minWidth`, etc.). It supports styling (`fgColor`, `bgColor`, `bold`, etc.), `focusStyle`, `focused`, `onFocus`, `onBlur`, `onKeyPress`, and `padding`. For full layout control, use `HStack` + `Text` directly.
 
 ## Composing Components
 

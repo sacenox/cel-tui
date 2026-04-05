@@ -11,7 +11,7 @@ import type { ContainerNode } from "@cel-tui/types";
 import { HStack, VStack, Text } from "@cel-tui/core";
 
 function StatusBar(left: string, right: string): ContainerNode {
-  return HStack({ fgColor: "black", bgColor: "white" }, [
+  return HStack({ fgColor: "color00", bgColor: "color07" }, [
     Text(` ${left}`),
     VStack({ flex: 1 }, []), // spacer
     Text(`${right} `),
@@ -49,7 +49,7 @@ interface ToggleGroupInstance {
 }
 
 function ToggleGroup(props: ToggleGroupProps): ToggleGroupInstance {
-  const { options, onSelect, activeColor = "cyan" } = props;
+  const { options, onSelect, activeColor = "color06" } = props;
   let activeIndex = 0;
 
   function handleKey(key: string): boolean | void {
@@ -71,7 +71,7 @@ function ToggleGroup(props: ToggleGroupProps): ToggleGroupInstance {
       { focusable: true, onKeyPress: handleKey, gap: 1 },
       options.map((opt, i) =>
         Text(` ${opt} `, {
-          fgColor: i === activeIndex ? "black" : undefined,
+          fgColor: i === activeIndex ? "color00" : undefined,
           bgColor: i === activeIndex ? activeColor : undefined,
         }),
       ),
