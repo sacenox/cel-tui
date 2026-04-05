@@ -5,7 +5,7 @@ license: MIT
 compatibility: Requires Bun runtime and a terminal with SGR mouse mode support.
 metadata:
   author: sacenox
-  version: "0.1.1"
+  version: "0.2.0"
 ---
 
 # Building TUIs with cel-tui
