@@ -6,7 +6,7 @@
  *
  * @example
  * ```ts
- * import { Spacer, Divider, Button, Select } from "@cel-tui/components";
+ * import { Spacer, Divider, VDivider, Button, Select, Markdown } from "@cel-tui/components";
  *
  * HStack({ height: 1 }, [
  *   Text("Title", { bold: true }),
