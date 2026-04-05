@@ -44,7 +44,7 @@ describe("TextInput integration", () => {
         TextInput({
           value: "",
           onChange: () => {},
-          placeholder: Text("type here...", { fgColor: "brightBlack" }),
+          placeholder: Text("type here...", { fgColor: "color08" }),
         }),
       ]),
     );

@@ -187,14 +187,14 @@ describe("Select", () => {
       items: ["apple"],
       onSelect: () => {},
       width: 30,
-      fgColor: "green",
-      bgColor: "black",
+      fgColor: "color02",
+      bgColor: "color00",
       flex: 1,
     });
     const node = select();
     expect(node.props.width).toBe(30);
-    expect(node.props.fgColor).toBe("green");
-    expect(node.props.bgColor).toBe("black");
+    expect(node.props.fgColor).toBe("color02");
+    expect(node.props.bgColor).toBe("color00");
     expect(node.props.flex).toBe(1);
   });
 });

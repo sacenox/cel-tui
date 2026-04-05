@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import type { Theme } from "@cel-tui/types";
 import { CellBuffer, type Cell } from "./cell-buffer.js";
 import { emitBuffer, emitDiff } from "./emitter.js";
 
@@ -38,22 +39,30 @@ describe("emitBuffer", () => {
     expect(output).toContain("CD");
   });
 
-  test("emits foreground color", () => {
+  test("emits foreground color using default ANSI theme", () => {
     const buf = new CellBuffer(1, 1);
-    buf.set(0, 0, cell("X", { fgColor: "red" }));
+    buf.set(0, 0, cell("X", { fgColor: "color01" }));
     const output = emitBuffer(buf);
-    // CSI 31m = red foreground
+    // color01 = ANSI 1 (red) → fg SGR 31
     expect(output).toContain("\x1b[31m");
     expect(output).toContain("X");
   });
 
-  test("emits background color", () => {
+  test("emits background color using default ANSI theme", () => {
     const buf = new CellBuffer(1, 1);
-    buf.set(0, 0, cell("X", { bgColor: "blue" }));
+    buf.set(0, 0, cell("X", { bgColor: "color04" }));
     const output = emitBuffer(buf);
-    // CSI 44m = blue background
+    // color04 = ANSI 4 (blue) → bg SGR 44
     expect(output).toContain("\x1b[44m");
     expect(output).toContain("X");
+  });
+
+  test("emits bright color variants", () => {
+    const buf = new CellBuffer(1, 1);
+    buf.set(0, 0, cell("X", { fgColor: "color08" }));
+    const output = emitBuffer(buf);
+    // color08 = ANSI 8 (bright black) → fg SGR 90
+    expect(output).toContain("\x1b[90m");
   });
 
   test("emits bold", () => {
@@ -82,7 +91,7 @@ describe("emitBuffer", () => {
     buf.set(
       0,
       0,
-      cell("X", { bold: true, fgColor: "green", bgColor: "black" }),
+      cell("X", { bold: true, fgColor: "color02", bgColor: "color00" }),
     );
     const output = emitBuffer(buf);
     expect(output).toContain("X");
@@ -94,8 +103,8 @@ describe("emitBuffer", () => {
 
   test("resets style between differently styled cells", () => {
     const buf = new CellBuffer(2, 1);
-    buf.set(0, 0, cell("A", { fgColor: "red" }));
-    buf.set(1, 0, cell("B", { fgColor: "blue" }));
+    buf.set(0, 0, cell("A", { fgColor: "color01" }));
+    buf.set(1, 0, cell("B", { fgColor: "color04" }));
     const output = emitBuffer(buf);
     expect(output).toContain("A");
     expect(output).toContain("B");
@@ -139,6 +148,62 @@ describe("emitBuffer", () => {
     // Should NOT contain "\u4e16 x" (space from continuation)
     expect(output).not.toContain("\u4e16 x");
   });
+
+  test("custom theme with ANSI index remapping", () => {
+    const buf = new CellBuffer(1, 1);
+    buf.set(0, 0, cell("X", { fgColor: "color01" }));
+    // Remap color01 to ANSI index 6 (cyan) instead of 1 (red)
+    const theme: Theme = {
+      color00: 0,
+      color01: 6,
+      color02: 2,
+      color03: 3,
+      color04: 4,
+      color05: 5,
+      color06: 1,
+      color07: 7,
+      color08: 8,
+      color09: 9,
+      color10: 10,
+      color11: 11,
+      color12: 12,
+      color13: 13,
+      color14: 14,
+      color15: 15,
+    };
+    const output = emitBuffer(buf, theme);
+    // color01 remapped to ANSI 6 → fg SGR 36 (cyan)
+    expect(output).toContain("\x1b[36m");
+    expect(output).not.toContain("\x1b[31m");
+  });
+
+  test("custom theme with true color hex values", () => {
+    const buf = new CellBuffer(1, 1);
+    buf.set(0, 0, cell("X", { fgColor: "color01", bgColor: "color00" }));
+    const theme: Theme = {
+      color00: "#1e1e2e",
+      color01: "#f38ba8",
+      color02: 2,
+      color03: 3,
+      color04: 4,
+      color05: 5,
+      color06: 6,
+      color07: 7,
+      color08: 8,
+      color09: 9,
+      color10: 10,
+      color11: 11,
+      color12: 12,
+      color13: 13,
+      color14: 14,
+      color15: 15,
+    };
+    const output = emitBuffer(buf, theme);
+    // color01 = "#f38ba8" → fg 38;2;243;139;168
+    expect(output).toContain("38;2;243;139;168");
+    // color00 = "#1e1e2e" → bg 48;2;30;30;46
+    expect(output).toContain("48;2;30;30;46");
+  });
 });
 
 describe("emitDiff", () => {
@@ -168,7 +233,7 @@ describe("emitDiff", () => {
   test("emits styled changed cells", () => {
     const prev = new CellBuffer(3, 1);
     const next = new CellBuffer(3, 1);
-    next.set(1, 0, cell("Z", { fgColor: "red", bold: true }));
+    next.set(1, 0, cell("Z", { fgColor: "color01", bold: true }));
     const output = emitDiff(prev, next);
     expect(output).toContain("\x1b[1;2H"); // cursor to (1, 0)
     expect(output).toContain("Z");
@@ -211,5 +276,32 @@ describe("emitDiff", () => {
     expect(output).toContain("x");
     // Continuation cell should not produce any output character
     expect(output).not.toContain("\u4e16 ");
+  });
+
+  test("custom theme applies to diff output", () => {
+    const prev = new CellBuffer(3, 1);
+    const next = new CellBuffer(3, 1);
+    next.set(1, 0, cell("Z", { fgColor: "color01" }));
+    const theme: Theme = {
+      color00: "#000000",
+      color01: "#ff0000",
+      color02: 2,
+      color03: 3,
+      color04: 4,
+      color05: 5,
+      color06: 6,
+      color07: 7,
+      color08: 8,
+      color09: 9,
+      color10: 10,
+      color11: 11,
+      color12: 12,
+      color13: 13,
+      color14: 14,
+      color15: 15,
+    };
+    const output = emitDiff(prev, next, theme);
+    // color01 = "#ff0000" → fg 38;2;255;0;0
+    expect(output).toContain("38;2;255;0;0");
   });
 });

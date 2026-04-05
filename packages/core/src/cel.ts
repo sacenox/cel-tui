@@ -1,6 +1,6 @@
-import type { Node } from "@cel-tui/types";
+import type { Node, Theme } from "@cel-tui/types";
 import { CellBuffer } from "./cell-buffer.js";
-import { emitBuffer, emitDiff } from "./emitter.js";
+import { emitBuffer, emitDiff, defaultTheme } from "./emitter.js";
 import {
   hitTest,
   findClickHandler,
@@ -30,6 +30,7 @@ import { visibleWidth } from "./width.js";
 type RenderFn = () => Node | Node[];
 
 let terminal: Terminal | null = null;
+let activeTheme: Theme = defaultTheme;
 let renderFn: RenderFn | null = null;
 let renderScheduled = false;
 let prevBuffer: CellBuffer | null = null;
@@ -105,10 +106,10 @@ function doRender(): void {
 
   // Emit to terminal — differential when possible
   if (prevBuffer) {
-    const output = emitDiff(prevBuffer, currentBuffer);
+    const output = emitDiff(prevBuffer, currentBuffer, activeTheme);
     if (output.length > 0) terminal.write(output);
   } else {
-    const output = emitBuffer(currentBuffer);
+    const output = emitBuffer(currentBuffer, activeTheme);
     terminal.write(output);
   }
 }
@@ -804,9 +805,12 @@ export const cel = {
    * enters raw mode, and starts mouse tracking.
    *
    * @param term - Terminal to render to (ProcessTerminal or MockTerminal).
+   * @param options - Optional configuration.
+   * @param options.theme - Color theme mapping. Defaults to the ANSI 16 theme.
    */
-  init(term: Terminal): void {
+  init(term: Terminal, options?: { theme?: Theme }): void {
     terminal = term;
+    activeTheme = options?.theme ?? defaultTheme;
     terminal.start(handleInput, () => cel.render());
   },
 
@@ -852,6 +856,7 @@ export const cel = {
     stampedNode = null;
     uncontrolledScrollOffsets.clear();
     stampedScrollNodes = [];
+    activeTheme = defaultTheme;
   },
 
   /** @internal */

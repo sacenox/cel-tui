@@ -58,7 +58,7 @@ export interface SelectProps {
   indicator?: string;
   /**
    * Color of the highlighted item and its indicator.
-   * @default "cyan"
+   * @default "color06"
    */
   highlightColor?: Color;
   /**
@@ -226,7 +226,7 @@ export function Select(props: SelectProps): SelectInstance {
     placeholder = "type to filter...",
     maxVisible = 10,
     indicator = "›",
-    highlightColor = "cyan",
+    highlightColor = "color06",
     onKeyPress: userKeyPress,
     width,
     height,
@@ -335,16 +335,14 @@ export function Select(props: SelectProps): SelectInstance {
     // Search line
     const searchContent = query
       ? Text(query)
-      : Text(placeholder, { fgColor: "brightBlack" });
+      : Text(placeholder, { fgColor: "color08" });
     children.push(
-      HStack({}, [Text("search: ", { fgColor: "brightBlack" }), searchContent]),
+      HStack({}, [Text("search: ", { fgColor: "color08" }), searchContent]),
     );
 
     // Items
     if (filtered.length === 0) {
-      children.push(
-        HStack({}, [Text("  no matches", { fgColor: "brightBlack" })]),
-      );
+      children.push(HStack({}, [Text("  no matches", { fgColor: "color08" })]));
     } else {
       for (let i = 0; i < visible.length; i++) {
         const item = visible[i]!;
@@ -381,7 +379,7 @@ export function Select(props: SelectProps): SelectInstance {
     // Overflow indicator
     if (overflow > 0) {
       children.push(
-        HStack({}, [Text(`  ${overflow} more`, { fgColor: "brightBlack" })]),
+        HStack({}, [Text(`  ${overflow} more`, { fgColor: "color08" })]),
       );
     }
 

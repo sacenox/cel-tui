@@ -203,10 +203,10 @@ chore: scaffold monorepo with types, core, components packages
 
 ## Architecture Notes
 
-- `cel.ts` — Framework entrypoint. Owns render loop, input dispatch, focus management. `cel.init(terminal)` starts, `cel.viewport(fn)` sets render function, `cel.render()` requests re-render, `cel.stop()` restores terminal. Mouse input handles batched SGR events (terminals often send multiple events in a single data chunk).
+- `cel.ts` — Framework entrypoint. Owns render loop, input dispatch, focus management. `cel.init(terminal, options?)` starts (accepts optional `{ theme }` for custom color themes), `cel.viewport(fn)` sets render function, `cel.render()` requests re-render, `cel.stop()` restores terminal. Mouse input handles batched SGR events (terminals often send multiple events in a single data chunk).
 - `layout.ts` — Flexbox engine. `layout(root, width, height)` → `LayoutNode` tree with absolute screen rects.
 - `paint.ts` — Paints `LayoutNode` tree into `CellBuffer`. Handles clip rects, scroll offsets (clamped to max — apps can pass `Infinity` to mean "scroll to end"), scrollbars, grapheme-aware text rendering, TextInput cursor/scroll state, container bgColor fill, style inheritance threading, focusStyle resolution.
-- `emitter.ts` — `emitBuffer()` for full renders, `emitDiff()` for differential. Both wrap in CSI 2026 synchronized output.
+- `emitter.ts` — `emitBuffer()` for full renders, `emitDiff()` for differential. Both accept an optional `Theme` for color resolution and wrap in CSI 2026 synchronized output. Exports `defaultTheme` (ANSI 16 mapping).
 - `hit-test.ts` — `hitTest(root, x, y)` → path from root to deepest node. `findClickHandler`, `findScrollTarget`, `collectKeyPressHandlers`, `collectFocusable` walk paths.
 - `keys.ts` — Kitty keyboard protocol parser. `parseKey(data)` handles CSI u sequences (special keys, modifier combos), CSI letter sequences (arrows, Home/End with modifiers), CSI tilde sequences (Delete, PageUp/Down, F-keys with modifiers), and raw printable bytes. Maps `" "` → `"space"`, `"+"` → `"plus"` as named keys. `isEditingKey()` identifies keys consumed by TextInput. `normalizeKey()` reorders modifiers to canonical `ctrl+alt+shift+<key>` order.
 - `text-edit.ts` — Pure text editing functions (`insertChar`, `deleteBackward`, `deleteForward`, `moveCursor`). Operates on `EditState` (value + cursor position). Used by `cel.ts` to handle TextInput key events.
@@ -288,4 +288,4 @@ More generally: before running any command that could destroy uncommitted work (
 - Primitives are functions that return typed Node objects (not classes)
 - Components in `packages/components/` are plain functions using core primitives
 - Key format: all lowercase, modifiers joined by `+` (e.g., `"ctrl+shift+s"`)
-- Colors: ANSI base 16 only (Color type in types package)
+- Colors: 16 numbered palette slots (`"color00"`–`"color15"`), mapped to ANSI 16 by default via `defaultTheme`. Custom themes can remap slots to 256-color or true color. Omit `fgColor`/`bgColor` for terminal defaults. Always pair `bgColor` with `fgColor` for contrast.

@@ -16,7 +16,7 @@ import type { TextNode, TextProps } from "@cel-tui/types";
  *
  * @example
  * // Simple styled text
- * Text("Hello", { bold: true, fgColor: "cyan" })
+ * Text("Hello", { bold: true, fgColor: "color06" })
  *
  * // Horizontal divider
  * Text("─", { repeat: "fill" })

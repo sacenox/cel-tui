@@ -22,7 +22,7 @@ All props accepted by `VStack` and `HStack`:
 
   // Styling (inherited by descendants)
   bold, italic, underline,// boolean
-  fgColor, bgColor,       // Color (ANSI 16)
+  fgColor, bgColor,       // Color ("color00"–"color15")
   focusStyle,             // StyleProps — overrides when focused
 
   // Interaction
@@ -72,11 +72,11 @@ Text("content", {
   italic,
   underline, // boolean
   fgColor,
-  bgColor, // ANSI 16 Color
+  bgColor, // Color ("color00"–"color15")
 });
 ```
 
-Colors: `"black"`, `"red"`, `"green"`, `"yellow"`, `"blue"`, `"magenta"`, `"cyan"`, `"white"`, and bright variants (`"brightRed"`, etc.).
+Colors: 16 numbered palette slots — `"color00"` through `"color15"`. Mapped to ANSI 16 by default; custom themes can remap to 256-color or true color. Omit a color prop for the terminal default.
 
 ## TextInput Props
 
@@ -119,17 +119,17 @@ import { Spacer, Divider, Button, Select } from "@cel-tui/components";
 
 Spacer(); // VStack({ flex: 1 }, [])
 Divider(); // Text("─", { repeat: "fill" })
-Divider({ char: "═", fgColor: "brightBlack" });
+Divider({ char: "═", fgColor: "color08" });
 Button("[OK]", { onClick: handleOk });
 Button("✕", { onClick: handleClose, focusable: false });
-// Button accepts: onClick, bold, fgColor, bgColor, focusable
-// Note: Button does not forward focusStyle or container sizing props.
+// Button accepts: onClick, bold, fgColor, bgColor, focusable, focusStyle
+// Note: Button does not forward container sizing props.
 // For full control, use HStack + Text directly.
 ```
 
 ### Select (filterable list)
 
-Select props: `items`, `onSelect`, `placeholder` (default `"type to filter..."`), `maxVisible` (default `10`), `indicator` (default `"›"`), `highlightColor` (default `"cyan"`), `onKeyPress` (composed with internal handler), plus container/style props: `width`, `height`, `flex`, `fgColor`, `bgColor`, `focused`, `focusable`, `onFocus`, `onBlur`, `focusStyle`.
+Select props: `items`, `onSelect`, `placeholder` (default `"type to filter..."`), `maxVisible` (default `10`), `indicator` (default `"›"`), `highlightColor` (default `"color06"`), `onKeyPress` (composed with internal handler), plus container/style props: `width`, `height`, `flex`, `fgColor`, `bgColor`, `focused`, `focusable`, `onFocus`, `onBlur`, `focusStyle`.
 
 ```ts
 const mySelect = Select({

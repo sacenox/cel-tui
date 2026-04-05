@@ -287,7 +287,7 @@ function paintScrollbar(
       const isThumb = row >= thumbPos && row < thumbPos + thumbSize;
       buf.set(barX, absY, {
         char: isThumb ? "┃" : "│",
-        fgColor: isThumb ? "white" : "brightBlack",
+        fgColor: isThumb ? null : "color08",
         bgColor: null,
         bold: false,
         italic: false,
@@ -322,7 +322,7 @@ function paintScrollbar(
       const isThumb = col >= thumbPos && col < thumbPos + thumbSize;
       buf.set(absX, barY, {
         char: isThumb ? "━" : "─",
-        fgColor: isThumb ? "white" : "brightBlack",
+        fgColor: isThumb ? null : "color08",
         bgColor: null,
         bold: false,
         italic: false,
@@ -548,8 +548,8 @@ function paintTextInput(
       // Invert colors for cursor visibility
       buf.set(cx + pos.col, cy + screenRow, {
         char: existing.char === " " && !existing.bgColor ? " " : existing.char,
-        fgColor: existing.bgColor ?? "black",
-        bgColor: existing.fgColor ?? "white",
+        fgColor: existing.bgColor ?? null,
+        bgColor: existing.fgColor ?? null,
         bold: existing.bold,
         italic: existing.italic,
         underline: existing.underline,

@@ -41,7 +41,7 @@ describe("cel end-to-end", () => {
 
   test("renders styled text with color", async () => {
     const term = setup(10, 1);
-    cel.viewport(() => Text("Red", { fgColor: "red" }));
+    cel.viewport(() => Text("Red", { fgColor: "color01" }));
     await waitForRender();
 
     expect(term.output).toContain("\x1b[31m");
@@ -1541,8 +1541,8 @@ describe("cel end-to-end", () => {
           HStack(
             {
               onClick: () => {},
-              bgColor: "black",
-              focusStyle: { bgColor: "cyan" },
+              bgColor: "color00",
+              focusStyle: { bgColor: "color06" },
             },
             [Text("Btn")],
           ),
@@ -1552,7 +1552,7 @@ describe("cel end-to-end", () => {
 
       // Before focus — normal bgColor
       let buf = cel._getBuffer()!;
-      expect(buf.get(0, 0).bgColor).toBe("black");
+      expect(buf.get(0, 0).bgColor).toBe("color00");
 
       // Tab to focus
       term.sendInput(TAB);
@@ -1560,7 +1560,7 @@ describe("cel end-to-end", () => {
 
       // After focus — focusStyle bgColor
       buf = cel._getBuffer()!;
-      expect(buf.get(0, 0).bgColor).toBe("cyan");
+      expect(buf.get(0, 0).bgColor).toBe("color06");
     });
 
     test("focusStyle removed when focus moves to another element", async () => {
@@ -1571,16 +1571,16 @@ describe("cel end-to-end", () => {
           HStack(
             {
               onClick: () => {},
-              bgColor: "black",
-              focusStyle: { bgColor: "cyan" },
+              bgColor: "color00",
+              focusStyle: { bgColor: "color06" },
             },
             [Text("Btn1")],
           ),
           HStack(
             {
               onClick: () => {},
-              bgColor: "black",
-              focusStyle: { bgColor: "yellow" },
+              bgColor: "color00",
+              focusStyle: { bgColor: "color03" },
             },
             [Text("Btn2")],
           ),
@@ -1592,15 +1592,15 @@ describe("cel end-to-end", () => {
       term.sendInput(TAB);
       await waitForRender();
       let buf = cel._getBuffer()!;
-      expect(buf.get(0, 0).bgColor).toBe("cyan");
-      expect(buf.get(0, 1).bgColor).toBe("black");
+      expect(buf.get(0, 0).bgColor).toBe("color06");
+      expect(buf.get(0, 1).bgColor).toBe("color00");
 
       // Tab to second — first loses focusStyle, second gains it
       term.sendInput(TAB);
       await waitForRender();
       buf = cel._getBuffer()!;
-      expect(buf.get(0, 0).bgColor).toBe("black");
-      expect(buf.get(0, 1).bgColor).toBe("yellow");
+      expect(buf.get(0, 0).bgColor).toBe("color00");
+      expect(buf.get(0, 1).bgColor).toBe("color03");
     });
 
     test("focusStyle fgColor inherited by child Text when focused", async () => {
@@ -1611,8 +1611,8 @@ describe("cel end-to-end", () => {
           HStack(
             {
               onClick: () => {},
-              fgColor: "white",
-              focusStyle: { fgColor: "black", bgColor: "cyan" },
+              fgColor: "color07",
+              focusStyle: { fgColor: "color00", bgColor: "color06" },
             },
             [Text("Btn")],
           ),
@@ -1622,7 +1622,7 @@ describe("cel end-to-end", () => {
 
       // Before focus — Text inherits white
       let buf = cel._getBuffer()!;
-      expect(buf.get(0, 0).fgColor).toBe("white");
+      expect(buf.get(0, 0).fgColor).toBe("color07");
 
       // Tab to focus
       term.sendInput(TAB);
@@ -1630,7 +1630,7 @@ describe("cel end-to-end", () => {
 
       // After focus — Text inherits black from focusStyle
       buf = cel._getBuffer()!;
-      expect(buf.get(0, 0).fgColor).toBe("black");
+      expect(buf.get(0, 0).fgColor).toBe("color00");
     });
 
     test("focusStyle with controlled focus", async () => {
@@ -1643,8 +1643,8 @@ describe("cel end-to-end", () => {
             {
               onClick: () => {},
               focused: isFocused,
-              bgColor: "black",
-              focusStyle: { bgColor: "cyan" },
+              bgColor: "color00",
+              focusStyle: { bgColor: "color06" },
               onBlur: () => {
                 isFocused = false;
               },
@@ -1657,7 +1657,7 @@ describe("cel end-to-end", () => {
 
       // Controlled focused=true — focusStyle applies
       let buf = cel._getBuffer()!;
-      expect(buf.get(0, 0).bgColor).toBe("cyan");
+      expect(buf.get(0, 0).bgColor).toBe("color06");
 
       // Escape to blur
       term.sendInput(ESCAPE);
@@ -1665,7 +1665,7 @@ describe("cel end-to-end", () => {
 
       // focused=false — normal style
       buf = cel._getBuffer()!;
-      expect(buf.get(0, 0).bgColor).toBe("black");
+      expect(buf.get(0, 0).bgColor).toBe("color00");
     });
   });
 });

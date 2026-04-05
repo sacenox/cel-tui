@@ -34,7 +34,7 @@ export function VStack(props: ContainerProps, children: Node[]): ContainerNode {
  * HStack({ height: 1, gap: 1 }, [
  *   Text("Name", { bold: true }),
  *   VStack({ flex: 1 }, []),
- *   Text("value", { fgColor: "brightBlack" }),
+ *   Text("value", { fgColor: "color08" }),
  * ])
  */
 export function HStack(props: ContainerProps, children: Node[]): ContainerNode {

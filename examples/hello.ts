@@ -22,8 +22,9 @@ const logo = [
   "╰─────────────────────╯",
 ];
 
-const palette: Array<"cyan" | "magenta" | "yellow" | "green" | "blue" | "red"> =
-  ["cyan", "magenta", "yellow", "green", "blue", "red"];
+const palette: Array<
+  "color06" | "color05" | "color03" | "color02" | "color04" | "color01"
+> = ["color06", "color05", "color03", "color02", "color04", "color01"];
 
 let colorIndex = 0;
 let tick = 0;
@@ -65,17 +66,17 @@ cel.viewport(() => {
         },
       },
       [
-        Text("┌─────────────────────────┐", { fgColor: "yellow" }),
-        Text("│  Terminal too small :(  │", { fgColor: "yellow" }),
-        Text("│                         │", { fgColor: "yellow" }),
-        Text("│  Please resize to at    │", { fgColor: "yellow" }),
+        Text("┌─────────────────────────┐", { fgColor: "color03" }),
+        Text("│  Terminal too small :(  │", { fgColor: "color03" }),
+        Text("│                         │", { fgColor: "color03" }),
+        Text("│  Please resize to at    │", { fgColor: "color03" }),
         Text(
           `│  least ${String(MIN_COLS).padStart(3)}×${String(MIN_ROWS).padStart(2)} chars.   │`,
-          { fgColor: "yellow" },
+          { fgColor: "color03" },
         ),
-        Text("│                         │", { fgColor: "yellow" }),
-        Text("│  Ctrl+Q to quit         │", { fgColor: "yellow" }),
-        Text("└─────────────────────────┘", { fgColor: "yellow" }),
+        Text("│                         │", { fgColor: "color03" }),
+        Text("│  Ctrl+Q to quit         │", { fgColor: "color03" }),
+        Text("└─────────────────────────┘", { fgColor: "color03" }),
       ],
     );
   }
@@ -103,7 +104,7 @@ cel.viewport(() => {
       Text(""),
       Text("terminal UIs, cell by cell", {
         italic: true,
-        fgColor: "brightBlack",
+        fgColor: "color08",
       }),
 
       // Divider
@@ -118,16 +119,16 @@ cel.viewport(() => {
       // Live info row
       HStack({ gap: 2 }, [
         Text(`${spinner}`, { fgColor: color, bold: true }),
-        Text(clock(), { fgColor: "white" }),
-        Text("│", { fgColor: "brightBlack" }),
-        Text("press any key to change color", { fgColor: "brightBlack" }),
+        Text(clock()),
+        Text("│", { fgColor: "color08" }),
+        Text("press any key to change color", { fgColor: "color08" }),
       ]),
 
       // Quit hint
       Text(""),
       HStack({ gap: 1 }, [
-        Text(" ctrl+q ", { bgColor: color, fgColor: "black", bold: true }),
-        Text("quit", { fgColor: "brightBlack" }),
+        Text(" ctrl+q ", { bgColor: color, fgColor: "color00", bold: true }),
+        Text("quit", { fgColor: "color08" }),
       ]),
       Spacer(),
     ],

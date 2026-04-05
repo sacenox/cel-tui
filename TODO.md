@@ -24,6 +24,8 @@ Remaining work, known bugs, and planned improvements.
 
 - 🔧 **`space-between` + `gap` double-spaces children** — When both `justifyContent: "space-between"` and `gap` are set, children get `gap` spacing plus the distributed remaining space on top. The remaining-space calculation subtracts `totalGap` first, then `space-between` distributes what's left as extra gap — so the effective gap is `gap + betweenGaps[i]`. CSS flex doesn't stack `space-between` on top of `gap` this way. The spec doesn't define this interaction.
 
+- ~~🔧 **Color theme doesn't respect terminal 16 color setup** -- Fixed: replaced named colors (`"red"`, `"white"`, etc.) with numbered palette slots (`"color00"`–`"color15"`). Added `Theme` type for custom color mappings, `defaultTheme` (ANSI 16), and `cel.init(terminal, { theme })` API. Spec updated with Color System section. No more confusing `"white"` vs terminal default.~~
+
 ---
 
 ## API Improvements
@@ -35,6 +37,10 @@ Remaining work, known bugs, and planned improvements.
 - ❌ Bracketed paste mode support
 
 - ❌ **Markdown heading inline styling** — Headings (`#`, `##`, `###`) still strip inline formatting to plain text. Since headings are short and single-line, this is low priority. Paragraphs, list items, and blockquotes now render inline formatting via wrapping HStack.
+
+## Toolchain
+
+- 🔧 **Biome formatter clashes with Prettier on generic type arguments** — When a chained `.method<TypeArgs>(longString)` call exceeds `lineWidth`, biome's formatter breaks at the function args `(` while prettier breaks at the type args `<`. They never converge. Current config has biome formatter enabled (`indentStyle: "space"`), which means both formatters fight on this pattern. Fix: either disable biome's formatter (set `formatter.enabled: false` — `organizeImports` still works as an error under `assist`) and let prettier own all formatting, or drop prettier for TS files entirely. The mini-coder repo chose the former approach successfully.
 
 ## Future Enhancements
 

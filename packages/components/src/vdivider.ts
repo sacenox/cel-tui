@@ -34,12 +34,12 @@ const MAX_LINES = 500;
  * VDivider()
  *
  * // Double line with color
- * VDivider({ char: "║", fgColor: "brightBlack" })
+ * VDivider({ char: "║", fgColor: "color08" })
  *
  * // Separate sidebar from content
  * HStack({ height: "100%" }, [
  *   VStack({ width: 20 }, [Text("sidebar")]),
- *   VDivider({ fgColor: "brightBlack" }),
+ *   VDivider({ fgColor: "color08" }),
  *   VStack({ flex: 1 }, [Text("content")]),
  * ])
  */

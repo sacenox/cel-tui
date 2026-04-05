@@ -18,34 +18,34 @@ import { Button, Divider, Spacer } from "@cel-tui/components";
 
 interface Tag {
   label: string;
-  color: "cyan" | "magenta" | "yellow" | "green" | "blue" | "red";
+  color: "color06" | "color05" | "color03" | "color02" | "color04" | "color01";
 }
 
 const TAGS: Tag[] = [
-  { label: "TypeScript", color: "blue" },
-  { label: "Rust", color: "red" },
-  { label: "Go", color: "cyan" },
-  { label: "Python", color: "yellow" },
-  { label: "JavaScript", color: "yellow" },
-  { label: "C++", color: "blue" },
-  { label: "Zig", color: "magenta" },
-  { label: "Haskell", color: "magenta" },
-  { label: "Elixir", color: "magenta" },
-  { label: "Ruby", color: "red" },
-  { label: "Kotlin", color: "green" },
-  { label: "Swift", color: "red" },
-  { label: "Lua", color: "blue" },
-  { label: "OCaml", color: "yellow" },
-  { label: "Clojure", color: "green" },
-  { label: "Scala", color: "red" },
-  { label: "Nim", color: "yellow" },
-  { label: "Julia", color: "green" },
-  { label: "Erlang", color: "red" },
-  { label: "Dart", color: "cyan" },
-  { label: "C#", color: "green" },
-  { label: "F#", color: "cyan" },
-  { label: "Gleam", color: "magenta" },
-  { label: "Odin", color: "blue" },
+  { label: "TypeScript", color: "color04" },
+  { label: "Rust", color: "color01" },
+  { label: "Go", color: "color06" },
+  { label: "Python", color: "color03" },
+  { label: "JavaScript", color: "color03" },
+  { label: "C++", color: "color04" },
+  { label: "Zig", color: "color05" },
+  { label: "Haskell", color: "color05" },
+  { label: "Elixir", color: "color05" },
+  { label: "Ruby", color: "color01" },
+  { label: "Kotlin", color: "color02" },
+  { label: "Swift", color: "color01" },
+  { label: "Lua", color: "color04" },
+  { label: "OCaml", color: "color03" },
+  { label: "Clojure", color: "color02" },
+  { label: "Scala", color: "color01" },
+  { label: "Nim", color: "color03" },
+  { label: "Julia", color: "color02" },
+  { label: "Erlang", color: "color01" },
+  { label: "Dart", color: "color06" },
+  { label: "C#", color: "color02" },
+  { label: "F#", color: "color06" },
+  { label: "Gleam", color: "color05" },
+  { label: "Odin", color: "color04" },
 ];
 
 // ─── State ──────────────────────────────────────────────────────
@@ -75,11 +75,11 @@ function tagChip(tag: Tag) {
   const check = on ? "✓ " : "  ";
   return Button(` ${check}${tag.label} `, {
     onClick: () => toggle(tag.label),
-    fgColor: on ? "black" : tag.color,
+    fgColor: on ? "color00" : tag.color,
     bgColor: on ? tag.color : undefined,
     bold: on,
     focusStyle: {
-      fgColor: "black",
+      fgColor: "color00",
       bgColor: tag.color,
       bold: true,
     },
@@ -96,7 +96,6 @@ cel.viewport(() => {
     {
       height: "100%",
       padding: { x: 2, y: 1 },
-      fgColor: "white",
       onKeyPress: (key) => {
         if (key === "ctrl+q" || key === "ctrl+c") quit();
         if (key === "ctrl+r") clearAll();
@@ -105,17 +104,17 @@ cel.viewport(() => {
     [
       // Header
       HStack({ gap: 1 }, [
-        Text("◆", { fgColor: "cyan", bold: true }),
-        Text("Pick your languages", { bold: true, fgColor: "white" }),
+        Text("◆", { fgColor: "color06", bold: true }),
+        Text("Pick your languages", { bold: true }),
         Text(`(${selected.size}/${TAGS.length})`, {
-          fgColor: "brightBlack",
+          fgColor: "color08",
         }),
       ]),
       Text("Tab navigate · Enter toggle · resize to reflow", {
-        fgColor: "brightBlack",
+        fgColor: "color08",
         italic: true,
       }),
-      Divider({ fgColor: "brightBlack" }),
+      Divider({ fgColor: "color08" }),
 
       // Tag cloud — the flexWrap showcase
       HStack(
@@ -123,17 +122,17 @@ cel.viewport(() => {
         TAGS.map(tagChip),
       ),
 
-      Divider({ fgColor: "brightBlack" }),
+      Divider({ fgColor: "color08" }),
 
       // Selection summary
       ...(selTags.length > 0
         ? [
-            Text("Selected:", { bold: true, fgColor: "brightBlack" }),
+            Text("Selected:", { bold: true, fgColor: "color08" }),
             HStack(
               { flexWrap: "wrap", gap: 1 },
               selTags.map((t) =>
                 Text(` ${t.label} `, {
-                  fgColor: "black",
+                  fgColor: "color00",
                   bgColor: t.color,
                   bold: true,
                 }),
@@ -142,7 +141,7 @@ cel.viewport(() => {
           ]
         : [
             Text("No languages selected yet.", {
-              fgColor: "brightBlack",
+              fgColor: "color08",
               italic: true,
             }),
           ]),
@@ -153,35 +152,35 @@ cel.viewport(() => {
       HStack({ flexWrap: "wrap", gap: 1 }, [
         HStack({ gap: 0 }, [
           Text(" Tab ", {
-            bgColor: "brightBlack",
-            fgColor: "black",
+            bgColor: "color08",
+            fgColor: "color00",
             bold: true,
           }),
-          Text(" navigate", { fgColor: "brightBlack" }),
+          Text(" navigate", { fgColor: "color08" }),
         ]),
         HStack({ gap: 0 }, [
           Text(" Enter ", {
-            bgColor: "brightBlack",
-            fgColor: "black",
+            bgColor: "color08",
+            fgColor: "color00",
             bold: true,
           }),
-          Text(" toggle", { fgColor: "brightBlack" }),
+          Text(" toggle", { fgColor: "color08" }),
         ]),
         HStack({ gap: 0 }, [
           Text(" Ctrl+R ", {
-            bgColor: "brightBlack",
-            fgColor: "black",
+            bgColor: "color08",
+            fgColor: "color00",
             bold: true,
           }),
-          Text(" clear", { fgColor: "brightBlack" }),
+          Text(" clear", { fgColor: "color08" }),
         ]),
         HStack({ gap: 0 }, [
           Text(" Ctrl+Q ", {
-            bgColor: "brightBlack",
-            fgColor: "black",
+            bgColor: "color08",
+            fgColor: "color00",
             bold: true,
           }),
-          Text(" quit", { fgColor: "brightBlack" }),
+          Text(" quit", { fgColor: "color08" }),
         ]),
       ]),
     ],

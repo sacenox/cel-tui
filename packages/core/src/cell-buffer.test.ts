@@ -30,7 +30,7 @@ describe("CellBuffer", () => {
       const buf = new CellBuffer(10, 5);
       const cell: Cell = {
         char: "A",
-        fgColor: "red",
+        fgColor: "color01",
         bgColor: null,
         bold: true,
         italic: false,
@@ -78,14 +78,14 @@ describe("CellBuffer", () => {
       });
       buf.set(0, 0, {
         char: "B",
-        fgColor: "blue",
+        fgColor: "color04",
         bgColor: null,
         bold: true,
         italic: false,
         underline: false,
       });
       expect(buf.get(0, 0).char).toBe("B");
-      expect(buf.get(0, 0).fgColor).toBe("blue");
+      expect(buf.get(0, 0).fgColor).toBe("color04");
     });
   });
 
@@ -94,7 +94,7 @@ describe("CellBuffer", () => {
       const buf = new CellBuffer(3, 3);
       buf.set(1, 1, {
         char: "X",
-        fgColor: "red",
+        fgColor: "color01",
         bgColor: null,
         bold: true,
         italic: false,
@@ -145,7 +145,7 @@ describe("CellBuffer", () => {
       const buf = new CellBuffer(5, 5);
       const cell: Cell = {
         char: "#",
-        fgColor: "green",
+        fgColor: "color02",
         bgColor: null,
         bold: false,
         italic: false,
@@ -239,7 +239,7 @@ describe("CellBuffer", () => {
       });
       b.set(0, 0, {
         char: "X",
-        fgColor: "red",
+        fgColor: "color01",
         bgColor: null,
         bold: false,
         italic: false,
@@ -273,7 +273,7 @@ describe("CellBuffer", () => {
       buf.set(0, 0, {
         char: " ",
         fgColor: null,
-        bgColor: "blue",
+        bgColor: "color04",
         bold: false,
         italic: false,
         underline: false,

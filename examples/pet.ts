@@ -347,17 +347,17 @@ function tooSmallView() {
       },
     },
     [
-      Text("┌─────────────────────────┐", { fgColor: "yellow" }),
-      Text("│  Terminal too small :(  │", { fgColor: "yellow" }),
-      Text("│                         │", { fgColor: "yellow" }),
-      Text("│  Please resize to at    │", { fgColor: "yellow" }),
+      Text("┌─────────────────────────┐", { fgColor: "color03" }),
+      Text("│  Terminal too small :(  │", { fgColor: "color03" }),
+      Text("│                         │", { fgColor: "color03" }),
+      Text("│  Please resize to at    │", { fgColor: "color03" }),
       Text(
         `│  least ${String(MIN_COLS).padStart(3)}×${String(MIN_ROWS).padStart(2)} chars.   │`,
-        { fgColor: "yellow" },
+        { fgColor: "color03" },
       ),
-      Text("│                         │", { fgColor: "yellow" }),
-      Text("│  Ctrl+Q to quit         │", { fgColor: "yellow" }),
-      Text("└─────────────────────────┘", { fgColor: "yellow" }),
+      Text("│                         │", { fgColor: "color03" }),
+      Text("│  Ctrl+Q to quit         │", { fgColor: "color03" }),
+      Text("└─────────────────────────┘", { fgColor: "color03" }),
     ],
   );
 }
@@ -390,10 +390,10 @@ function currentArt(): string[] {
   return lines;
 }
 
-function artColor(): "cyan" | "yellow" | "magenta" {
-  if (anim === "excited") return "magenta";
-  if (hunger > 60 || happiness < 30) return "yellow";
-  return "cyan";
+function artColor(): "color06" | "color03" | "color05" {
+  if (anim === "excited") return "color05";
+  if (hunger > 60 || happiness < 30) return "color03";
+  return "color06";
 }
 
 // ─── Reusable Widgets ───────────────────────────────────────────
@@ -401,25 +401,28 @@ function artColor(): "cyan" | "yellow" | "magenta" {
 function StatBar(
   label: string,
   value: number,
-  color: "green" | "yellow" | "red" | "cyan",
+  color: "color02" | "color03" | "color01" | "color06",
 ) {
   const w = 12;
   const filled = Math.round((value / 100) * w);
   return VStack({}, [
-    Text(label, { bold: true, fgColor: "white" }),
+    Text(label, { bold: true }),
     HStack({}, [
       Text("█", { repeat: Math.max(filled, 0), fgColor: color }),
-      Text("░", { repeat: Math.max(w - filled, 0), fgColor: "brightBlack" }),
-      Text(` ${value}`, { fgColor: "brightBlack" }),
+      Text("░", { repeat: Math.max(w - filled, 0), fgColor: "color08" }),
+      Text(` ${value}`, { fgColor: "color08" }),
     ]),
   ]);
 }
 
-function barColor(val: number, invert = false): "green" | "yellow" | "red" {
+function barColor(
+  val: number,
+  invert = false,
+): "color02" | "color03" | "color01" {
   const v = invert ? 100 - val : val;
-  if (v > 60) return "green";
-  if (v > 30) return "yellow";
-  return "red";
+  if (v > 60) return "color02";
+  if (v > 30) return "color03";
+  return "color01";
 }
 
 // ─── Create Screen ──────────────────────────────────────────────
@@ -455,12 +458,12 @@ function createView() {
       VStack({ width: 40, padding: { x: 2 }, gap: 0 }, [
         // Title
         HStack({ justifyContent: "center" }, [
-          Text("~ New Pet ~", { bold: true, fgColor: "cyan" }),
+          Text("~ New Pet ~", { bold: true, fgColor: "color06" }),
         ]),
-        Divider({ fgColor: "brightBlack" }),
+        Divider({ fgColor: "color08" }),
 
         // Name
-        Text("Name:", { bold: true, fgColor: "white" }),
+        Text("Name:", { bold: true }),
         TextInput({
           value: petName,
           onChange: (v) => {
@@ -468,11 +471,8 @@ function createView() {
             cel.render();
           },
           height: 1,
-          fgColor: "brightWhite",
-          bgColor: "black",
           placeholder: Text("enter a name...", {
-            fgColor: "brightBlack",
-            bgColor: "black",
+            fgColor: "color08",
           }),
           // Controlled focus: needed to gate arrow key routing above
           focused: nameInputFocused,
@@ -493,7 +493,7 @@ function createView() {
 
         // Species picker — wrapping chips
         Text(""),
-        Text("Species:", { bold: true, fgColor: "white" }),
+        Text("Species:", { bold: true }),
         HStack(
           { flexWrap: "wrap", gap: 1 },
           PETS.map((p, i) => {
@@ -508,8 +508,8 @@ function createView() {
               },
               [
                 Text(sel ? ` ● ${p.kind} ` : `   ${p.kind} `, {
-                  fgColor: sel ? "black" : "white",
-                  bgColor: sel ? "cyan" : undefined,
+                  fgColor: sel ? "color00" : undefined,
+                  bgColor: sel ? "color06" : undefined,
                   bold: sel,
                 }),
               ],
@@ -517,42 +517,42 @@ function createView() {
           }),
         ),
         Text("  ↑/↓ to change", {
-          fgColor: "brightBlack",
+          fgColor: "color08",
           italic: true,
         }),
 
         // Preview (hidden when terminal is short)
         ...(showPreview
           ? [
-              Divider({ fgColor: "brightBlack" }),
+              Divider({ fgColor: "color08" }),
               VStack(
                 { alignItems: "center" },
-                previewArt.map((ln) => Text(ln, { fgColor: "yellow" })),
+                previewArt.map((ln) => Text(ln, { fgColor: "color03" })),
               ),
             ]
           : []),
 
-        Divider({ fgColor: "brightBlack" }),
+        Divider({ fgColor: "color08" }),
 
         // Create button — uncontrolled focus + focusStyle
         HStack({ justifyContent: "center" }, [
           Button(" Create Pet! ", {
             onClick: startGame,
-            fgColor: "green",
+            fgColor: "color02",
             bold: true,
-            focusStyle: { bgColor: "green", fgColor: "black" },
+            focusStyle: { bgColor: "color02", fgColor: "color00" },
           }),
         ]),
 
         // Hints — wrapping for narrow terminals
         HStack({ justifyContent: "center", flexWrap: "wrap", gap: 1 }, [
           HStack({}, [
-            Text("Tab", { fgColor: "brightBlack", bold: true }),
-            Text(" navigate", { fgColor: "brightBlack" }),
+            Text("Tab", { fgColor: "color08", bold: true }),
+            Text(" navigate", { fgColor: "color08" }),
           ]),
           HStack({}, [
-            Text("Ctrl+Q", { fgColor: "brightBlack", bold: true }),
-            Text(" quit", { fgColor: "brightBlack" }),
+            Text("Ctrl+Q", { fgColor: "color08", bold: true }),
+            Text(" quit", { fgColor: "color08" }),
           ]),
         ]),
       ]),
@@ -582,15 +582,15 @@ function mainView() {
             ]),
           ]
         : [
-            Text("  Stats", { bold: true, fgColor: "brightBlack" }),
-            Divider({ char: "─", fgColor: "brightBlack" }),
+            Text("  Stats", { bold: true, fgColor: "color08" }),
+            Divider({ char: "─", fgColor: "color08" }),
             StatBar("Health", health, barColor(health)),
             StatBar("Food", 100 - hunger, barColor(hunger, true)),
             StatBar("Happy", happiness, barColor(happiness)),
             Spacer(),
-            Divider({ char: "─", fgColor: "brightBlack" }),
-            Text(" [F] Feed", { fgColor: "yellow", bold: true }),
-            Text(" [P] Pet", { fgColor: "magenta", bold: true }),
+            Divider({ char: "─", fgColor: "color08" }),
+            Text(" [F] Feed", { fgColor: "color03", bold: true }),
+            Text(" [P] Pet", { fgColor: "color05", bold: true }),
           ]),
     ],
   );
@@ -606,15 +606,15 @@ function mainView() {
       HStack({ gap: 3 }, [
         Button(" Feed ", {
           onClick: feed,
-          fgColor: "yellow",
+          fgColor: "color03",
           bold: true,
-          focusStyle: { bgColor: "yellow", fgColor: "black" },
+          focusStyle: { bgColor: "color03", fgColor: "color00" },
         }),
         Button(" Pet ", {
           onClick: petIt,
-          fgColor: "magenta",
+          fgColor: "color05",
           bold: true,
-          focusStyle: { bgColor: "magenta", fgColor: "black" },
+          focusStyle: { bgColor: "color05", fgColor: "color00" },
         }),
       ]),
     ],
@@ -639,29 +639,33 @@ function mainView() {
     [
       // ── Header ──
       HStack({ padding: { x: 1 } }, [
-        Text(` ${petName} `, { bold: true, fgColor: "black", bgColor: "cyan" }),
-        Text(` the ${pet!.kind} `, { fgColor: "brightBlack" }),
+        Text(` ${petName} `, {
+          bold: true,
+          fgColor: "color00",
+          bgColor: "color06",
+        }),
+        Text(` the ${pet!.kind} `, { fgColor: "color08" }),
         Spacer(),
-        Text("[L]", { fgColor: "brightBlack", bold: true }),
-        Text("og ", { fgColor: "brightBlack" }),
-        Text("[Q]", { fgColor: "brightBlack", bold: true }),
-        Text("uit ", { fgColor: "brightBlack" }),
+        Text("[L]", { fgColor: "color08", bold: true }),
+        Text("og ", { fgColor: "color08" }),
+        Text("[Q]", { fgColor: "color08", bold: true }),
+        Text("uit ", { fgColor: "color08" }),
       ]),
-      Divider({ char: "═", fgColor: "brightBlack" }),
+      Divider({ char: "═", fgColor: "color08" }),
 
       // ── Body ──
       ...(narrow
         ? [
             // Narrow: stats bar on top, pet below
             statsPanel,
-            Divider({ char: "─", fgColor: "brightBlack" }),
+            Divider({ char: "─", fgColor: "color08" }),
             petPane,
           ]
         : [
             // Wide: sidebar | pet side-by-side
             HStack({ flex: 1 }, [
               statsPanel,
-              VDivider({ fgColor: "brightBlack" }),
+              VDivider({ fgColor: "color08" }),
               petPane,
             ]),
           ]),
@@ -694,24 +698,30 @@ function logView() {
     },
     [
       // Top border
-      HStack({ bgColor: "black" }, [
-        Text("╔", { fgColor: "brightBlack" }),
-        Text("═", { repeat: borderW, fgColor: "brightBlack" }),
-        Text("╗", { fgColor: "brightBlack" }),
+      HStack({ bgColor: "color08", fgColor: "color07" }, [
+        Text("╔"),
+        Text("═", { repeat: borderW }),
+        Text("╗"),
       ]),
 
       VStack(
-        { width: modalW, height: modalH, padding: { x: 1 }, bgColor: "black" },
+        {
+          width: modalW,
+          height: modalH,
+          padding: { x: 1 },
+          bgColor: "color08",
+          fgColor: "color07",
+        },
         [
           // Header row
           HStack({}, [
-            Text(" Activity Log ", { bold: true, fgColor: "cyan" }),
+            Text(" Activity Log ", { bold: true, fgColor: "color06" }),
             VStack({ flex: 1 }, [Text(" ", { repeat: "fill" })]),
             HStack({ onClick: closeLog, focusable: false }, [
-              Text(" [x] ", { fgColor: "red", bold: true }),
+              Text(" [x] ", { fgColor: "color01", bold: true }),
             ]),
           ]),
-          Text("─", { repeat: "fill", fgColor: "brightBlack" }),
+          Text("─", { repeat: "fill", fgColor: "color00" }),
 
           // Scrollable entries
           VStack(
@@ -729,46 +739,46 @@ function logView() {
               if (log.length === 0) {
                 return [
                   Text(" No activity yet.", {
-                    fgColor: "brightBlack",
+                    fgColor: "color08",
                     italic: true,
                   }),
                 ];
               }
               return log.map((entry) => {
                 let fg:
-                  | "yellow"
-                  | "magenta"
-                  | "red"
-                  | "green"
-                  | "white"
-                  | "brightRed" = "white";
-                if (entry.includes("born")) fg = "green";
+                  | "color03"
+                  | "color05"
+                  | "color01"
+                  | "color02"
+                  | "color09"
+                  | undefined = undefined;
+                if (entry.includes("born")) fg = "color02";
                 else if (entry.includes("fed") || entry.includes("Feed"))
-                  fg = "yellow";
+                  fg = "color03";
                 else if (entry.includes("pet ") || entry.includes("Happy"))
-                  fg = "magenta";
+                  fg = "color05";
                 else if (entry.includes("hungry") || entry.includes("lonely"))
-                  fg = "brightRed";
+                  fg = "color09";
                 else if (entry.includes("passed") || entry.includes("well"))
-                  fg = "red";
+                  fg = "color01";
                 return Text(entry, { fgColor: fg });
               });
             })(),
           ),
 
-          Text("─", { repeat: "fill", fgColor: "brightBlack" }),
+          Text("─", { repeat: "fill", fgColor: "color00" }),
           Text(" Scroll: mouse wheel  Close: [L] or Esc", {
-            fgColor: "brightBlack",
+            fgColor: "color00",
             italic: true,
           }),
         ],
       ),
 
       // Bottom border
-      HStack({ bgColor: "black" }, [
-        Text("╚", { fgColor: "brightBlack" }),
-        Text("═", { repeat: borderW, fgColor: "brightBlack" }),
-        Text("╝", { fgColor: "brightBlack" }),
+      HStack({ bgColor: "color08", fgColor: "color07" }, [
+        Text("╚"),
+        Text("═", { repeat: borderW }),
+        Text("╝"),
       ]),
     ],
   );
@@ -793,39 +803,39 @@ function deadView() {
     },
     [
       Spacer(),
-      Text("╔═══════════════════════╗", { fgColor: "brightBlack" }),
-      Text("║                       ║", { fgColor: "brightBlack" }),
-      Text("║      R . I . P .      ║", { fgColor: "red", bold: true }),
-      Text("║                       ║", { fgColor: "brightBlack" }),
-      Text("╚═══════════════════════╝", { fgColor: "brightBlack" }),
+      Text("╔═══════════════════════╗", { fgColor: "color08" }),
+      Text("║                       ║", { fgColor: "color08" }),
+      Text("║      R . I . P .      ║", { fgColor: "color01", bold: true }),
+      Text("║                       ║", { fgColor: "color08" }),
+      Text("╚═══════════════════════╝", { fgColor: "color08" }),
       Text(""),
-      ...art.map((ln) => Text(ln, { fgColor: "brightBlack" })),
+      ...art.map((ln) => Text(ln, { fgColor: "color08" })),
       Text(""),
       Text(`${petName} has crossed the rainbow bridge.`, {
-        fgColor: "brightBlack",
+        fgColor: "color08",
         italic: true,
       }),
       Text(""),
       HStack({ gap: 3 }, [
         Button(" New Pet ", {
           onClick: restart,
-          fgColor: "green",
+          fgColor: "color02",
           bold: true,
-          focusStyle: { bgColor: "green", fgColor: "black" },
+          focusStyle: { bgColor: "color02", fgColor: "color00" },
         }),
         Button(" View Log ", {
           onClick: () => {
             showLog = !showLog;
             cel.render();
           },
-          fgColor: "cyan",
+          fgColor: "color06",
           bold: true,
-          focusStyle: { bgColor: "cyan", fgColor: "black" },
+          focusStyle: { bgColor: "color06", fgColor: "color00" },
         }),
       ]),
       HStack({}, [
-        Text("Ctrl+Q", { fgColor: "brightBlack", bold: true }),
-        Text(" quit", { fgColor: "brightBlack" }),
+        Text("Ctrl+Q", { fgColor: "color08", bold: true }),
+        Text(" quit", { fgColor: "color08" }),
       ]),
       Spacer(),
     ],
