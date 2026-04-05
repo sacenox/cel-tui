@@ -42,7 +42,7 @@ Remaining work, known bugs, and planned improvements.
 
 - 💡 **Scrollbar styling** — Scrollbar characters (`┃`/`│` vertical, `━`/`─` horizontal) and colors are hardcoded in `paintScrollbar`. A `scrollbarStyle` prop on containers (or a global theme option) would allow customizing thumb/track characters and colors. Currently the only two visual elements the framework doesn't support styling.
 
-- 💡 **Textarea component** (`packages/components`) — A higher-level wrapper around TextInput that handles the autogrowing pattern out of the box. Props like `maxLines`, `minLines`, `submitKey`, and `placeholder` would cover the common chat-input / form-field use case without requiring the `HStack + flex + maxHeight` boilerplate. Could also include optional line-count display and character limit.
+- 💡 **Textarea component** (`packages/components`) — A higher-level wrapper around TextInput that handles the autogrowing pattern out of the box. Props like `maxLines`, `minLines`, and `placeholder` would cover the common chat-input / form-field use case without requiring the `HStack + flex + maxHeight` boilerplate. Could also include optional line-count display and character limit.
 
 - 💡 **Editor component** (`packages/components`) — A TextInput with a line-number gutter, built as a component. Would compose an HStack with a fixed-width line-number column (styled, right-aligned) alongside a flex TextInput, keeping scroll synchronized. Useful for code/config editing use cases like the markdown editor example.
 

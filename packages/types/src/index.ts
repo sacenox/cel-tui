@@ -313,19 +313,18 @@ export interface TextInputProps extends ContainerProps {
   onChange: (value: string) => void;
 
   /**
-   * Called when the user presses the submit key.
-   * @see {@link submitKey}
-   */
-  onSubmit?: () => void;
-
-  /**
-   * Key combo that fires {@link onSubmit}.
-   * @default "enter"
+   * Key handler that fires **before** the built-in editing logic.
+   * Return `false` to prevent the default editing action for that key
+   * (no character insertion, no cursor movement, no deletion).
+   * Any other return (or no return) lets the default action proceed.
    *
    * @example
-   * submitKey: "ctrl+enter"  // Enter inserts newline, Ctrl+Enter submits
+   * // Enter submits instead of inserting a newline
+   * onKeyPress: (key) => {
+   *   if (key === "enter") { handleSend(); return false; }
+   * }
    */
-  submitKey?: string;
+  onKeyPress?: (key: string) => boolean | void;
 
   /**
    * A {@link TextNode} displayed when {@link value} is empty.

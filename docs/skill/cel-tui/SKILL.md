@@ -214,7 +214,7 @@ mySelect.reset(); // clear filter/highlight programmatically
 
 - **State is external** — the framework has no state. Mutate variables then call `cel.render()`.
 - **Text is a pure leaf** — no sizing props, no children. Parent controls the box.
-- **TextInput consumes editing keys** when focused (printable chars, arrows, backspace). Modifier combos (`ctrl+s`) bubble up through ancestors via `onKeyPress`.
+- **TextInput consumes editing keys** when focused (printable chars, arrows, backspace, Enter, Tab). Enter inserts a newline by default. Use `onKeyPress` on TextInput to intercept keys before editing — return `false` to prevent the default action (e.g., intercept Enter for submit). Modifier combos (`ctrl+s`) are not editing keys and bubble up through ancestors via `onKeyPress`.
 - **Escape unfocuses** the current element. Tab/Shift+Tab traverses focusable elements (wraps around). After Escape, traversal continues from where focus was lost.
 - **Enter activates** a focused container's `onClick`. If no `onClick`, Enter reaches `onKeyPress`.
 - **`focusable: true`** without `onClick` makes a container keyboard-focusable (receives `onKeyPress` events via Tab). Used by stateful components like `Select`.

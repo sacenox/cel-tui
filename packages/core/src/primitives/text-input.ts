@@ -12,8 +12,11 @@ import type { TextInputNode, TextInputProps } from "@cel-tui/types";
  * responds to mouse wheel automatically.
  *
  * TextInput is always focusable. When focused, text-editing keys
- * (printable characters, arrows, backspace, Tab) are consumed.
+ * (printable characters, arrows, backspace, Enter, Tab) are consumed.
  * Modifier combos (e.g., `ctrl+s`) bubble up to ancestor `onKeyPress` handlers.
+ *
+ * Use `onKeyPress` to intercept keys before editing. Return `false` to
+ * prevent the default editing action for that key.
  *
  * @param props - Value, callbacks, sizing, styling, and focus props.
  * @returns A text input node for the UI tree.
@@ -26,14 +29,15 @@ import type { TextInputNode, TextInputProps } from "@cel-tui/types";
  * })
  *
  * @example
- * // Growing input with max height
+ * // Growing input with max height, Enter submits
  * TextInput({
  *   flex: 1,
  *   maxHeight: 10,
  *   value: text,
  *   onChange: handleChange,
- *   onSubmit: handleSend,
- *   submitKey: "ctrl+enter",
+ *   onKeyPress: (key) => {
+ *     if (key === "enter") { handleSend(); return false; }
+ *   },
  *   placeholder: Text("type a message...", { fgColor: "color08" }),
  * })
  */

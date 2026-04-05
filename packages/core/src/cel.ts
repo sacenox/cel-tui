@@ -8,7 +8,7 @@ import {
   collectKeyPressHandlers,
   collectFocusable,
 } from "./hit-test.js";
-import { parseKey, isEditingKey, normalizeKey } from "./keys.js";
+import { parseKey, isEditingKey } from "./keys.js";
 import { layout, type LayoutNode } from "./layout.js";
 import {
   paint,
@@ -689,12 +689,13 @@ function handleKeyEvent(key: string, rawData?: string): void {
     const props = focusedInput.node
       .props as import("@cel-tui/types").TextInputProps;
 
-    // Check submitKey
-    const submitKey = normalizeKey(props.submitKey ?? "enter");
-    if (key === submitKey && props.onSubmit) {
-      props.onSubmit();
-      cel.render();
-      return;
+    // onKeyPress fires before editing — return false prevents the default action
+    if (props.onKeyPress) {
+      const result = props.onKeyPress(key);
+      if (result === false) {
+        cel.render();
+        return;
+      }
     }
 
     // Editing keys are consumed by TextInput
@@ -771,7 +772,16 @@ function handleKeyEvent(key: string, rawData?: string): void {
     for (let i = currentLayouts.length - 1; i >= 0; i--) {
       const path = findPathTo(currentLayouts[i]!, focused);
       if (path) {
-        const handlers = collectKeyPressHandlers(path);
+        let handlers = collectKeyPressHandlers(path);
+        // If a TextInput's onKeyPress was already called in the pre-editing
+        // hook above, exclude it from bubbling to avoid calling it twice.
+        if (
+          focusedInput &&
+          handlers.length > 0 &&
+          handlers[0]!.layoutNode === focusedInput
+        ) {
+          handlers = handlers.slice(1);
+        }
         if (handlers.length > 0) {
           let consumed = false;
           for (const h of handlers) {

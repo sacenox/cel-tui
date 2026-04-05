@@ -85,10 +85,25 @@ Colors: 16 numbered palette slots — `"color00"` through `"color15"`. Mapped to
 TextInput({
   value, // string (controlled)
   onChange, // (value: string) => void
-  onSubmit, // () => void
-  submitKey, // string (default "enter")
+  onKeyPress, // (key: string) => boolean | void — return false to prevent default editing action
   placeholder, // Text() node shown when empty
   // + all container props (sizing, styling, focus, etc.)
+});
+```
+
+Enter inserts a newline by default. Use `onKeyPress` to intercept keys before editing:
+
+```ts
+// Enter submits instead of inserting newline
+TextInput({
+  value: input,
+  onChange: handleChange,
+  onKeyPress: (key) => {
+    if (key === "enter") {
+      handleSend();
+      return false;
+    }
+  },
 });
 ```
 

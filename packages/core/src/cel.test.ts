@@ -1006,7 +1006,7 @@ describe("cel end-to-end", () => {
       expect(value).toBe("he\nllo");
     });
 
-    test("Shift+Enter does not trigger submitKey", async () => {
+    test("Shift+Enter inserts newline even when onKeyPress intercepts Enter", async () => {
       const term = setup(20, 5);
       let value = "hello";
       let submitted = false;
@@ -1018,16 +1018,18 @@ describe("cel end-to-end", () => {
             onChange: (v) => {
               value = v;
             },
-            onSubmit: () => {
-              submitted = true;
+            onKeyPress: (key) => {
+              if (key === "enter") {
+                submitted = true;
+                return false;
+              }
             },
-            // default submitKey is "enter"
           }),
         ]),
       );
       await waitForRender();
 
-      // Shift+Enter should insert newline, NOT submit
+      // Shift+Enter is a different key — should insert newline, not trigger onKeyPress for "enter"
       term.sendInput(kittyEncode("shift+enter"));
       await waitForRender();
       expect(submitted).toBe(false);
