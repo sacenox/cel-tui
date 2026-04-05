@@ -77,7 +77,7 @@ Text("content", {
 });
 ```
 
-Colors: 16 numbered palette slots — `"color00"` through `"color15"`. Mapped to ANSI 16 by default; custom themes can remap to 256-color or true color. Omit a color prop for the terminal default.
+Colors: 16 numbered palette slots — `"color00"` through `"color15"`. Mapped to ANSI 16 by default; custom themes can remap to different ANSI indices or 24-bit true color. Omit a color prop for the terminal default.
 
 ## TextInput Props
 
@@ -243,7 +243,7 @@ Streaming works naturally — append chunks and call `cel.render()`. Unclosed bl
 
 ## Theme
 
-The default theme maps 16 color slots to ANSI palette indices. Custom themes remap to 256-color or 24-bit hex:
+The default theme maps 16 color slots to ANSI palette indices. Custom themes remap to different ANSI indices or 24-bit hex:
 
 ```ts
 import { cel, ProcessTerminal, type Theme } from "@cel-tui/core";

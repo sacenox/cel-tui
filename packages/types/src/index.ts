@@ -30,8 +30,9 @@ export type Color =
 /**
  * A theme value for a single color slot.
  *
- * - `number` (0–15) — ANSI palette index. Emitted as standard SGR codes
- *   (e.g., index 1 → fg 31, bg 41).
+ * - `number` (0–15) — ANSI 16 palette index. Emitted as standard SGR codes
+ *   (e.g., index 1 → fg 31, bg 41). Values outside 0–15 are not supported
+ *   and will produce incorrect SGR codes.
  * - `string` — 24-bit hex color (e.g., `"#ff0000"`). Emitted as
  *   true-color SGR codes (`38;2;r;g;b` / `48;2;r;g;b`).
  */

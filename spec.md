@@ -557,7 +557,7 @@ Container sizing props (`width`, `height`, `flex`, `min*`, `max*`, `padding`), f
 | `value`       | `string`                           | Current text content (controlled)                                                        |
 | `onChange`    | `(value: string) => void`          | Called on text change                                                                    |
 | `onKeyPress`  | `(key: string) => boolean \| void` | Key handler, fires before editing. Return `false` to prevent the default editing action. |
-| `placeholder` | `Text`                             | Text node shown when value is empty                                                      |
+| `placeholder` | `TextNode`                         | Text node shown when value is empty (pass a `Text()` call)                               |
 
 Word-wrap is always on. Cursor position is framework-managed.
 
@@ -608,7 +608,7 @@ With the default theme, the app automatically inherits whatever terminal color s
 
 #### Theme override
 
-A **theme** is a mapping from the 16 color slots to rendering output. The default theme maps to ANSI SGR codes. A custom theme can remap any slot to 256-color indices, 24-bit hex values, or a rearranged ANSI palette:
+A **theme** is a mapping from the 16 color slots to rendering output. The default theme maps to ANSI SGR codes. A custom theme can remap any slot to different ANSI palette indices, 24-bit hex values, or a mix of both:
 
 ```ts
 // Custom theme — remap slots to true color

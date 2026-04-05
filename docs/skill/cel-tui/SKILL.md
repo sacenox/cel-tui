@@ -2,10 +2,10 @@
 name: cel-tui
 description: Build terminal user interfaces with cel-tui, a TypeScript TUI framework. Use when the user wants to create a TUI app, build a terminal UI, render text in the terminal, create a CLI with interactive elements, build a chat interface, text editor, or any interactive terminal application. Triggers include "build a TUI", "terminal UI", "interactive CLI", "text-based interface", "render to terminal", or any task requiring a programmatic terminal user interface.
 license: MIT
-compatibility: Requires Bun runtime and a terminal with SGR mouse mode support.
+compatibility: Requires Bun runtime and a terminal supporting the Kitty keyboard protocol and SGR mouse mode.
 metadata:
   author: sacenox
-  version: "0.2.0"
+  version: "0.3.0"
 ---
 
 # Building TUIs with cel-tui
@@ -75,7 +75,7 @@ The steps: `cel.init(terminal)` → `cel.viewport(() => tree)` → mutate state 
 | `Text(content, props?)`   | Leaf                    | Styled text, no children                  |
 | `TextInput(props)`        | Container (no children) | Multi-line editable text                  |
 
-Containers accept sizing (`width`, `height`, `flex`, `"50%"`, `minWidth`/`maxWidth`), layout (`padding`, `gap`, `justifyContent`, `alignItems`, `flexWrap`), scroll (`overflow: "scroll"`, `scrollbar`), styling (`fgColor`, `bgColor`, `bold`, `focusStyle`), and interaction (`onClick`, `focusable`, `focused`, `onKeyPress`). Colors are numbered palette slots (`"color00"`–`"color15"`), mapped to ANSI 16 by default. Custom themes can remap slots to true color via `cel.init(terminal, { theme })`.
+Containers accept sizing (`width`, `height`, `flex`, `"50%"`, `minWidth`/`maxWidth`), layout (`padding`, `gap`, `justifyContent`, `alignItems`, `flexWrap`), scroll (`overflow: "scroll"`, `scrollbar`), styling (`fgColor`, `bgColor`, `bold`, `focusStyle`), and interaction (`onClick`, `focusable`, `focused`, `onKeyPress`). Colors are numbered palette slots (`"color00"`–`"color15"`), mapped to ANSI 16 by default. Custom themes can remap slots to different ANSI indices or 24-bit true color via `cel.init(terminal, { theme })`.
 
 Read [references/api.md](references/api.md) for the full props listing, sizing strategies, text props, and component reference.
 

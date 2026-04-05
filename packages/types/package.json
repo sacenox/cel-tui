@@ -1,6 +1,6 @@
 {
   "name": "@cel-tui/types",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "Type definitions for cel-tui, a TypeScript TUI framework",
   "type": "module",
   "module": "src/index.ts",

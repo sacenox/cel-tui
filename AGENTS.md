@@ -207,7 +207,7 @@ chore: scaffold monorepo with types, core, components packages
 - `layout.ts` — Flexbox engine. `layout(root, width, height)` → `LayoutNode` tree with absolute screen rects.
 - `paint.ts` — Paints `LayoutNode` tree into `CellBuffer`. Handles clip rects, scroll offsets (clamped to max — apps can pass `Infinity` to mean "scroll to end"), scrollbars, grapheme-aware text rendering, TextInput cursor/scroll state (with cursor screen position export for native cursor), TextInput background fill, container bgColor fill, style inheritance threading, focusStyle resolution.
 - `emitter.ts` — `emitBuffer()` for full renders, `emitDiff()` for differential. Both accept an optional `Theme` for color resolution and wrap in CSI 2026 synchronized output. Exports `defaultTheme` (ANSI 16 mapping).
-- `hit-test.ts` — `hitTest(root, x, y)` → path from root to deepest node. `findClickHandler`, `findScrollTarget`, `collectKeyPressHandlers`, `collectFocusable` walk paths.
+- `hit-test.ts` — `hitTest(root, x, y, getScrollOffset?)` → path from root to deepest node at `(x,y)`, accounting for scroll offsets. `findClickHandler`, `findScrollTarget`, `collectKeyPressHandlers`, `collectFocusable` walk paths.
 - `keys.ts` — Kitty keyboard protocol parser. `parseKey(data)` handles CSI u sequences (special keys, modifier combos), CSI letter sequences (arrows, Home/End with modifiers), CSI tilde sequences (Delete, PageUp/Down, F-keys with modifiers), and raw printable bytes. Maps `" "` → `"space"`, `"+"` → `"plus"` as named keys. `isEditingKey()` identifies keys consumed by TextInput. `normalizeKey()` reorders modifiers to canonical `ctrl+alt+shift+<key>` order.
 - `text-edit.ts` — Pure text editing functions (`insertChar`, `deleteBackward`, `deleteForward`, `moveCursor`). Operates on `EditState` (value + cursor position). Uses `Intl.Segmenter` with grapheme granularity for cursor movement and deletion (handles emoji, ZWJ sequences, combining marks). Used by `cel.ts` to handle TextInput key events.
 - `width.ts` — `visibleWidth(str)` measures terminal column width. Fast ASCII path, grapheme segmentation, East Asian width, ANSI stripping, LRU cache.
@@ -267,16 +267,53 @@ cd ../components && bun publish --access public
 
 If 2FA is enabled, add `--otp <code>` to each command.
 
+### Pre-release documentation audit
+
+Before every release, run a full alignment audit across all documentation surfaces. The goal is to catch stale versions, false capability claims, signature mismatches, and terminology drift between the spec, code, JSDocs, agent docs, and skill files.
+
+**What to read** (in this order — each layer should agree with the ones before it):
+
+1. `packages/types/src/index.ts` — the canonical type definitions and their JSDocs
+2. `packages/core/src/*.ts` — implementation (public function signatures, behavior, exports)
+3. `packages/core/src/index.ts` — what's actually exported to consumers
+4. `packages/components/src/*.ts` — component implementations and JSDocs
+5. `spec.md` — design spec (API tables, prop types, behavior descriptions)
+6. `AGENTS.md` — architecture notes, module descriptions, conventions
+7. `README.md` — user-facing overview and feature claims
+8. `docs/skill/cel-tui/SKILL.md` — agent skill (version, compatibility, patterns, gotchas)
+9. `docs/skill/cel-tui/references/*.md` — API reference and composing guide
+10. `TODO.md` — verify listed bugs/violations are still present or mark resolved
+11. `package.json` files — versions, descriptions, dependency declarations
+
+**What to check at each layer:**
+
+- **Versions** — skill metadata, package.json files, and any version references all match
+- **Capability claims** — if docs say "supports X", verify the code actually implements X (e.g., color spaces, protocol levels, sizing strategies)
+- **Function signatures** — parameter names, types, optional params, return types match between code and docs
+- **Prop tables** — every prop in the type definition appears in the spec table with the correct type and description
+- **Terminology** — consistent naming across all surfaces (e.g., `TextNode` vs `Text`, "uncontrolled" vs "framework-managed")
+- **Behavior descriptions** — bubbling semantics, controlled/uncontrolled modes, default values all match the implementation
+- **Exports** — what `index.ts` exports matches what docs say is available
+- **Compatibility/requirements** — terminal requirements, runtime requirements are stated accurately
+- **TODO.md currency** — bugs listed as open are still present in code; any that were fixed should be removed
+
+**After making fixes**, always verify nothing broke:
+
+```bash
+bun run typecheck && bun test && bun run check && bun run format
+```
+
 ### Pre-publish checklist
 
-1. All tests pass: `bun test`
-2. Types clean: `bun run typecheck`
-3. Lint/format clean: `bun run check && bun run format`
-4. Version bumped in all three `package.json` files
-5. Lockfile regenerated: `rm bun.lock && bun install`
-6. **Pre-publish check passes: `bun run prepublish-check`** (verifies lockfile versions match package.json)
-7. Changes committed and pushed
-8. After publishing, **verify on npm**: `npm view @cel-tui/core@<version> dependencies --json`
+1. **Documentation audit passes** (see above)
+2. All tests pass: `bun test`
+3. Types clean: `bun run typecheck`
+4. Lint/format clean: `bun run check && bun run format`
+5. Version bumped in all three `package.json` files
+6. Lockfile regenerated: `rm bun.lock && bun install`
+7. **Pre-publish check passes: `bun run prepublish-check`** (verifies lockfile versions match package.json)
+8. Changes committed and pushed
+9. After publishing, **verify on npm**: `npm view @cel-tui/core@<version> dependencies --json`
 
 ### How it works
 
@@ -298,4 +335,4 @@ More generally: before running any command that could destroy uncommitted work (
 - Primitives are functions that return typed Node objects (not classes)
 - Components in `packages/components/` are plain functions using core primitives
 - Key format: all lowercase, modifiers joined by `+` (e.g., `"ctrl+shift+s"`)
-- Colors: 16 numbered palette slots (`"color00"`–`"color15"`), mapped to ANSI 16 by default via `defaultTheme`. Custom themes can remap slots to 256-color or true color. Omit `fgColor`/`bgColor` for terminal defaults. Always pair `bgColor` with `fgColor` for contrast.
+- Colors: 16 numbered palette slots (`"color00"`–`"color15"`), mapped to ANSI 16 by default via `defaultTheme`. Custom themes can remap slots to different ANSI indices or 24-bit true color. Omit `fgColor`/`bgColor` for terminal defaults. Always pair `bgColor` with `fgColor` for contrast.
