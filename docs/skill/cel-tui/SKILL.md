@@ -5,7 +5,7 @@ license: MIT
 compatibility: Requires Bun runtime and a terminal with SGR mouse mode support.
 metadata:
   author: sacenox
-  version: "0.1.0"
+  version: "0.1.1"
 ---
 
 # Building TUIs with cel-tui
@@ -75,7 +75,7 @@ The steps: `cel.init(terminal)` → `cel.viewport(() => tree)` → mutate state 
 | `Text(content, props?)`   | Leaf                    | Styled text, no children                  |
 | `TextInput(props)`        | Container (no children) | Multi-line editable text                  |
 
-Containers accept sizing (`width`, `height`, `flex`, `"50%"`, `minWidth`/`maxWidth`), layout (`padding`, `gap`, `justifyContent`, `alignItems`), scroll (`overflow: "scroll"`, `scrollbar`), styling (`fgColor`, `bgColor`, `bold`, `focusStyle`), and interaction (`onClick`, `focusable`, `focused`, `onKeyPress`). Colors are numbered palette slots (`"color00"`–`"color15"`), mapped to ANSI 16 by default.
+Containers accept sizing (`width`, `height`, `flex`, `"50%"`, `minWidth`/`maxWidth`), layout (`padding`, `gap`, `justifyContent`, `alignItems`, `flexWrap`), scroll (`overflow: "scroll"`, `scrollbar`), styling (`fgColor`, `bgColor`, `bold`, `focusStyle`), and interaction (`onClick`, `focusable`, `focused`, `onKeyPress`). Colors are numbered palette slots (`"color00"`–`"color15"`), mapped to ANSI 16 by default. Custom themes can remap slots to true color via `cel.init(terminal, { theme })`.
 
 Read [references/api.md](references/api.md) for the full props listing, sizing strategies, text props, and component reference.
 
@@ -113,7 +113,7 @@ VStack(
     overflow: "scroll",
     scrollbar: true,
     scrollOffset: offset,
-    onScroll: (newOffset) => {
+    onScroll: (newOffset, maxOffset) => {
       offset = newOffset;
       cel.render();
     },
@@ -225,7 +225,7 @@ mySelect.reset(); // clear filter/highlight programmatically
 - **Crash cleanup** — terminal state is restored on SIGINT, SIGTERM, uncaughtException.
 - **Always call `cel.stop()` before `process.exit()`** — restores raw mode, mouse tracking, and alternate screen.
 - **Kitty keyboard protocol required** — the framework requires the Kitty keyboard protocol (level 1). All modifier combos (`alt+x`, `ctrl+plus`, `shift+enter`) are fully supported. The terminal must support this protocol (Kitty, WezTerm, Ghostty, foot, Alacritty, Windows Terminal). macOS Terminal.app and older xterm are not supported.
-- **Button limitations** — `Button` from `@cel-tui/components` does not forward `focusStyle`, container sizing, or all style props. Use `HStack` + `Text` directly when you need full control.
+- **Button limitations** — `Button` from `@cel-tui/components` does not forward container sizing props (`width`, `height`, `flex`, `minWidth`, etc.). It supports styling (`fgColor`, `bgColor`, `bold`, etc.), `focusStyle`, `focused`, `onFocus`, `onBlur`, `onKeyPress`, and `padding`. For full layout control, use `HStack` + `Text` directly.
 
 ## Composing Components
 

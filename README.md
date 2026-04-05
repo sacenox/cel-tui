@@ -70,11 +70,11 @@ cel.viewport(() =>
 
 ## Packages
 
-| Package               | Description                                           |
-| --------------------- | ----------------------------------------------------- |
-| `@cel-tui/types`      | Shared type definitions                               |
-| `@cel-tui/core`       | Framework engine and primitives                       |
-| `@cel-tui/components` | Pre-made components (Button, Spacer, Divider, Select) |
+| Package               | Description                                                               |
+| --------------------- | ------------------------------------------------------------------------- |
+| `@cel-tui/types`      | Shared type definitions                                                   |
+| `@cel-tui/core`       | Framework engine and primitives                                           |
+| `@cel-tui/components` | Pre-made components (Button, Spacer, Divider, VDivider, Select, Markdown) |
 
 ## Documentation
 
