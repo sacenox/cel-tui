@@ -62,6 +62,22 @@ describe("text editing", () => {
       expect(result.value).toBe("");
       expect(result.cursor).toBe(0);
     });
+
+    test("deletes entire emoji (multi-codepoint)", () => {
+      // 👨‍👩‍👧 is a ZWJ family emoji (multiple codepoints, one grapheme)
+      const emoji = "👨\u200D👩\u200D👧";
+      const val = "a" + emoji + "b";
+      const cursorAfterEmoji = 1 + emoji.length;
+      const result = deleteBackward(state(val, cursorAfterEmoji));
+      expect(result.value).toBe("ab");
+      expect(result.cursor).toBe(1);
+    });
+
+    test("deletes single emoji", () => {
+      const result = deleteBackward(state("hi😀!", 2 + "😀".length));
+      expect(result.value).toBe("hi!");
+      expect(result.cursor).toBe(2);
+    });
   });
 
   describe("deleteForward", () => {
@@ -75,6 +91,22 @@ describe("text editing", () => {
       const result = deleteForward(state("hello", 5));
       expect(result.value).toBe("hello");
       expect(result.cursor).toBe(5);
+    });
+
+    test("deletes entire emoji forward", () => {
+      const emoji = "😀";
+      const val = "a" + emoji + "b";
+      const result = deleteForward(state(val, 1));
+      expect(result.value).toBe("ab");
+      expect(result.cursor).toBe(1);
+    });
+
+    test("deletes ZWJ sequence forward", () => {
+      const emoji = "👨\u200D👩\u200D👧";
+      const val = "x" + emoji + "y";
+      const result = deleteForward(state(val, 1));
+      expect(result.value).toBe("xy");
+      expect(result.cursor).toBe(1);
     });
   });
 
@@ -97,6 +129,28 @@ describe("text editing", () => {
     test("right at end stays at end", () => {
       const result = moveCursor(state("hello", 5), "right");
       expect(result.cursor).toBe(5);
+    });
+
+    test("left skips over multi-codepoint emoji", () => {
+      const emoji = "\ud83d\ude00"; // 😀 is 2 UTF-16 code units
+      const val = "a" + emoji + "b";
+      const cursorAfterEmoji = 1 + emoji.length;
+      const result = moveCursor(state(val, cursorAfterEmoji), "left");
+      expect(result.cursor).toBe(1); // before the emoji
+    });
+
+    test("right skips over multi-codepoint emoji", () => {
+      const emoji = "\ud83d\ude00";
+      const val = "a" + emoji + "b";
+      const result = moveCursor(state(val, 1), "right");
+      expect(result.cursor).toBe(1 + emoji.length); // after the emoji
+    });
+
+    test("left skips over ZWJ sequence", () => {
+      const emoji = "\ud83d\udc68\u200D\ud83d\udc69\u200D\ud83d\udc67";
+      const val = "x" + emoji;
+      const result = moveCursor(state(val, val.length), "left");
+      expect(result.cursor).toBe(1); // before the ZWJ sequence
     });
 
     test("home moves to start", () => {

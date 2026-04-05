@@ -1530,6 +1530,103 @@ describe("cel end-to-end", () => {
       await waitForRender();
       expect(clicks).toEqual(["uncontrolled"]);
     });
+
+    test("controlled TextInput as only focusable: Escape+Tab re-focuses it", async () => {
+      const term = setup(40, 5);
+      let value = "";
+      let inputFocused = false;
+
+      cel.viewport(() =>
+        VStack({ width: 40, height: 5 }, [
+          TextInput({
+            value,
+            onChange: (v) => {
+              value = v;
+              cel.render();
+            },
+            focused: inputFocused,
+            onFocus: () => {
+              inputFocused = true;
+              cel.render();
+            },
+            onBlur: () => {
+              inputFocused = false;
+              cel.render();
+            },
+          }),
+        ]),
+      );
+      await waitForRender();
+
+      // Tab → TextInput focused
+      term.sendInput(TAB);
+      await waitForRender();
+      expect(inputFocused).toBe(true);
+
+      // Escape → unfocused
+      term.sendInput(ESCAPE);
+      await waitForRender();
+      expect(inputFocused).toBe(false);
+
+      // Tab → only one focusable, wraps to it again
+      term.sendInput(TAB);
+      await waitForRender();
+      expect(inputFocused).toBe(true);
+    });
+
+    test("controlled TextInput: Escape then Tab advances past it", async () => {
+      const term = setup(40, 5);
+      let value = "";
+      let inputFocused = false;
+      const clicks: string[] = [];
+
+      cel.viewport(() =>
+        VStack({ width: 40, height: 5 }, [
+          TextInput({
+            value,
+            onChange: (v) => {
+              value = v;
+              cel.render();
+            },
+            focused: inputFocused,
+            onFocus: () => {
+              inputFocused = true;
+              cel.render();
+            },
+            onBlur: () => {
+              inputFocused = false;
+              cel.render();
+            },
+          }),
+          HStack({ onClick: () => clicks.push("btn") }, [Text("Button")]),
+        ]),
+      );
+      await waitForRender();
+
+      // Tab focuses the TextInput
+      term.sendInput(TAB);
+      await waitForRender();
+      expect(inputFocused).toBe(true);
+
+      // Tab inserts \t (editing key) while TextInput is focused
+      term.sendInput(TAB);
+      await waitForRender();
+      expect(value).toBe("\t");
+
+      // Escape unfocuses
+      term.sendInput(ESCAPE);
+      await waitForRender();
+      expect(inputFocused).toBe(false);
+
+      // Tab should advance PAST the TextInput to the Button
+      term.sendInput(TAB);
+      await waitForRender();
+
+      // Enter activates the button
+      term.sendInput(ENTER);
+      await waitForRender();
+      expect(clicks).toEqual(["btn"]);
+    });
   });
 
   describe("focusStyle rendering", () => {

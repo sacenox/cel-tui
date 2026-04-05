@@ -537,25 +537,6 @@ function paintTextInput(
     const line = lines[lineIdx]!;
     paintLineGraphemes(line, cx, cy + row, cw, clipRect, props, buf);
   }
-
-  // Paint cursor if focused
-  if (props.focused) {
-    const cursorOffset = getTextInputCursor(props);
-    const pos = offsetToWrappedPos(value, cursorOffset, cw);
-    const screenRow = pos.line - scrollOffset;
-    if (screenRow >= 0 && screenRow < ch && pos.col < cw) {
-      const existing = buf.get(cx + pos.col, cy + screenRow);
-      // Invert colors for cursor visibility
-      buf.set(cx + pos.col, cy + screenRow, {
-        char: existing.char === " " && !existing.bgColor ? " " : existing.char,
-        fgColor: existing.bgColor ?? null,
-        bgColor: existing.fgColor ?? null,
-        bold: existing.bold,
-        italic: existing.italic,
-        underline: existing.underline,
-      });
-    }
-  }
 }
 
 /**
@@ -609,9 +590,44 @@ type OnChangeFn = (value: string) => void;
 const textInputCursors = new WeakMap<OnChangeFn, number>();
 const textInputScrolls = new WeakMap<OnChangeFn, number>();
 
+/**
+ * Compute the screen position of the cursor for a focused TextInput.
+ * Returns `{ x, y }` in 0-indexed screen coordinates, or `null` if
+ * the cursor is not visible (clipped or not focused).
+ */
+export function getTextInputCursorScreenPos(
+  props: TextInputProps,
+  rect: Rect,
+): { x: number; y: number } | null {
+  const { x, y, width: w, height: h } = rect;
+  if (w <= 0 || h <= 0) return null;
+
+  const padX = props.padding?.x ?? 0;
+  const padY = props.padding?.y ?? 0;
+  const cx = x + padX;
+  const cy = y + padY;
+  const cw = Math.max(0, w - padX * 2);
+  const ch = Math.max(0, h - padY * 2);
+  if (cw <= 0 || ch <= 0) return null;
+
+  const cursorOffset = getTextInputCursor(props);
+  const pos = offsetToWrappedPos(props.value, cursorOffset, cw);
+  const scrollOffset = getTextInputScroll(props);
+  const screenRow = pos.line - scrollOffset;
+
+  if (screenRow >= 0 && screenRow < ch && pos.col < cw) {
+    return { x: cx + pos.col, y: cy + screenRow };
+  }
+  return null;
+}
+
 /** Get the cursor offset for a TextInput (framework-managed). */
 export function getTextInputCursor(props: TextInputProps): number {
-  return textInputCursors.get(props.onChange) ?? props.value.length;
+  const stored = textInputCursors.get(props.onChange);
+  if (stored === undefined) return props.value.length;
+  // Clamp to value length — the app may have cleared or shortened the value
+  // externally (e.g. after submit) while the WeakMap still holds the old cursor.
+  return Math.min(stored, props.value.length);
 }
 
 /** Set the cursor offset for a TextInput. */

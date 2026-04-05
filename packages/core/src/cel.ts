@@ -16,6 +16,7 @@ import {
   setTextInputCursor,
   getTextInputScroll,
   setTextInputScroll,
+  getTextInputCursorScreenPos,
 } from "./paint.js";
 import {
   insertChar,
@@ -112,6 +113,69 @@ function doRender(): void {
     const output = emitBuffer(currentBuffer, activeTheme);
     terminal.write(output);
   }
+
+  // Position the native terminal cursor at the focused TextInput's cursor.
+  // This gives us a blinking cursor for free (terminal-managed blink).
+  positionTerminalCursor();
+}
+
+/**
+ * After each render, show the native terminal cursor at the focused
+ * TextInput's cursor position (gives blinking for free). When no
+ * TextInput is focused, hide the cursor.
+ */
+function positionTerminalCursor(): void {
+  if (!terminal) return;
+
+  // Find focused TextInput in the layout tree (check stamped state during
+  // render — we need to check controlled focus in the current layouts)
+  const focusedTI = findFocusedTextInputLayout();
+  if (focusedTI) {
+    const props = focusedTI.node
+      .props as import("@cel-tui/types").TextInputProps;
+    const pos = getTextInputCursorScreenPos(props, focusedTI.rect);
+    if (pos) {
+      // CUP: move cursor to (row, col) — 1-indexed
+      terminal.write(`\x1b[${pos.y + 1};${pos.x + 1}H`);
+      terminal.showCursor();
+      return;
+    }
+  }
+  terminal.hideCursor();
+}
+
+/**
+ * Find the focused TextInput in the current layout tree.
+ * Checks controlled focus (props.focused) and uncontrolled
+ * (framework-tracked index). Returns the LayoutNode or null.
+ */
+function findFocusedTextInputLayout(): LayoutNode | null {
+  // Check controlled focus: scan all layers for TextInput with focused: true
+  for (let i = currentLayouts.length - 1; i >= 0; i--) {
+    const found = findFocusedTIInTree(currentLayouts[i]!);
+    if (found) return found;
+  }
+  // Check uncontrolled focus
+  if (frameworkFocusIndex >= 0) {
+    const topLayer = currentLayouts[currentLayouts.length - 1];
+    if (topLayer) {
+      const focusables = collectFocusable(topLayer);
+      if (frameworkFocusIndex < focusables.length) {
+        const target = focusables[frameworkFocusIndex]!;
+        if (target.node.type === "textinput") return target;
+      }
+    }
+  }
+  return null;
+}
+
+function findFocusedTIInTree(ln: LayoutNode): LayoutNode | null {
+  if (ln.node.type === "textinput" && ln.node.props.focused) return ln;
+  for (const child of ln.children) {
+    const found = findFocusedTIInTree(child);
+    if (found) return found;
+  }
+  return null;
 }
 
 // --- Input handling ---
