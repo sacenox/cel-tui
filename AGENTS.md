@@ -247,6 +247,14 @@ All three packages share the same version. Bump all together:
 
 Follow [semver](https://semver.org/): patch for fixes, minor for features, major for breaking changes. While `0.x`, minor = breaking is acceptable.
 
+**⚠️ Critical: After bumping versions, regenerate the lockfile:**
+
+```bash
+rm bun.lock && bun install
+```
+
+`bun publish` resolves `workspace:*` from `bun.lock`, **not** from `package.json`. If you skip this step, the published packages will depend on the old version. `bun install` alone does NOT update workspace versions in an existing lockfile — you must delete and regenerate it.
+
 ### Publish order
 
 Must publish in dependency order — types first, then core, then components:
@@ -265,14 +273,16 @@ If 2FA is enabled, add `--otp <code>` to each command.
 2. Types clean: `bun run typecheck`
 3. Lint/format clean: `bun run check && bun run format`
 4. Version bumped in all three `package.json` files
-5. Changes committed and pushed
-6. Dry run looks correct: `cd packages/core && bun publish --dry-run --access public`
+5. Lockfile regenerated: `rm bun.lock && bun install`
+6. **Pre-publish check passes: `bun run prepublish-check`** (verifies lockfile versions match package.json)
+7. Changes committed and pushed
+8. After publishing, **verify on npm**: `npm view @cel-tui/core@<version> dependencies --json`
 
 ### How it works
 
 - `"files"` in each `package.json` whitelists what ships (source only, no tests)
 - `"exports"` map provides proper module resolution for Bun and bundlers
-- `workspace:*` dependencies are resolved to actual versions by `bun publish`
+- `workspace:*` dependencies are resolved to actual versions by `bun publish` **using versions from `bun.lock`** (not package.json — the lockfile must be regenerated after version bumps)
 - `get-east-asian-width` is a real dependency of `@cel-tui/core` (installs for consumers)
 - `typescript` is a peer dependency (consumers bring their own)
 
