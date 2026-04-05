@@ -12,10 +12,6 @@ Remaining work, known bugs, and planned improvements.
 
 ## Bugs / Spec Violations
 
-- ~~🔧 **TextInput cursor movement doesn't handle multi-codepoint graphemes** — Fixed: `text-edit.ts` now uses `Intl.Segmenter` with grapheme granularity for `deleteBackward`, `deleteForward`, and `moveCursor` (left/right). Multi-codepoint characters (emoji, ZWJ sequences, combining marks) are treated as single units.~~
-
-- ~~🔧 **Controlled-focus TextInput traps Tab traversal** — Already works: `lastFocusedIndex` tracks which element was just Escaped from, and Tab/Shift+Tab advance past it. Added regression tests confirming Escape+Tab correctly reaches subsequent focusable elements.~~
-
 - 🔧 **Scrollbar thumb position ignores padding** — `paintScrollbar` in `paint.ts` computes `maxOffset = contentHeight - rect.height` without accounting for container padding, while the scroll clamping logic uses `contentHeight + padY - rect.height`. For padded scrollable containers the thumb position is slightly off.
 
 - 🔧 **Duplicate max scroll offset calculation** — `getMaxScrollOffset` in `cel.ts` and `computeMaxScrollOffset` in `paint.ts` implement the same logic. Should be extracted to a shared function.
@@ -23,14 +19,6 @@ Remaining work, known bugs, and planned improvements.
 - 🔧 **Key events leak through layers** — When no element is focused and the topmost layer's root has no `onKeyPress`, `handleKeyEvent` falls through to lower layers. Mouse input stops at the topmost layer with a node at the event position, but keyboard input doesn't follow the same rule. A modal overlay without its own root `onKeyPress` would leak keys to the base layer, breaking the "events target the topmost layer" principle.
 
 - 🔧 **`space-between` + `gap` double-spaces children** — When both `justifyContent: "space-between"` and `gap` are set, children get `gap` spacing plus the distributed remaining space on top. The remaining-space calculation subtracts `totalGap` first, then `space-between` distributes what's left as extra gap — so the effective gap is `gap + betweenGaps[i]`. CSS flex doesn't stack `space-between` on top of `gap` this way. The spec doesn't define this interaction.
-
-- ~~🔧 **TextInput invisible after value cleared externally** — Fixed: `getTextInputCursor` now clamps the stored cursor to `value.length`. Previously, clearing the value (e.g. after submit) left a stale cursor position in the WeakMap, causing auto-scroll to push all content out of view on subsequent typing.~~
-
-- ~~🔧 **Cross-axis constraints not applied in layout** — Fixed: `minWidth`/`maxWidth`/`minHeight`/`maxHeight` are now applied on the cross axis during layout (both in intrinsic sizing and during child positioning). This enables the autogrowing TextInput pattern (`maxHeight` on TextInput inside HStack).~~
-
-- ~~🔧 **TextInput cursor was static color-inversion instead of native blinking** — Fixed: switched from painting an inverted cell to positioning the real terminal cursor at the TextInput's cursor location. The terminal provides native blinking for free. Cursor is hidden when no TextInput is focused.~~
-
-- ~~🔧 **Color theme doesn't respect terminal 16 color setup** -- Fixed: replaced named colors (`"red"`, `"white"`, etc.) with numbered palette slots (`"color00"`–`"color15"`). Added `Theme` type for custom color mappings, `defaultTheme` (ANSI 16), and `cel.init(terminal, { theme })` API. Spec updated with Color System section. No more confusing `"white"` vs terminal default.~~
 
 ---
 
