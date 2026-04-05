@@ -286,6 +286,10 @@ describe("isEditingKey", () => {
     expect(isEditingKey("end")).toBe(true);
   });
 
+  test("shift+enter is an editing key (inserts newline)", () => {
+    expect(isEditingKey("shift+enter")).toBe(true);
+  });
+
   test("modifier combos are NOT editing keys", () => {
     expect(isEditingKey("ctrl+s")).toBe(false);
     expect(isEditingKey("alt+x")).toBe(false);

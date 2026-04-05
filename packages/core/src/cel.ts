@@ -555,11 +555,15 @@ function handleMouseEvent(event: MouseEvent): void {
             if (props.onScroll) {
               // Controlled scroll: notify app.
               // Use batch accumulator if available (multiple events in one chunk),
-              // otherwise read from props.
-              const baseOffset =
+              // otherwise read from props. Clamp to maxOffset first so that
+              // Infinity (sticky-bottom) resolves to a finite value before
+              // applying the delta — otherwise Infinity + (-1) = Infinity
+              // and scrolling up never unsticks.
+              const rawBase =
                 batchScrollOffsets?.get(props) ??
                 (props as any).scrollOffset ??
                 0;
+              const baseOffset = Math.min(rawBase, maxOffset);
               const newOffset = Math.max(
                 0,
                 Math.min(maxOffset, baseOffset + delta),
@@ -728,6 +732,7 @@ function handleKeyEvent(key: string, rawData?: string): void {
           }
           break;
         case "enter":
+        case "shift+enter":
           newState = insertChar(editState, "\n");
           break;
         case "tab":

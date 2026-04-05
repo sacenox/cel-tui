@@ -397,6 +397,42 @@ describe("cel end-to-end", () => {
 
       expect(scrollOffset).toBe(2);
     });
+
+    test("scroll up unsticks from Infinity scrollOffset (sticky-bottom pattern)", async () => {
+      const term = setup(20, 5);
+      let scrollOffset = 0;
+      let stickToBottom = true;
+
+      cel.viewport(() =>
+        VStack(
+          {
+            width: 20,
+            height: 5,
+            overflow: "scroll",
+            scrollbar: true,
+            scrollOffset: stickToBottom ? Infinity : scrollOffset,
+            onScroll: (offset, maxOffset) => {
+              scrollOffset = offset;
+              stickToBottom = offset >= maxOffset;
+              cel.render();
+            },
+          },
+          // 10 items in 5-row viewport → max offset = 5
+          Array.from({ length: 10 }, (_, i) => Text(`line ${i + 1}`)),
+        ),
+      );
+      await waitForRender();
+
+      // Initially stuck to bottom (Infinity → clamped to maxOffset=5)
+      expect(stickToBottom).toBe(true);
+
+      // Scroll up — should unstick from bottom
+      term.sendInput("\x1b[<64;4;3M");
+      await waitForRender();
+
+      expect(stickToBottom).toBe(false);
+      expect(scrollOffset).toBe(4); // maxOffset(5) - 1 = 4
+    });
   });
 
   describe("focus system", () => {
@@ -914,6 +950,88 @@ describe("cel end-to-end", () => {
       term.sendInput(TAB);
       await waitForRender();
       expect(value).toBe("hello\t");
+    });
+
+    test("Shift+Enter inserts newline in TextInput", async () => {
+      const term = setup(20, 5);
+      let value = "hello";
+      cel.viewport(() =>
+        VStack({ width: 20, height: 5 }, [
+          TextInput({
+            value,
+            focused: true,
+            onChange: (v) => {
+              value = v;
+            },
+          }),
+        ]),
+      );
+      await waitForRender();
+
+      // Shift+Enter should insert a newline at cursor position
+      term.sendInput(kittyEncode("shift+enter"));
+      await waitForRender();
+      expect(value).toBe("hello\n");
+    });
+
+    test("Shift+Enter inserts newline at cursor, not just at end", async () => {
+      const term = setup(20, 5);
+      let value = "hello";
+      // Stable onChange ref so cursor state persists across re-renders
+      const onChange = (v: string) => {
+        value = v;
+      };
+      cel.viewport(() =>
+        VStack({ width: 20, height: 5 }, [
+          TextInput({
+            value,
+            focused: true,
+            onChange,
+          }),
+        ]),
+      );
+      await waitForRender();
+
+      // Move cursor left 3 times (to position 2: "he|llo")
+      term.sendInput(kittyEncode("left"));
+      await waitForRender();
+      term.sendInput(kittyEncode("left"));
+      await waitForRender();
+      term.sendInput(kittyEncode("left"));
+      await waitForRender();
+
+      // Shift+Enter should insert newline at cursor
+      term.sendInput(kittyEncode("shift+enter"));
+      await waitForRender();
+      expect(value).toBe("he\nllo");
+    });
+
+    test("Shift+Enter does not trigger submitKey", async () => {
+      const term = setup(20, 5);
+      let value = "hello";
+      let submitted = false;
+      cel.viewport(() =>
+        VStack({ width: 20, height: 5 }, [
+          TextInput({
+            value,
+            focused: true,
+            onChange: (v) => {
+              value = v;
+            },
+            onSubmit: () => {
+              submitted = true;
+            },
+            // default submitKey is "enter"
+          }),
+        ]),
+      );
+      await waitForRender();
+
+      // Shift+Enter should insert newline, NOT submit
+      term.sendInput(kittyEncode("shift+enter"));
+      await waitForRender();
+      expect(submitted).toBe(false);
+      expect(value).toBe("hello\n");
     });
 
     test("Shift+Tab does not traverse focus when TextInput is focused", async () => {
