@@ -30,6 +30,14 @@ import { getMaxScrollOffset } from "./scroll.js";
 
 type RenderFn = () => Node | Node[];
 
+type TerminalCursorState =
+  | { visible: false }
+  | {
+      visible: true;
+      x: number;
+      y: number;
+    };
+
 let terminal: Terminal | null = null;
 let activeTheme: Theme = defaultTheme;
 let renderFn: RenderFn | null = null;
@@ -59,6 +67,9 @@ const uncontrolledScrollOffsets = new Map<string, number>();
 
 /** Nodes whose props were stamped with scrollOffset during the last paint. */
 let stampedScrollNodes: { node: Node; key: string }[] = [];
+
+/** The cursor state currently expected on the terminal. */
+let lastTerminalCursor: TerminalCursorState | null = { visible: false };
 
 function doRender(): void {
   renderScheduled = false;
@@ -105,43 +116,38 @@ function doRender(): void {
   unstampUncontrolledFocus();
   unstampUncontrolledScroll();
 
+  const nextCursor = getDesiredTerminalCursor();
+
   // Emit to terminal — differential when possible
   if (prevBuffer) {
-    const output = emitDiff(prevBuffer, currentBuffer, activeTheme);
+    const output = emitDiff(prevBuffer, currentBuffer, activeTheme, {
+      cursor: nextCursor,
+      previousCursor: lastTerminalCursor,
+    });
     if (output.length > 0) terminal.write(output);
   } else {
-    const output = emitBuffer(currentBuffer, activeTheme);
+    const output = emitBuffer(currentBuffer, activeTheme, {
+      cursor: nextCursor,
+      previousCursor: lastTerminalCursor,
+    });
     terminal.write(output);
   }
 
-  // Position the native terminal cursor at the focused TextInput's cursor.
-  // This gives us a blinking cursor for free (terminal-managed blink).
-  positionTerminalCursor();
+  lastTerminalCursor = nextCursor;
 }
 
 /**
- * After each render, show the native terminal cursor at the focused
- * TextInput's cursor position (gives blinking for free). When no
- * TextInput is focused, hide the cursor.
+ * Resolve the final terminal cursor state for the current frame.
+ * The cursor is shown only for a focused TextInput whose cursor is visible
+ * within the clipped viewport.
  */
-function positionTerminalCursor(): void {
-  if (!terminal) return;
-
-  // Find focused TextInput in the layout tree (check stamped state during
-  // render — we need to check controlled focus in the current layouts)
+function getDesiredTerminalCursor(): TerminalCursorState {
   const focusedTI = findFocusedTextInputLayout();
-  if (focusedTI) {
-    const props = focusedTI.node
-      .props as import("@cel-tui/types").TextInputProps;
-    const pos = getTextInputCursorScreenPos(props, focusedTI.rect);
-    if (pos) {
-      // CUP: move cursor to (row, col) — 1-indexed
-      terminal.write(`\x1b[${pos.y + 1};${pos.x + 1}H`);
-      terminal.showCursor();
-      return;
-    }
-  }
-  terminal.hideCursor();
+  if (!focusedTI) return { visible: false };
+
+  const props = focusedTI.node.props as import("@cel-tui/types").TextInputProps;
+  const pos = getTextInputCursorScreenPos(props, focusedTI.rect);
+  return pos ? { visible: true, x: pos.x, y: pos.y } : { visible: false };
 }
 
 /**
@@ -847,6 +853,7 @@ export const cel = {
   init(term: Terminal, options?: { theme?: Theme }): void {
     terminal = term;
     activeTheme = options?.theme ?? defaultTheme;
+    lastTerminalCursor = { visible: false };
     terminal.start(handleInput, () => cel.render());
   },
 
@@ -892,6 +899,7 @@ export const cel = {
     stampedNode = null;
     uncontrolledScrollOffsets.clear();
     stampedScrollNodes = [];
+    lastTerminalCursor = { visible: false };
     activeTheme = defaultTheme;
   },
 

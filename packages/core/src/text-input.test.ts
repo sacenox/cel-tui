@@ -375,6 +375,34 @@ describe("TextInput integration", () => {
     expect(value).toBe("abcXdef");
   });
 
+  test("animated sibling updates do not emit cursor commands after synchronized output", async () => {
+    const term = setup(20, 3);
+    let tick = 0;
+    const onChange = () => {};
+
+    cel.viewport(() =>
+      VStack({ height: "100%" }, [
+        Text(`tick:${tick}`),
+        TextInput({
+          value: "abc",
+          focused: true,
+          onChange,
+        }),
+      ]),
+    );
+    await waitForRender();
+
+    term.clearOutput();
+    tick = 1;
+    cel.render();
+    await waitForRender();
+
+    expect(term.output.endsWith("\x1b[?2026l")).toBe(true);
+    expect(term.output).not.toContain("\x1b[?25h");
+    expect(term.output).toContain("\x1b7");
+    expect(term.output).toContain("\x1b8");
+  });
+
   test("auto-scrolls to keep cursor visible when typing past viewport", async () => {
     const term = setup(20, 3); // 3 rows tall
     let value = "line1\nline2\nline3";
