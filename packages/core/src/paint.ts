@@ -2,6 +2,8 @@ import type { Color, StyleProps, TextInputProps } from "@cel-tui/types";
 import type { Cell } from "./cell-buffer.js";
 import { CellBuffer } from "./cell-buffer.js";
 import type { LayoutNode, Rect } from "./layout.js";
+import { getMaxScrollOffset } from "./scroll.js";
+import { layoutText } from "./text-layout.js";
 import { visibleWidth } from "./width.js";
 
 const segmenter = new Intl.Segmenter(undefined, { granularity: "grapheme" });
@@ -104,32 +106,6 @@ function fillBackground(
   }
 }
 
-/**
- * Compute the maximum scroll offset for a scrollable container.
- * This is the content size minus the viewport size along the main axis.
- */
-function computeMaxScrollOffset(ln: LayoutNode, isVertical: boolean): number {
-  const { rect, children } = ln;
-  const props = ln.node.type !== "text" ? ln.node.props : null;
-  const padX = (props as any)?.padding?.x ?? 0;
-  const padY = (props as any)?.padding?.y ?? 0;
-
-  if (isVertical) {
-    let contentHeight = 0;
-    for (const child of children) {
-      const childBottom = child.rect.y + child.rect.height - rect.y;
-      if (childBottom > contentHeight) contentHeight = childBottom;
-    }
-    return Math.max(0, contentHeight + padY - rect.height);
-  }
-  let contentWidth = 0;
-  for (const child of children) {
-    const childRight = child.rect.x + child.rect.width - rect.x;
-    if (childRight > contentWidth) contentWidth = childRight;
-  }
-  return Math.max(0, contentWidth + padX - rect.width);
-}
-
 function paintLayoutNode(
   ln: LayoutNode,
   buf: CellBuffer,
@@ -203,7 +179,7 @@ function paintLayoutNode(
   if (isScrollable) {
     const raw = containerProps.scrollOffset ?? 0;
     // Clamp to valid range so apps can pass large values to mean "scroll to end"
-    const maxOffset = computeMaxScrollOffset(ln, isVertical);
+    const maxOffset = getMaxScrollOffset(ln);
     scrollOffset = Math.max(0, Math.min(raw, maxOffset));
   }
 
@@ -434,26 +410,11 @@ function paintText(
     text = content.repeat(props.repeat);
   }
 
-  // Split into lines
-  const rawLines = text.split("\n");
-
-  // Word-wrap if enabled
-  const lines: string[] = [];
-  if (props.wrap === "word") {
-    for (const rawLine of rawLines) {
-      if (visibleWidth(rawLine) <= w) {
-        lines.push(rawLine);
-      } else {
-        wrapLine(rawLine, w, lines);
-      }
-    }
-  } else {
-    lines.push(...rawLines);
-  }
+  const textLayout = layoutText(text, w, props.wrap ?? "none");
 
   // Paint lines, clipped to rect (grapheme-aware)
-  for (let row = 0; row < lines.length && row < h; row++) {
-    const line = lines[row]!;
+  for (let row = 0; row < textLayout.lineCount && row < h; row++) {
+    const line = textLayout.lines[row]!.text;
     paintLineGraphemes(line, x, y + row, w, clipRect, props, buf);
   }
 }
@@ -510,22 +471,14 @@ function paintTextInput(
     return;
   }
 
-  // Word-wrap value (always on for TextInput) using content width
-  const lines: string[] = [];
-  for (const rawLine of value.split("\n")) {
-    if (visibleWidth(rawLine) <= cw) {
-      lines.push(rawLine);
-    } else {
-      wrapLine(rawLine, cw, lines);
-    }
-  }
+  const textLayout = layoutText(value, cw, "word");
 
   // Framework-managed scroll: auto-scroll to keep cursor visible
   let scrollOffset = getTextInputScroll(props);
 
   if (props.focused) {
     const cursorOffset = getTextInputCursor(props);
-    const cursorPos = offsetToWrappedPos(value, cursorOffset, cw);
+    const cursorPos = textLayout.offsetToPosition(cursorOffset);
     // Scroll down if cursor is below viewport
     if (cursorPos.line >= scrollOffset + ch) {
       scrollOffset = cursorPos.line - ch + 1;
@@ -540,8 +493,8 @@ function paintTextInput(
   // Paint visible lines (grapheme-aware) in content area
   for (let row = 0; row < ch; row++) {
     const lineIdx = scrollOffset + row;
-    if (lineIdx >= lines.length) break;
-    const line = lines[lineIdx]!;
+    if (lineIdx >= textLayout.lineCount) break;
+    const line = textLayout.lines[lineIdx]!.text;
     paintLineGraphemes(line, cx, cy + row, cw, clipRect, props, buf);
   }
 
@@ -551,7 +504,7 @@ function paintTextInput(
   // for blinking.
   if (props.focused) {
     const cursorOffset = getTextInputCursor(props);
-    const pos = offsetToWrappedPos(value, cursorOffset, cw);
+    const pos = textLayout.offsetToPosition(cursorOffset);
     const screenRow = pos.line - scrollOffset;
     if (screenRow >= 0 && screenRow < ch && pos.col < cw) {
       const absX = cx + pos.col;
@@ -579,43 +532,6 @@ function paintTextInput(
       }
     }
   }
-}
-
-/**
- * Map a cursor offset in the raw value to a (line, col) position
- * in the word-wrapped output.
- */
-function offsetToWrappedPos(
-  value: string,
-  cursor: number,
-  width: number,
-): { line: number; col: number } {
-  const rawLines = value.split("\n");
-  let offset = 0;
-  let wrappedLine = 0;
-
-  for (const rawLine of rawLines) {
-    if (cursor <= offset + rawLine.length) {
-      // Cursor is in this raw line
-      const colInRaw = cursor - offset;
-      if (width <= 0) return { line: wrappedLine, col: colInRaw };
-      // Compute visible width of text before cursor
-      const textBeforeCursor = rawLine.slice(0, colInRaw);
-      const vw = visibleWidth(textBeforeCursor);
-      const extraLines = Math.floor(vw / width);
-      return { line: wrappedLine + extraLines, col: vw % width };
-    }
-    // Count wrapped lines for this raw line
-    const lineVW = visibleWidth(rawLine);
-    if (lineVW <= width || width <= 0) {
-      wrappedLine += 1;
-    } else {
-      wrappedLine += Math.ceil(lineVW / width);
-    }
-    offset += rawLine.length + 1; // +1 for \n
-  }
-
-  return { line: wrappedLine, col: 0 };
 }
 
 // --- Framework-managed state ---
@@ -653,7 +569,8 @@ export function getTextInputCursorScreenPos(
   if (cw <= 0 || ch <= 0) return null;
 
   const cursorOffset = getTextInputCursor(props);
-  const pos = offsetToWrappedPos(props.value, cursorOffset, cw);
+  const textLayout = layoutText(props.value, cw, "word");
+  const pos = textLayout.offsetToPosition(cursorOffset);
   const scrollOffset = getTextInputScroll(props);
   const screenRow = pos.line - scrollOffset;
 
@@ -691,59 +608,4 @@ export function setTextInputScroll(
   scroll: number,
 ): void {
   textInputScrolls.set(props.onChange, scroll);
-}
-
-/**
- * Simple word-wrap: break a line into multiple lines at word boundaries.
- */
-function wrapLine(line: string, width: number, out: string[]): void {
-  if (width <= 0) return;
-
-  let current = "";
-  let currentW = 0;
-  const words = line.split(" ");
-
-  for (const word of words) {
-    const wordW = visibleWidth(word);
-    if (currentW === 0) {
-      current = word;
-      currentW = wordW;
-    } else if (currentW + 1 + wordW <= width) {
-      current += " " + word;
-      currentW += 1 + wordW;
-    } else {
-      out.push(current);
-      current = word;
-      currentW = wordW;
-    }
-
-    // Handle words longer than width (break by grapheme)
-    while (currentW > width) {
-      let taken = "";
-      let takenW = 0;
-      let rest = "";
-      let inRest = false;
-      for (const { segment } of segmenter.segment(current)) {
-        if (inRest) {
-          rest += segment;
-          continue;
-        }
-        const gw = visibleWidth(segment);
-        if (takenW + gw > width) {
-          rest += segment;
-          inRest = true;
-        } else {
-          taken += segment;
-          takenW += gw;
-        }
-      }
-      out.push(taken);
-      current = rest;
-      currentW = visibleWidth(rest);
-    }
-  }
-
-  if (current.length > 0) {
-    out.push(current);
-  }
 }

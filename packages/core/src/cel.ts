@@ -26,7 +26,7 @@ import {
   type EditState,
 } from "./text-edit.js";
 import type { Terminal } from "./terminal.js";
-import { visibleWidth } from "./width.js";
+import { getMaxScrollOffset } from "./scroll.js";
 
 type RenderFn = () => Node | Node[];
 
@@ -450,49 +450,6 @@ function changeFocus(target: LayoutNode | null): void {
     if (props && "onFocus" in props && props.onFocus) {
       props.onFocus();
     }
-  }
-}
-
-/**
- * Compute the maximum scroll offset for a scrollable container or TextInput.
- * Returns 0 if content fits within the viewport.
- */
-function getMaxScrollOffset(target: LayoutNode): number {
-  const { rect, children } = target;
-
-  // TextInput: compute content height from wrapped text value
-  if (target.node.type === "textinput") {
-    const w = rect.width;
-    const value = target.node.props.value;
-    let lineCount = 0;
-    for (const rawLine of value.split("\n")) {
-      const lw = visibleWidth(rawLine);
-      lineCount += w > 0 && lw > w ? Math.ceil(lw / w) : 1;
-    }
-    return Math.max(0, lineCount - rect.height);
-  }
-
-  const isVertical = target.node.type === "vstack";
-  const props = target.node.type !== "text" ? target.node.props : null;
-  const padX = (props as any)?.padding?.x ?? 0;
-  const padY = (props as any)?.padding?.y ?? 0;
-
-  if (isVertical) {
-    let contentHeight = 0;
-    for (const child of children) {
-      const childBottom = child.rect.y + child.rect.height - rect.y;
-      if (childBottom > contentHeight) contentHeight = childBottom;
-    }
-    // Viewport is the inner height (minus bottom padding)
-    // Content starts at padY, so contentHeight includes top padding offset
-    return Math.max(0, contentHeight + padY - rect.height);
-  } else {
-    let contentWidth = 0;
-    for (const child of children) {
-      const childRight = child.rect.x + child.rect.width - rect.x;
-      if (childRight > contentWidth) contentWidth = childRight;
-    }
-    return Math.max(0, contentWidth + padX - rect.width);
   }
 }
 
