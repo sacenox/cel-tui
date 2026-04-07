@@ -5,7 +5,7 @@ license: MIT
 compatibility: Requires Bun runtime and a terminal supporting the Kitty keyboard protocol and SGR mouse mode.
 metadata:
   author: sacenox
-  version: "0.3.0"
+  version: "0.4.0"
 ---
 
 # Building TUIs with cel-tui
