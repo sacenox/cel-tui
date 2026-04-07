@@ -1,9 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import { layout } from "./layout.js";
-import { VStack } from "./primitives/stacks.js";
+import { HStack, VStack } from "./primitives/stacks.js";
 import { Text } from "./primitives/text.js";
 import { TextInput } from "./primitives/text-input.js";
-import { getMaxScrollOffset } from "./scroll.js";
+import { getMaxScrollOffset, getScrollStep } from "./scroll.js";
 
 describe("scroll", () => {
   test("TextInput max scroll offset uses visual wrapping and padding", () => {
@@ -37,5 +37,53 @@ describe("scroll", () => {
     );
 
     expect(getMaxScrollOffset(root)).toBe(1);
+  });
+
+  test("adaptive scroll step uses the scroll target viewport and clamps to 3..8", () => {
+    const small = layout(
+      VStack({ width: 10, height: 2, overflow: "scroll" }, [Text("x")]),
+      10,
+      2,
+    );
+    const medium = layout(
+      VStack({ width: 10, height: 12, overflow: "scroll" }, [Text("x")]),
+      10,
+      12,
+    );
+    const large = layout(
+      HStack({ width: 30, height: 3, overflow: "scroll" }, [Text("x")]),
+      30,
+      3,
+    );
+
+    expect(getScrollStep(small)).toBe(3);
+    expect(getScrollStep(medium)).toBe(4);
+    expect(getScrollStep(large)).toBe(8);
+  });
+
+  test("scrollStep prop overrides the adaptive default", () => {
+    const scrollable = layout(
+      VStack({ width: 10, height: 12, overflow: "scroll", scrollStep: 6 }, [
+        Text("x"),
+      ]),
+      10,
+      12,
+    );
+    const textInputRoot = layout(
+      VStack({ width: 8, height: 4 }, [
+        TextInput({
+          width: 8,
+          height: 4,
+          scrollStep: 5,
+          value: "line1\nline2\nline3\nline4\nline5\nline6",
+          onChange: () => {},
+        }),
+      ]),
+      8,
+      4,
+    );
+
+    expect(getScrollStep(scrollable)).toBe(6);
+    expect(getScrollStep(textInputRoot.children[0]!)).toBe(5);
   });
 });

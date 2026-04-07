@@ -81,6 +81,7 @@ Shared by both VStack and HStack. Containers also accept styling props (see [Sty
 | `flexWrap`       | `"nowrap" \| "wrap"`                          | Wrap children to next line (HStack only)            |
 | `overflow`       | `"hidden" \| "scroll"`                        | Content overflow behavior (default: `"hidden"`)     |
 | `scrollbar`      | `boolean`                                     | Show scrollbar indicator                            |
+| `scrollStep`     | `number`                                      | Mouse wheel step in cells (default: adaptive)       |
 | `scrollOffset`   | `number`                                      | Scroll position in cells (controlled)               |
 | `onScroll`       | `(offset: number, maxOffset: number) => void` | Called on scroll input                              |
 | `onClick`        | `() => void`                                  | Called on mouse click or Enter when focused         |
@@ -229,6 +230,23 @@ VStack({
 ```
 
 In controlled mode, mouse wheel events fire `onScroll` with the new offset and maximum offset (total content size minus viewport size); the UI only moves when the app passes the updated `scrollOffset` back.
+
+### Scroll Step
+
+Mouse wheel scrolling moves by a configurable **step size** measured in cells along the container's main axis.
+
+- `scrollStep` sets the step explicitly.
+- When omitted, the framework uses an adaptive default based on the viewport size of the scroll target:
+  - `floor(viewportMainAxis / 3)`
+  - clamped to the range `3..8`
+
+Examples:
+
+- height `3` viewport → step `3`
+- height `12` viewport → step `4`
+- height `30` viewport → step `8`
+
+This applies to both controlled and uncontrolled scrollable containers, and to `TextInput` mouse wheel scrolling. It affects **mouse wheel input only** — not programmatic `scrollOffset` updates or TextInput cursor-follow behavior.
 
 Values exceeding the maximum scroll offset are clamped during rendering — passing `Infinity` means "scroll to the end". This enables patterns like sticky-bottom scroll:
 
@@ -550,7 +568,7 @@ TextInput(props: TextInputProps)
 
 #### Props
 
-Container sizing props (`width`, `height`, `flex`, `min*`, `max*`, `padding`), focus props (`focused`, `onFocus`, `onBlur`, `focusStyle`), styling props, and:
+Container sizing props (`width`, `height`, `flex`, `min*`, `max*`, `padding`), focus props (`focused`, `onFocus`, `onBlur`, `focusStyle`), styling props, wheel scroll prop (`scrollStep`), and:
 
 | Prop          | Type                               | Description                                                                              |
 | ------------- | ---------------------------------- | ---------------------------------------------------------------------------------------- |

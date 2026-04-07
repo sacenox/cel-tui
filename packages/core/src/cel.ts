@@ -26,7 +26,7 @@ import {
   type EditState,
 } from "./text-edit.js";
 import type { Terminal } from "./terminal.js";
-import { getMaxScrollOffset } from "./scroll.js";
+import { getMaxScrollOffset, getScrollStep } from "./scroll.js";
 
 type RenderFn = () => Node | Node[];
 
@@ -502,7 +502,8 @@ function handleMouseEvent(event: MouseEvent): void {
     if (event.type === "scroll-up" || event.type === "scroll-down") {
       const target = findScrollTarget(path);
       if (target) {
-        const delta = event.type === "scroll-up" ? -1 : 1;
+        const step = getScrollStep(target);
+        const delta = event.type === "scroll-up" ? -step : step;
         const maxOffset = getMaxScrollOffset(target);
 
         if (target.node.type === "textinput") {

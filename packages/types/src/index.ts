@@ -179,6 +179,17 @@ export interface ContainerProps extends StyleProps {
   scrollbar?: boolean;
 
   /**
+   * Mouse wheel step size in cells along the container's main axis.
+   * When omitted, the framework uses an adaptive default based on the
+   * scroll target's viewport size: `floor(viewportMainAxis / 3)`,
+   * clamped to the range `3..8`.
+   *
+   * Affects mouse wheel input only — not programmatic {@link scrollOffset}
+   * updates or TextInput cursor-follow behavior.
+   */
+  scrollStep?: number;
+
+  /**
    * Controlled scroll position in cells. When provided, the app owns
    * scroll state and must update this value via {@link onScroll}.
    * When omitted, scroll is framework-managed (uncontrolled).

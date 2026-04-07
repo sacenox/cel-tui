@@ -17,6 +17,7 @@ All props accepted by `VStack` and `HStack`:
   alignItems,             // "start" | "end" | "center" | "stretch"
   overflow,               // "hidden" (default) | "scroll"
   scrollbar,              // boolean
+  scrollStep,             // number (mouse wheel step in cells; default adaptive)
   scrollOffset,           // number (controlled scroll)
   onScroll,               // (offset: number, maxOffset: number) => void
   flexWrap,               // "nowrap" (default) | "wrap" (HStack only)
@@ -61,7 +62,9 @@ VStack(
 
 - Scroll direction follows the container’s main axis: VStack → vertical, HStack → horizontal.
 - Scroll is pointer-driven (mouse wheel), not focus-driven. A user can type in a focused widget while scrolling a different container.
-- In controlled mode, the UI only moves when the app passes the updated `scrollOffset` back. `onScroll` fires with the clamped new offset and the maximum offset (content size minus viewport size). Pass `Infinity` as `scrollOffset` to mean "scroll to end" (clamped during rendering).
+- Mouse wheel scrolling uses an adaptive default step based on the scroll target's visible main-axis viewport size: `floor(viewportMainAxis / 3)`, clamped to `3..8`.
+- Set `scrollStep` to override the mouse wheel step for a specific scrollable or `TextInput`.
+- In controlled mode, the UI only moves when the app passes the updated `scrollOffset` back. `onScroll` fires with the clamped new offset and the maximum offset (content size minus viewport size). Pass `Infinity` as `scrollOffset` to mean "scroll to end" (clamped during rendering). `scrollStep` affects mouse wheel input only.
 
 ## Text Props
 
@@ -87,7 +90,7 @@ TextInput({
   onChange, // (value: string) => void
   onKeyPress, // (key: string) => boolean | void — return false to prevent default editing action
   placeholder, // Text() node shown when empty
-  // + all container props (sizing, styling, focus, etc.)
+  // + all container props (sizing, styling, focus, scrollStep, etc.)
 });
 ```
 
@@ -122,7 +125,7 @@ Constraints: `minWidth`, `maxWidth`, `minHeight`, `maxHeight`.
 
 Text has no sizing props — parent controls the box, height is intrinsic (content + wrapping).
 
-TextInput accepts container sizing props (`flex`, `width`, `height`, `padding`, `maxHeight`, etc.).
+TextInput accepts container sizing props (`flex`, `width`, `height`, `padding`, `maxHeight`, etc.) plus container scroll props like `scrollStep` for mouse wheel behavior.
 
 ## Key Format
 

@@ -1,6 +1,39 @@
 import type { LayoutNode } from "./layout.js";
 import { layoutText } from "./text-layout.js";
 
+function isVerticalScrollTarget(target: LayoutNode): boolean {
+  return target.node.type === "vstack" || target.node.type === "textinput";
+}
+
+function getScrollTargetProps(target: LayoutNode): Record<string, any> {
+  return target.node.props as Record<string, any>;
+}
+
+function getScrollViewportMainAxisSize(target: LayoutNode): number {
+  const props = getScrollTargetProps(target);
+  const isVertical = isVerticalScrollTarget(target);
+  const mainAxisSize = isVertical ? target.rect.height : target.rect.width;
+  const mainAxisPadding = isVertical
+    ? (props.padding?.y ?? 0) * 2
+    : (props.padding?.x ?? 0) * 2;
+  return Math.max(1, mainAxisSize - mainAxisPadding);
+}
+
+/**
+ * Resolve the mouse wheel scroll step for a scrollable layout node.
+ * Uses the explicit `scrollStep` prop when provided, otherwise an
+ * adaptive default based on the visible main-axis viewport size.
+ */
+export function getScrollStep(target: LayoutNode): number {
+  const rawStep = getScrollTargetProps(target).scrollStep;
+  if (Number.isFinite(rawStep) && rawStep > 0) {
+    return Math.max(1, Math.floor(rawStep));
+  }
+
+  const viewport = getScrollViewportMainAxisSize(target);
+  return Math.max(3, Math.min(8, Math.floor(viewport / 3)));
+}
+
 /**
  * Compute the maximum scroll offset for a scrollable layout node.
  * Returns 0 if content fits within the viewport.
