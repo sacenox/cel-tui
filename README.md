@@ -93,7 +93,7 @@ Some historical legacy collisions remain impossible to recover once a host has a
 
 ## Performance
 
-cel-tui ships a [benchmark suite](benchmarks/) covering every pipeline stage (layout, paint, cell buffer, ANSI emission, hit testing, key parsing). On a comparable tree, the full end-to-end render completes in **~65 µs** — around 15,000 renders/sec. See [benchmarks/RESULTS.md](benchmarks/RESULTS.md) for detailed numbers and an Ink comparison.
+cel-tui ships a benchmark suite covering every pipeline stage (layout, paint, cell buffer, ANSI emission, hit testing, key parsing). On a comparable tree, the full end-to-end render completes in **~65 µs** — around 15,000 renders/sec. See [benchmarks/RESULTS.md](benchmarks/RESULTS.md) for detailed numbers and an Ink comparison.
 
 ```bash
 bun run bench         # run all benchmarks

@@ -41,7 +41,7 @@ export interface MarkdownTheme {
   italic?: StyleProps;
   /** Style for `inline code` text. */
   inlineCode?: StyleProps;
-  /** Style for [link](url) text. */
+  /** Style for `[link](url)` inline text. */
   link?: StyleProps;
 }
 

@@ -279,7 +279,7 @@ export interface ContainerProps extends StyleProps {
 }
 
 /**
- * Props for the {@link Text} primitive.
+ * Props for the `Text` primitive.
  *
  * Text is a styled leaf node with no children and no sizing props —
  * the parent container controls the box. Height is intrinsic, computed
@@ -307,10 +307,10 @@ export interface TextProps extends StyleProps {
 }
 
 /**
- * Props for the {@link TextInput} primitive.
+ * Props for the `TextInput` primitive.
  *
  * TextInput is a multi-line editable text container. It accepts container
- * sizing props but has no children — its content is the {@link value} prop.
+ * sizing props but has no children — its content is the `value` prop.
  * Scroll is always framework-managed (follows cursor and responds to mouse wheel).
  * Word-wrap is always on.
  *
@@ -323,8 +323,8 @@ export interface TextInputProps extends ContainerProps {
   value: string;
 
   /**
-   * Called when the user edits text. Update {@link value} with the new
-   * string and call `cel.render()` to reflect the change.
+   * Called when the user edits text. Update the controlled `value` prop
+   * with the new string and call `cel.render()` to reflect the change.
    *
    * @param value - The new text content.
    */
@@ -361,7 +361,7 @@ export interface TextInputProps extends ContainerProps {
 /**
  * A text leaf node in the UI tree.
  *
- * Created by the {@link Text} function. Has no children — the parent
+ * Created by the `Text` function. Has no children — the parent
  * container controls the box, and height is intrinsic (computed from
  * content and wrapping).
  */
@@ -376,7 +376,7 @@ export interface TextNode {
 /**
  * An editable text container node in the UI tree.
  *
- * Created by the {@link TextInput} function. Accepts container sizing
+ * Created by the `TextInput` function. Accepts container sizing
  * props but has no children — its content is the `value` prop.
  */
 export interface TextInputNode {
@@ -388,7 +388,7 @@ export interface TextInputNode {
 /**
  * A layout container node in the UI tree.
  *
- * Created by {@link VStack} (vertical) or {@link HStack} (horizontal).
+ * Created by `VStack` (vertical) or `HStack` (horizontal).
  * Contains an ordered list of child nodes.
  */
 export interface ContainerNode {
