@@ -121,7 +121,7 @@ describe("TextInput integration", () => {
     expect(value).toBe("ab\n");
   });
 
-  test("submitKey fires onSubmit instead of inserting", async () => {
+  test("onKeyPress returning false prevents default editing action", async () => {
     const term = setup(20, 3);
     let submitted = false;
     let value = "hello";
@@ -133,10 +133,12 @@ describe("TextInput integration", () => {
           onChange: (v) => {
             value = v;
           },
-          onSubmit: () => {
-            submitted = true;
+          onKeyPress: (key) => {
+            if (key === "enter") {
+              submitted = true;
+              return false;
+            }
           },
-          submitKey: "enter",
         }),
       ]),
     );
@@ -146,12 +148,12 @@ describe("TextInput integration", () => {
     await waitForRender();
 
     expect(submitted).toBe(true);
-    expect(value).toBe("hello"); // Value should not change
+    expect(value).toBe("hello"); // No newline inserted
   });
 
-  test("ctrl+enter as submitKey with enter for newlines", async () => {
+  test("onKeyPress not returning false allows default editing", async () => {
     const term = setup(20, 3);
-    let submitted = false;
+    let keyReceived = "";
     let value = "hi";
     cel.viewport(() =>
       VStack({}, [
@@ -161,20 +163,150 @@ describe("TextInput integration", () => {
           onChange: (v) => {
             value = v;
           },
-          onSubmit: () => {
-            submitted = true;
+          onKeyPress: (key) => {
+            keyReceived = key;
+            // no return false — default editing proceeds
           },
-          submitKey: "ctrl+enter",
         }),
       ]),
     );
     await waitForRender();
 
-    // Enter should insert newline (not submit)
     term.sendInput(ENTER);
     await waitForRender();
-    expect(value).toBe("hi\n");
-    expect(submitted).toBe(false);
+
+    expect(keyReceived).toBe("enter");
+    expect(value).toBe("hi\n"); // Newline inserted
+  });
+
+  test("onKeyPress returning false prevents character insertion", async () => {
+    const term = setup(20, 3);
+    let value = "abc";
+    cel.viewport(() =>
+      VStack({}, [
+        TextInput({
+          value,
+          focused: true,
+          onChange: (v) => {
+            value = v;
+          },
+          onKeyPress: (key) => {
+            if (key === "x") return false;
+          },
+        }),
+      ]),
+    );
+    await waitForRender();
+
+    // "x" should be prevented
+    term.sendInput("x");
+    await waitForRender();
+    expect(value).toBe("abc");
+
+    // "y" should go through
+    term.sendInput("y");
+    await waitForRender();
+    expect(value).toBe("abcy");
+  });
+
+  test("onKeyPress returning false prevents backspace", async () => {
+    const term = setup(20, 3);
+    let value = "abc";
+    cel.viewport(() =>
+      VStack({}, [
+        TextInput({
+          value,
+          focused: true,
+          onChange: (v) => {
+            value = v;
+          },
+          onKeyPress: (key) => {
+            if (key === "backspace") return false;
+          },
+        }),
+      ]),
+    );
+    await waitForRender();
+
+    term.sendInput(BACKSPACE);
+    await waitForRender();
+
+    expect(value).toBe("abc"); // No deletion
+  });
+
+  test("onKeyPress on TextInput fires before ancestor onKeyPress", async () => {
+    const term = setup(20, 3);
+    let parentKey = "";
+    let inputKey = "";
+    let value = "hi";
+    cel.viewport(() =>
+      VStack(
+        {
+          onKeyPress: (key) => {
+            parentKey = key;
+          },
+        },
+        [
+          TextInput({
+            value,
+            focused: true,
+            onChange: (v) => {
+              value = v;
+            },
+            onKeyPress: (key) => {
+              if (key === "enter") {
+                inputKey = key;
+                return false; // prevent default, consume key
+              }
+            },
+          }),
+        ],
+      ),
+    );
+    await waitForRender();
+
+    term.sendInput(ENTER);
+    await waitForRender();
+
+    expect(inputKey).toBe("enter");
+    expect(parentKey).toBe(""); // Ancestor never sees it
+    expect(value).toBe("hi"); // No newline
+  });
+
+  test("non-editing key bubbles to ancestor when onKeyPress doesn't intercept", async () => {
+    const term = setup(20, 3);
+    let parentKey = "";
+    let value = "hi";
+    cel.viewport(() =>
+      VStack(
+        {
+          onKeyPress: (key) => {
+            parentKey = key;
+          },
+        },
+        [
+          TextInput({
+            value,
+            focused: true,
+            onChange: (v) => {
+              value = v;
+            },
+            onKeyPress: (key) => {
+              // only intercept enter
+              if (key === "enter") return false;
+            },
+          }),
+        ],
+      ),
+    );
+    await waitForRender();
+
+    // ctrl+s is not intercepted by onKeyPress, and not an editing key — bubbles up
+    term.sendInput(CTRL_S);
+    await waitForRender();
+
+    expect(parentKey).toBe("ctrl+s"); // Bubbled up
+    expect(value).toBe("hi"); // Unchanged
   });
 
   test("modifier keys bubble up (not consumed by TextInput)", async () => {
@@ -241,6 +373,34 @@ describe("TextInput integration", () => {
     await waitForRender();
 
     expect(value).toBe("abcXdef");
+  });
+
+  test("animated sibling updates do not emit cursor commands after synchronized output", async () => {
+    const term = setup(20, 3);
+    let tick = 0;
+    const onChange = () => {};
+
+    cel.viewport(() =>
+      VStack({ height: "100%" }, [
+        Text(`tick:${tick}`),
+        TextInput({
+          value: "abc",
+          focused: true,
+          onChange,
+        }),
+      ]),
+    );
+    await waitForRender();
+
+    term.clearOutput();
+    tick = 1;
+    cel.render();
+    await waitForRender();
+
+    expect(term.output.endsWith("\x1b[?2026l")).toBe(true);
+    expect(term.output).not.toContain("\x1b[?25h");
+    expect(term.output).toContain("\x1b7");
+    expect(term.output).toContain("\x1b8");
   });
 
   test("auto-scrolls to keep cursor visible when typing past viewport", async () => {

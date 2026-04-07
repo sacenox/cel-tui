@@ -1,7 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import { CellBuffer } from "./cell-buffer.js";
 import { layout } from "./layout.js";
-import { paint } from "./paint.js";
+import {
+  paint,
+  getTextInputCursorScreenPos,
+  setTextInputCursor,
+} from "./paint.js";
 import { VStack, HStack } from "./primitives/stacks.js";
 import { Text } from "./primitives/text.js";
 import { TextInput } from "./primitives/text-input.js";
@@ -13,6 +17,15 @@ function readRow(buf: CellBuffer, y: number): string {
     row += buf.get(x, y).char;
   }
   return row.trimEnd();
+}
+
+/** Read a row from the buffer without trimming trailing spaces. */
+function readRawRow(buf: CellBuffer, y: number): string {
+  let row = "";
+  for (let x = 0; x < buf.width; x++) {
+    row += buf.get(x, y).char;
+  }
+  return row;
 }
 
 /** Read all rows as strings. */
@@ -106,6 +119,34 @@ describe("paint", () => {
       expect(cell.bold).toBe(true);
       expect(cell.italic).toBe(true);
       expect(cell.underline).toBe(true);
+    });
+
+    test("word-wrapped text preserves whitespace at soft wrap boundaries", () => {
+      const node = VStack({ width: 6, height: 3 }, [
+        Text("foo bar baz", { wrap: "word" }),
+      ]);
+      const ln = layout(node, 6, 3);
+      const buf = new CellBuffer(6, 3);
+      paint(ln, buf);
+
+      expect(readRawRow(buf, 0)).toBe("foo   ");
+      expect(readRawRow(buf, 1)).toBe("bar   ");
+      expect(readRawRow(buf, 2)).toBe("baz   ");
+    });
+
+    test("TextInput cursor screen position follows visual word wrapping", () => {
+      const onChange = () => {};
+      const props = {
+        value: "foo bar baz",
+        onChange,
+        focused: true,
+      };
+
+      setTextInputCursor(props, 5);
+
+      expect(
+        getTextInputCursorScreenPos(props, { x: 0, y: 0, width: 6, height: 3 }),
+      ).toEqual({ x: 1, y: 1 });
     });
   });
 

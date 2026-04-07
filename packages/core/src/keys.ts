@@ -248,6 +248,7 @@ export function isEditingKey(key: string): boolean {
     "end",
     "space",
     "plus",
+    "shift+enter",
   ]);
 
   return editingKeys.has(key);

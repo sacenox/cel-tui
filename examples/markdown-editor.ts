@@ -3,7 +3,7 @@
  *
  * A split-pane markdown editor with live preview, showcasing:
  * - Custom color theme (Catppuccin Mocha via true color)
- * - Large multi-line TextInput with ctrl+enter submit
+ * - Large multi-line TextInput editor
  * - Live Markdown rendering (source ↔ preview)
  * - Split-pane layout with VDivider
  * - Scrollable preview pane

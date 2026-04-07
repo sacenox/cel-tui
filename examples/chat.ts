@@ -280,7 +280,12 @@ cel.viewport(() =>
           value: input,
           onChange: handleChange,
           placeholder: Text("type a message...", { fgColor: "color08" }),
-          onSubmit: handleSend,
+          onKeyPress: (key) => {
+            if (key === "enter") {
+              handleSend();
+              return false;
+            }
+          },
           focused: inputFocused,
           onFocus: () => {
             inputFocused = true;

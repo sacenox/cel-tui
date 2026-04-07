@@ -11,7 +11,8 @@
     "format:fix": "prettier --write .",
     "typecheck": "tsc --noEmit",
     "bench": "bun run benchmarks/run-all.ts",
-    "docs": "typedoc --out docs/html && typedoc --out docs/md --plugin typedoc-plugin-markdown"
+    "docs": "typedoc --out docs/html && typedoc --out docs/md --plugin typedoc-plugin-markdown",
+    "prepublish-check": "bun run scripts/prepublish-check.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.10",

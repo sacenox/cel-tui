@@ -30,8 +30,9 @@ export type Color =
 /**
  * A theme value for a single color slot.
  *
- * - `number` (0–15) — ANSI palette index. Emitted as standard SGR codes
- *   (e.g., index 1 → fg 31, bg 41).
+ * - `number` (0–15) — ANSI 16 palette index. Emitted as standard SGR codes
+ *   (e.g., index 1 → fg 31, bg 41). Values outside 0–15 are not supported
+ *   and will produce incorrect SGR codes.
  * - `string` — 24-bit hex color (e.g., `"#ff0000"`). Emitted as
  *   true-color SGR codes (`38;2;r;g;b` / `48;2;r;g;b`).
  */
@@ -178,6 +179,17 @@ export interface ContainerProps extends StyleProps {
   scrollbar?: boolean;
 
   /**
+   * Mouse wheel step size in cells along the container's main axis.
+   * When omitted, the framework uses an adaptive default based on the
+   * scroll target's viewport size: `floor(viewportMainAxis / 3)`,
+   * clamped to the range `3..8`.
+   *
+   * Affects mouse wheel input only — not programmatic {@link scrollOffset}
+   * updates or TextInput cursor-follow behavior.
+   */
+  scrollStep?: number;
+
+  /**
    * Controlled scroll position in cells. When provided, the app owns
    * scroll state and must update this value via {@link onScroll}.
    * When omitted, scroll is framework-managed (uncontrolled).
@@ -313,19 +325,18 @@ export interface TextInputProps extends ContainerProps {
   onChange: (value: string) => void;
 
   /**
-   * Called when the user presses the submit key.
-   * @see {@link submitKey}
-   */
-  onSubmit?: () => void;
-
-  /**
-   * Key combo that fires {@link onSubmit}.
-   * @default "enter"
+   * Key handler that fires **before** the built-in editing logic.
+   * Return `false` to prevent the default editing action for that key
+   * (no character insertion, no cursor movement, no deletion).
+   * Any other return (or no return) lets the default action proceed.
    *
    * @example
-   * submitKey: "ctrl+enter"  // Enter inserts newline, Ctrl+Enter submits
+   * // Enter submits instead of inserting a newline
+   * onKeyPress: (key) => {
+   *   if (key === "enter") { handleSend(); return false; }
+   * }
    */
-  submitKey?: string;
+  onKeyPress?: (key: string) => boolean | void;
 
   /**
    * A {@link TextNode} displayed when {@link value} is empty.

@@ -186,66 +186,57 @@ describe("cel end-to-end", () => {
       expect(receivedKey).toBe("ctrl+s");
     });
 
-    test("onScroll fires on mouse wheel", async () => {
-      const term = setup(20, 5);
+    test("onScroll fires on mouse wheel using the adaptive default step", async () => {
+      const term = setup(20, 12);
       let scrollOffset = 0;
       cel.viewport(() =>
         VStack(
           {
             width: 20,
-            height: 5,
+            height: 12,
             overflow: "scroll",
             scrollOffset: scrollOffset,
             onScroll: (offset) => {
               scrollOffset = offset;
             },
           },
-          // Enough content to exceed viewport (5 rows)
-          Array.from({ length: 10 }, (_, i) => Text(`line ${i + 1}`)),
+          // 12-row viewport → adaptive wheel step = floor(12 / 3) = 4
+          Array.from({ length: 20 }, (_, i) => Text(`line ${i + 1}`)),
         ),
       );
       await waitForRender();
 
-      // SGR scroll down at (3, 2): ESC [ < 65 ; 4 ; 3 M
       term.sendInput("\x1b[<65;4;3M");
       await waitForRender();
 
-      expect(scrollOffset).toBe(1);
+      expect(scrollOffset).toBe(4);
     });
 
     test("batched mouse scroll events are all processed", async () => {
-      const term = setup(20, 5);
+      const term = setup(20, 12);
       let scrollOffset = 0;
       cel.viewport(() =>
         VStack(
           {
             width: 20,
-            height: 5,
+            height: 12,
             overflow: "scroll",
             scrollOffset: scrollOffset,
             onScroll: (offset) => {
               scrollOffset = offset;
             },
           },
-          [
-            Text("line1"),
-            Text("line2"),
-            Text("line3"),
-            Text("line4"),
-            Text("line5"),
-            Text("line6"),
-            Text("line7"),
-            Text("line8"),
-          ],
+          Array.from({ length: 30 }, (_, i) => Text(`line${i + 1}`)),
         ),
       );
       await waitForRender();
 
       // 3 scroll-down events batched in one data chunk (as real terminals do)
+      // 12-row viewport → adaptive wheel step = 4, so total = 12
       term.sendInput("\x1b[<65;4;3M\x1b[<65;4;3M\x1b[<65;4;3M");
       await waitForRender();
 
-      expect(scrollOffset).toBe(3);
+      expect(scrollOffset).toBe(12);
     });
 
     test("scroll clamps at max offset (no blank space past content)", async () => {
@@ -278,14 +269,14 @@ describe("cel end-to-end", () => {
     });
 
     test("onScroll receives maxOffset", async () => {
-      const term = setup(20, 5);
+      const term = setup(20, 12);
       let scrollOffset = 0;
       let receivedMax = -1;
       cel.viewport(() =>
         VStack(
           {
             width: 20,
-            height: 5,
+            height: 12,
             overflow: "scroll",
             scrollOffset: scrollOffset,
             onScroll: (offset, maxOffset) => {
@@ -293,8 +284,8 @@ describe("cel end-to-end", () => {
               receivedMax = maxOffset;
             },
           },
-          // 8 items in 5-row viewport → max offset = 3
-          Array.from({ length: 8 }, (_, i) => Text(`item ${i + 1}`)),
+          // 20 items in 12-row viewport → max offset = 8
+          Array.from({ length: 20 }, (_, i) => Text(`item ${i + 1}`)),
         ),
       );
       await waitForRender();
@@ -302,20 +293,46 @@ describe("cel end-to-end", () => {
       term.sendInput("\x1b[<65;4;3M");
       await waitForRender();
 
-      expect(scrollOffset).toBe(1);
-      expect(receivedMax).toBe(3);
+      expect(scrollOffset).toBe(4);
+      expect(receivedMax).toBe(8);
     });
 
-    test("uncontrolled scroll works without onScroll", async () => {
-      const term = setup(20, 5);
+    test("scrollStep overrides the adaptive default", async () => {
+      const term = setup(20, 12);
+      let scrollOffset = 0;
       cel.viewport(() =>
         VStack(
           {
             width: 20,
-            height: 5,
+            height: 12,
+            overflow: "scroll",
+            scrollStep: 6,
+            scrollOffset: scrollOffset,
+            onScroll: (offset) => {
+              scrollOffset = offset;
+            },
+          },
+          Array.from({ length: 30 }, (_, i) => Text(`line ${i + 1}`)),
+        ),
+      );
+      await waitForRender();
+
+      term.sendInput("\x1b[<65;4;3M");
+      await waitForRender();
+
+      expect(scrollOffset).toBe(6);
+    });
+
+    test("uncontrolled scroll works without onScroll", async () => {
+      const term = setup(20, 12);
+      cel.viewport(() =>
+        VStack(
+          {
+            width: 20,
+            height: 12,
             overflow: "scroll",
           },
-          Array.from({ length: 10 }, (_, i) => Text(`line ${i + 1}`)),
+          Array.from({ length: 20 }, (_, i) => Text(`line ${i + 1}`)),
         ),
       );
       await waitForRender();
@@ -324,16 +341,14 @@ describe("cel end-to-end", () => {
       const buf1 = cel._getBuffer()!;
       expect(buf1.get(0, 0).char).toBe("l"); // "line 1"
 
-      // SGR scroll down at (3, 2): ESC [ < 65 ; 4 ; 3 M
       term.sendInput("\x1b[<65;4;3M");
       await waitForRender();
 
-      // After scroll by 1, line 2 should now be at row 0
+      // After scrolling by the adaptive step (4), line 5 should now be at row 0
       const buf2 = cel._getBuffer()!;
-      // Read first 6 chars of row 0
       let row0 = "";
       for (let x = 0; x < 6; x++) row0 += buf2.get(x, 0).char;
-      expect(row0).toBe("line 2");
+      expect(row0).toBe("line 5");
     });
 
     test("uncontrolled scroll clamps at max offset", async () => {
@@ -396,6 +411,42 @@ describe("cel end-to-end", () => {
       }
 
       expect(scrollOffset).toBe(2);
+    });
+
+    test("scroll up unsticks from Infinity scrollOffset (sticky-bottom pattern)", async () => {
+      const term = setup(20, 5);
+      let scrollOffset = 0;
+      let stickToBottom = true;
+
+      cel.viewport(() =>
+        VStack(
+          {
+            width: 20,
+            height: 5,
+            overflow: "scroll",
+            scrollbar: true,
+            scrollOffset: stickToBottom ? Infinity : scrollOffset,
+            onScroll: (offset, maxOffset) => {
+              scrollOffset = offset;
+              stickToBottom = offset >= maxOffset;
+              cel.render();
+            },
+          },
+          // 10 items in 5-row viewport → max offset = 5, adaptive wheel step = 3
+          Array.from({ length: 10 }, (_, i) => Text(`line ${i + 1}`)),
+        ),
+      );
+      await waitForRender();
+
+      // Initially stuck to bottom (Infinity → clamped to maxOffset=5)
+      expect(stickToBottom).toBe(true);
+
+      // Scroll up — should unstick from bottom
+      term.sendInput("\x1b[<64;4;3M");
+      await waitForRender();
+
+      expect(stickToBottom).toBe(false);
+      expect(scrollOffset).toBe(2); // maxOffset(5) - 3 = 2
     });
   });
 
@@ -916,6 +967,90 @@ describe("cel end-to-end", () => {
       expect(value).toBe("hello\t");
     });
 
+    test("Shift+Enter inserts newline in TextInput", async () => {
+      const term = setup(20, 5);
+      let value = "hello";
+      cel.viewport(() =>
+        VStack({ width: 20, height: 5 }, [
+          TextInput({
+            value,
+            focused: true,
+            onChange: (v) => {
+              value = v;
+            },
+          }),
+        ]),
+      );
+      await waitForRender();
+
+      // Shift+Enter should insert a newline at cursor position
+      term.sendInput(kittyEncode("shift+enter"));
+      await waitForRender();
+      expect(value).toBe("hello\n");
+    });
+
+    test("Shift+Enter inserts newline at cursor, not just at end", async () => {
+      const term = setup(20, 5);
+      let value = "hello";
+      // Stable onChange ref so cursor state persists across re-renders
+      const onChange = (v: string) => {
+        value = v;
+      };
+      cel.viewport(() =>
+        VStack({ width: 20, height: 5 }, [
+          TextInput({
+            value,
+            focused: true,
+            onChange,
+          }),
+        ]),
+      );
+      await waitForRender();
+
+      // Move cursor left 3 times (to position 2: "he|llo")
+      term.sendInput(kittyEncode("left"));
+      await waitForRender();
+      term.sendInput(kittyEncode("left"));
+      await waitForRender();
+      term.sendInput(kittyEncode("left"));
+      await waitForRender();
+
+      // Shift+Enter should insert newline at cursor
+      term.sendInput(kittyEncode("shift+enter"));
+      await waitForRender();
+      expect(value).toBe("he\nllo");
+    });
+
+    test("Shift+Enter inserts newline even when onKeyPress intercepts Enter", async () => {
+      const term = setup(20, 5);
+      let value = "hello";
+      let submitted = false;
+      cel.viewport(() =>
+        VStack({ width: 20, height: 5 }, [
+          TextInput({
+            value,
+            focused: true,
+            onChange: (v) => {
+              value = v;
+            },
+            onKeyPress: (key) => {
+              if (key === "enter") {
+                submitted = true;
+                return false;
+              }
+            },
+          }),
+        ]),
+      );
+      await waitForRender();
+
+      // Shift+Enter is a different key — should insert newline, not trigger onKeyPress for "enter"
+      term.sendInput(kittyEncode("shift+enter"));
+      await waitForRender();
+      expect(submitted).toBe(false);
+      expect(value).toBe("hello\n");
+    });
+
     test("Shift+Tab does not traverse focus when TextInput is focused", async () => {
       const term = setup(20, 5);
       let value = "hello";
@@ -1131,18 +1266,20 @@ describe("cel end-to-end", () => {
 
   describe("TextInput mouse wheel scroll", () => {
     test("mouse wheel scrolls TextInput content", async () => {
-      const term = setup(20, 3);
-      let value = "line1\nline2\nline3\nline4\nline5";
+      const term = setup(20, 12);
+      let value = Array.from({ length: 20 }, (_, i) => `line${i + 1}`).join(
+        "\n",
+      );
       // Stable onChange ref so TextInput scroll state persists across re-renders
       const onChange = (v: string) => {
         value = v;
       };
 
       cel.viewport(() =>
-        VStack({ width: 20, height: 3 }, [
+        VStack({ width: 20, height: 12 }, [
           TextInput({
             value,
-            height: 3,
+            height: 12,
             onChange,
           }),
         ]),
@@ -1155,15 +1292,14 @@ describe("cel end-to-end", () => {
       for (let x = 0; x < 5; x++) row0 += buf1.get(x, 0).char;
       expect(row0).toBe("line1");
 
-      // Scroll down at (5, 1)
+      // 12-row viewport → adaptive wheel step = 4
       term.sendInput("\x1b[<65;6;2M");
       await waitForRender();
 
-      // After scrolling down, line1 should no longer be at row 0
       const buf2 = cel._getBuffer()!;
       let row0After = "";
       for (let x = 0; x < 5; x++) row0After += buf2.get(x, 0).char;
-      expect(row0After).toBe("line2");
+      expect(row0After).toBe("line5");
     });
 
     test("mouse wheel scroll up clamps at 0", async () => {
@@ -1196,9 +1332,11 @@ describe("cel end-to-end", () => {
     });
 
     test("mouse wheel prefers innermost TextInput over outer scrollable", async () => {
-      const term = setup(20, 3);
+      const term = setup(20, 12);
       let outerScrolled = false;
-      let value = "line1\nline2\nline3\nline4";
+      let value = Array.from({ length: 20 }, (_, i) => `line${i + 1}`).join(
+        "\n",
+      );
       const onChange = (v: string) => {
         value = v;
       };
@@ -1207,7 +1345,7 @@ describe("cel end-to-end", () => {
         VStack(
           {
             width: 20,
-            height: 3,
+            height: 12,
             overflow: "scroll",
             scrollOffset: 0,
             onScroll: () => {
@@ -1217,7 +1355,7 @@ describe("cel end-to-end", () => {
           [
             TextInput({
               value,
-              height: 3,
+              height: 12,
               onChange,
             }),
           ],
@@ -1231,11 +1369,11 @@ describe("cel end-to-end", () => {
 
       expect(outerScrolled).toBe(false);
 
-      // Verify TextInput scrolled
+      // Verify TextInput scrolled by the adaptive step (4)
       const buf = cel._getBuffer()!;
       let row0 = "";
       for (let x = 0; x < 5; x++) row0 += buf.get(x, 0).char;
-      expect(row0).toBe("line2");
+      expect(row0).toBe("line5");
     });
   });
 

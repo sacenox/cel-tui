@@ -81,6 +81,7 @@ Shared by both VStack and HStack. Containers also accept styling props (see [Sty
 | `flexWrap`       | `"nowrap" \| "wrap"`                          | Wrap children to next line (HStack only)            |
 | `overflow`       | `"hidden" \| "scroll"`                        | Content overflow behavior (default: `"hidden"`)     |
 | `scrollbar`      | `boolean`                                     | Show scrollbar indicator                            |
+| `scrollStep`     | `number`                                      | Mouse wheel step in cells (default: adaptive)       |
 | `scrollOffset`   | `number`                                      | Scroll position in cells (controlled)               |
 | `onScroll`       | `(offset: number, maxOffset: number) => void` | Called on scroll input                              |
 | `onClick`        | `() => void`                                  | Called on mouse click or Enter when focused         |
@@ -230,6 +231,23 @@ VStack({
 
 In controlled mode, mouse wheel events fire `onScroll` with the new offset and maximum offset (total content size minus viewport size); the UI only moves when the app passes the updated `scrollOffset` back.
 
+### Scroll Step
+
+Mouse wheel scrolling moves by a configurable **step size** measured in cells along the container's main axis.
+
+- `scrollStep` sets the step explicitly.
+- When omitted, the framework uses an adaptive default based on the viewport size of the scroll target:
+  - `floor(viewportMainAxis / 3)`
+  - clamped to the range `3..8`
+
+Examples:
+
+- height `3` viewport → step `3`
+- height `12` viewport → step `4`
+- height `30` viewport → step `8`
+
+This applies to both controlled and uncontrolled scrollable containers, and to `TextInput` mouse wheel scrolling. It affects **mouse wheel input only** — not programmatic `scrollOffset` updates or TextInput cursor-follow behavior.
+
 Values exceeding the maximum scroll offset are clamped during rendering — passing `Infinity` means "scroll to the end". This enables patterns like sticky-bottom scroll:
 
 ```ts
@@ -301,7 +319,7 @@ Focus is implicit — no `focusable` prop needed for the common case:
 
 **Escape** unfocuses the current element. **Tab / Shift+Tab** moves focus to the next/previous focusable element in document order (depth-first tree traversal).
 
-When a TextInput is focused, text-editing keys (printable characters, arrows, backspace, Tab) go to the input. Modifier combos (e.g., `ctrl+s`) are not consumed by TextInput and bubble up. Press Escape to leave the input, then Tab to traverse.
+When a TextInput is focused, text-editing keys (printable characters, arrows, backspace, delete, Enter, Tab) go to the input. Modifier combos (e.g., `ctrl+s`) are not consumed by TextInput and bubble up. The TextInput's `onKeyPress` handler fires before editing — returning `false` prevents the default action, letting the app override any key's behavior. Press Escape to leave the input, then Tab to traverse.
 
 ### Uncontrolled Focus
 
@@ -391,7 +409,9 @@ cel-tui **requires** the [Kitty keyboard protocol](https://sw.kovidgoyal.net/kit
 ### Key Event Flow
 
 1. **Topmost layer** receives the key event
-2. If a **TextInput** is focused, it consumes text-editing keys (printable characters, arrows, backspace, Tab). Modifier combos pass through.
+2. If a **TextInput** is focused:
+   - If the TextInput has `onKeyPress`, call it first. If `onKeyPress` returns `false`, the key's **default editing action is prevented** — no character insertion, no cursor movement, nothing. The key is consumed.
+   - Otherwise, the TextInput processes editing keys (printable characters, arrows, backspace, delete, Enter, Tab). Modifier combos (e.g., `ctrl+s`) are not editing keys and pass through.
 3. If a **clickable container** is focused, Enter fires `onClick`. Other keys pass through.
 4. Unconsumed keys **bubble up** through ancestors — each `onKeyPress` handler in the ancestor chain is called from innermost to root.
 5. A handler that returns `false` signals the key was **not consumed** — bubbling continues to the next ancestor. Any other return (`undefined`, `true`, or no return) **stops bubbling** (backward-compatible: existing `void` handlers consume by default).
@@ -548,15 +568,14 @@ TextInput(props: TextInputProps)
 
 #### Props
 
-Container sizing props (`width`, `height`, `flex`, `min*`, `max*`, `padding`), focus props (`focused`, `onFocus`, `onBlur`, `focusStyle`), styling props, and:
+Container sizing props (`width`, `height`, `flex`, `min*`, `max*`, `padding`), focus props (`focused`, `onFocus`, `onBlur`, `focusStyle`), styling props, wheel scroll prop (`scrollStep`), and:
 
-| Prop          | Type                      | Description                                        |
-| ------------- | ------------------------- | -------------------------------------------------- |
-| `value`       | `string`                  | Current text content (controlled)                  |
-| `onChange`    | `(value: string) => void` | Called on text change                              |
-| `onSubmit`    | `() => void`              | Called on submit key                               |
-| `submitKey`   | `string`                  | Key combo that fires onSubmit (default: `"enter"`) |
-| `placeholder` | `Text`                    | Text node shown when value is empty                |
+| Prop          | Type                               | Description                                                                              |
+| ------------- | ---------------------------------- | ---------------------------------------------------------------------------------------- |
+| `value`       | `string`                           | Current text content (controlled)                                                        |
+| `onChange`    | `(value: string) => void`          | Called on text change                                                                    |
+| `onKeyPress`  | `(key: string) => boolean \| void` | Key handler, fires before editing. Return `false` to prevent the default editing action. |
+| `placeholder` | `TextNode`                         | Text node shown when value is empty (pass a `Text()` call)                               |
 
 Word-wrap is always on. Cursor position is framework-managed.
 
@@ -569,8 +588,12 @@ TextInput({
   maxHeight: 10,
   value,
   onChange,
-  onSubmit,
-  submitKey: "ctrl+enter",
+  onKeyPress: (key) => {
+    if (key === "ctrl+enter") {
+      handleSubmit();
+      return false;
+    }
+  },
 });
 ```
 
@@ -603,7 +626,7 @@ With the default theme, the app automatically inherits whatever terminal color s
 
 #### Theme override
 
-A **theme** is a mapping from the 16 color slots to rendering output. The default theme maps to ANSI SGR codes. A custom theme can remap any slot to 256-color indices, 24-bit hex values, or a rearranged ANSI palette:
+A **theme** is a mapping from the 16 color slots to rendering output. The default theme maps to ANSI SGR codes. A custom theme can remap any slot to different ANSI palette indices, 24-bit hex values, or a mix of both:
 
 ```ts
 // Custom theme — remap slots to true color
@@ -843,7 +866,12 @@ cel.viewport(() =>
           value: input,
           onChange: handleChange,
           placeholder: Text("type a message...", { fgColor: "color08" }),
-          onSubmit: handleSend,
+          onKeyPress: (key) => {
+            if (key === "enter") {
+              handleSend();
+              return false;
+            }
+          },
         }),
         HStack(
           {

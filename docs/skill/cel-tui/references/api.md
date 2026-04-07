@@ -17,6 +17,7 @@ All props accepted by `VStack` and `HStack`:
   alignItems,             // "start" | "end" | "center" | "stretch"
   overflow,               // "hidden" (default) | "scroll"
   scrollbar,              // boolean
+  scrollStep,             // number (mouse wheel step in cells; default adaptive)
   scrollOffset,           // number (controlled scroll)
   onScroll,               // (offset: number, maxOffset: number) => void
   flexWrap,               // "nowrap" (default) | "wrap" (HStack only)
@@ -61,7 +62,9 @@ VStack(
 
 - Scroll direction follows the container’s main axis: VStack → vertical, HStack → horizontal.
 - Scroll is pointer-driven (mouse wheel), not focus-driven. A user can type in a focused widget while scrolling a different container.
-- In controlled mode, the UI only moves when the app passes the updated `scrollOffset` back. `onScroll` fires with the clamped new offset and the maximum offset (content size minus viewport size). Pass `Infinity` as `scrollOffset` to mean "scroll to end" (clamped during rendering).
+- Mouse wheel scrolling uses an adaptive default step based on the scroll target's visible main-axis viewport size: `floor(viewportMainAxis / 3)`, clamped to `3..8`.
+- Set `scrollStep` to override the mouse wheel step for a specific scrollable or `TextInput`.
+- In controlled mode, the UI only moves when the app passes the updated `scrollOffset` back. `onScroll` fires with the clamped new offset and the maximum offset (content size minus viewport size). Pass `Infinity` as `scrollOffset` to mean "scroll to end" (clamped during rendering). `scrollStep` affects mouse wheel input only.
 
 ## Text Props
 
@@ -77,7 +80,7 @@ Text("content", {
 });
 ```
 
-Colors: 16 numbered palette slots — `"color00"` through `"color15"`. Mapped to ANSI 16 by default; custom themes can remap to 256-color or true color. Omit a color prop for the terminal default.
+Colors: 16 numbered palette slots — `"color00"` through `"color15"`. Mapped to ANSI 16 by default; custom themes can remap to different ANSI indices or 24-bit true color. Omit a color prop for the terminal default.
 
 ## TextInput Props
 
@@ -85,10 +88,25 @@ Colors: 16 numbered palette slots — `"color00"` through `"color15"`. Mapped to
 TextInput({
   value, // string (controlled)
   onChange, // (value: string) => void
-  onSubmit, // () => void
-  submitKey, // string (default "enter")
+  onKeyPress, // (key: string) => boolean | void — return false to prevent default editing action
   placeholder, // Text() node shown when empty
-  // + all container props (sizing, styling, focus, etc.)
+  // + all container props (sizing, styling, focus, scrollStep, etc.)
+});
+```
+
+Enter inserts a newline by default. Use `onKeyPress` to intercept keys before editing:
+
+```ts
+// Enter submits instead of inserting newline
+TextInput({
+  value: input,
+  onChange: handleChange,
+  onKeyPress: (key) => {
+    if (key === "enter") {
+      handleSend();
+      return false;
+    }
+  },
 });
 ```
 
@@ -107,7 +125,7 @@ Constraints: `minWidth`, `maxWidth`, `minHeight`, `maxHeight`.
 
 Text has no sizing props — parent controls the box, height is intrinsic (content + wrapping).
 
-TextInput accepts container sizing props (`flex`, `width`, `height`, `padding`, `maxHeight`, etc.).
+TextInput accepts container sizing props (`flex`, `width`, `height`, `padding`, `maxHeight`, etc.) plus container scroll props like `scrollStep` for mouse wheel behavior.
 
 ## Key Format
 
@@ -228,7 +246,7 @@ Streaming works naturally — append chunks and call `cel.render()`. Unclosed bl
 
 ## Theme
 
-The default theme maps 16 color slots to ANSI palette indices. Custom themes remap to 256-color or 24-bit hex:
+The default theme maps 16 color slots to ANSI palette indices. Custom themes remap to different ANSI indices or 24-bit hex:
 
 ```ts
 import { cel, ProcessTerminal, type Theme } from "@cel-tui/core";

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { Theme } from "@cel-tui/types";
 import { CellBuffer, type Cell } from "./cell-buffer.js";
-import { emitBuffer, emitDiff } from "./emitter.js";
+import { defaultTheme, emitBuffer, emitDiff } from "./emitter.js";
 
 function cell(char: string, overrides: Partial<Cell> = {}): Cell {
   return {
@@ -276,6 +276,43 @@ describe("emitDiff", () => {
     expect(output).toContain("x");
     // Continuation cell should not produce any output character
     expect(output).not.toContain("\u4e16 ");
+  });
+
+  test("restores an unchanged visible cursor inside synchronized diff output", () => {
+    const prev = new CellBuffer(5, 1);
+    const next = new CellBuffer(5, 1);
+    next.set(2, 0, cell("X"));
+
+    const output = emitDiff(prev, next, defaultTheme, {
+      cursor: { visible: true, x: 4, y: 2 },
+      previousCursor: { visible: true, x: 4, y: 2 },
+    });
+
+    expect(output.startsWith("\x1b[?2026h\x1b7")).toBe(true);
+    expect(output.endsWith("\x1b8\x1b[?2026l")).toBe(true);
+    expect(output).not.toContain("\x1b[?25h");
+  });
+
+  test("moves and shows the cursor before ending synchronized full output", () => {
+    const buf = new CellBuffer(2, 1);
+    const output = emitBuffer(buf, defaultTheme, {
+      cursor: { visible: true, x: 1, y: 0 },
+      previousCursor: { visible: false },
+    });
+
+    expect(output.endsWith("\x1b[1;2H\x1b[?25h\x1b[?2026l")).toBe(true);
+  });
+
+  test("hides a previously visible cursor inside synchronized diff output", () => {
+    const prev = new CellBuffer(1, 1);
+    const next = new CellBuffer(1, 1);
+
+    const output = emitDiff(prev, next, defaultTheme, {
+      cursor: { visible: false },
+      previousCursor: { visible: true, x: 0, y: 0 },
+    });
+
+    expect(output).toBe("\x1b[?2026h\x1b[?25l\x1b[?2026l");
   });
 
   test("custom theme applies to diff output", () => {

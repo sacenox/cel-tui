@@ -89,9 +89,25 @@ describe("layout", () => {
     });
 
     test("CJK text word-wrap height uses visible width", () => {
-      // 6 CJK chars = 12 columns wide, wrap at width 5 → ceil(12/5) = 3 lines
+      // 6 CJK chars = 12 columns wide, wrap at width 5 → 3 visual lines
       const node = VStack({ width: 5, height: 24 }, [
         Text("世界世界世界", { wrap: "word" }),
+      ]);
+      const result = layout(node, 80, 24);
+      expect(childRects(result)[0]!.height).toBe(3);
+    });
+
+    test("Text word-wrap height follows visual word wrapping, not hard width wrapping", () => {
+      const node = VStack({ width: 6, height: 24 }, [
+        Text("foo bar baz", { wrap: "word" }),
+      ]);
+      const result = layout(node, 80, 24);
+      expect(childRects(result)[0]!.height).toBe(3);
+    });
+
+    test("TextInput intrinsic height follows visual word wrapping", () => {
+      const node = VStack({ width: 6, height: 24 }, [
+        TextInput({ value: "foo bar baz", onChange: () => {} }),
       ]);
       const result = layout(node, 80, 24);
       expect(childRects(result)[0]!.height).toBe(3);

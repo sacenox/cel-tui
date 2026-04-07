@@ -1,4 +1,5 @@
 import type { Node, ContainerProps, SizeValue } from "@cel-tui/types";
+import { layoutText } from "./text-layout.js";
 import { visibleWidth } from "./width.js";
 
 /**
@@ -58,20 +59,11 @@ function intrinsicMainSize(
 ): number {
   if (node.type === "text") {
     if (isVertical) {
-      // Height = number of lines
-      if (node.content.length === 0) return 1;
-      const lines = node.content.split("\n");
-      if (node.props.wrap === "word") {
-        let total = 0;
-        for (const line of lines) {
-          total += Math.max(
-            1,
-            Math.ceil(visibleWidth(line) / Math.max(1, crossSize)),
-          );
-        }
-        return total;
-      }
-      return lines.length;
+      return layoutText(
+        node.content,
+        Math.max(1, crossSize),
+        node.props.wrap ?? "none",
+      ).lineCount;
     }
     // Width (intrinsic)
     if (node.props.repeat === "fill") return 0;
@@ -91,16 +83,7 @@ function intrinsicMainSize(
     if (isVertical) {
       const val = node.props.value || "";
       const innerCrossForTI = Math.max(1, crossSize - tiPadX);
-      if (val.length === 0) return 1 + tiPadY;
-      const lines = val.split("\n");
-      let total = 0;
-      for (const line of lines) {
-        total += Math.max(
-          1,
-          Math.ceil(visibleWidth(line) / Math.max(1, innerCrossForTI)),
-        );
-      }
-      return total + tiPadY;
+      return layoutText(val, innerCrossForTI, "word").lineCount + tiPadY;
     }
     return 0 + tiPadX;
   }

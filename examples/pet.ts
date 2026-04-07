@@ -484,10 +484,12 @@ function createView() {
             nameInputFocused = false;
             cel.render();
           },
-          submitKey: "enter",
-          onSubmit: () => {
-            nameInputFocused = false;
-            cel.render();
+          onKeyPress: (key) => {
+            if (key === "enter") {
+              nameInputFocused = false;
+              cel.render();
+              return false;
+            }
           },
         }),
 

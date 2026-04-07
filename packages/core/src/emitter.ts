@@ -100,7 +100,60 @@ function hasStyle(cell: Cell): boolean {
 const SYNC_START = "\x1b[?2026h";
 const SYNC_END = "\x1b[?2026l";
 const CURSOR_HOME = "\x1b[H";
+const HIDE_CURSOR = "\x1b[?25l";
+const SHOW_CURSOR = "\x1b[?25h";
+const SAVE_CURSOR = "\x1b7";
+const RESTORE_CURSOR = "\x1b8";
 const RESET = "\x1b[0m";
+
+type CursorState =
+  | { visible: false }
+  | {
+      visible: true;
+      x: number;
+      y: number;
+    };
+
+interface EmitOptions {
+  cursor?: CursorState;
+  previousCursor?: CursorState | null;
+}
+
+function sameVisibleCursor(
+  a: CursorState | null | undefined,
+  b: CursorState | null | undefined,
+): boolean {
+  return (
+    a?.visible === true && b?.visible === true && a.x === b.x && a.y === b.y
+  );
+}
+
+function getCursorControls(
+  options: EmitOptions | undefined,
+  hasPaintOutput: boolean,
+): { prefix: string; suffix: string } {
+  const cursor = options?.cursor ?? { visible: false };
+  const previous = options?.previousCursor ?? null;
+
+  if (sameVisibleCursor(cursor, previous)) {
+    return hasPaintOutput
+      ? { prefix: SAVE_CURSOR, suffix: RESTORE_CURSOR }
+      : { prefix: "", suffix: "" };
+  }
+
+  if (cursor.visible) {
+    return {
+      prefix: "",
+      suffix:
+        `\x1b[${cursor.y + 1};${cursor.x + 1}H` +
+        (previous?.visible === true ? "" : SHOW_CURSOR),
+    };
+  }
+
+  return previous?.visible === true
+    ? { prefix: "", suffix: HIDE_CURSOR }
+    : { prefix: "", suffix: "" };
+}
 
 /**
  * Emit a full cell buffer as an ANSI string for terminal output.
@@ -114,13 +167,16 @@ const RESET = "\x1b[0m";
  *
  * @param buf - The cell buffer to render.
  * @param theme - Color theme mapping. Defaults to the ANSI 16 theme.
+ * @param options - Optional terminal cursor state to apply before the synchronized output ends.
  * @returns A complete ANSI string ready to write to the terminal.
  */
 export function emitBuffer(
   buf: CellBuffer,
   theme: Theme = defaultTheme,
+  options?: EmitOptions,
 ): string {
-  let out = SYNC_START + CURSOR_HOME;
+  const cursorControls = getCursorControls(options, true);
+  let out = SYNC_START + cursorControls.prefix + CURSOR_HOME;
 
   let lastStyle: Cell | null = null;
 
@@ -153,7 +209,7 @@ export function emitBuffer(
     out += RESET;
   }
 
-  out += SYNC_END;
+  out += cursorControls.suffix + SYNC_END;
   return out;
 }
 
@@ -167,18 +223,21 @@ export function emitBuffer(
  * @param prev - The previous buffer.
  * @param next - The new buffer.
  * @param theme - Color theme mapping. Defaults to the ANSI 16 theme.
+ * @param options - Optional terminal cursor state to apply before the synchronized output ends.
  * @returns An ANSI string with only the changed cells.
  */
 export function emitDiff(
   prev: CellBuffer,
   next: CellBuffer,
   theme: Theme = defaultTheme,
+  options?: EmitOptions,
 ): string {
-  let out = SYNC_START;
-
   const changes = prev.diff(next);
+  const cursorControls = getCursorControls(options, changes.length > 0);
+  let out = SYNC_START + cursorControls.prefix;
+
   if (changes.length === 0) {
-    return out + SYNC_END;
+    return out + cursorControls.suffix + SYNC_END;
   }
 
   let lastStyle: Cell | null = null;
@@ -222,6 +281,6 @@ export function emitDiff(
     out += RESET;
   }
 
-  out += SYNC_END;
+  out += cursorControls.suffix + SYNC_END;
   return out;
 }

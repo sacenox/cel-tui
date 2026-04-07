@@ -8,7 +8,7 @@ import {
   collectKeyPressHandlers,
   collectFocusable,
 } from "./hit-test.js";
-import { parseKey, isEditingKey, normalizeKey } from "./keys.js";
+import { parseKey, isEditingKey } from "./keys.js";
 import { layout, type LayoutNode } from "./layout.js";
 import {
   paint,
@@ -26,9 +26,17 @@ import {
   type EditState,
 } from "./text-edit.js";
 import type { Terminal } from "./terminal.js";
-import { visibleWidth } from "./width.js";
+import { getMaxScrollOffset, getScrollStep } from "./scroll.js";
 
 type RenderFn = () => Node | Node[];
+
+type TerminalCursorState =
+  | { visible: false }
+  | {
+      visible: true;
+      x: number;
+      y: number;
+    };
 
 let terminal: Terminal | null = null;
 let activeTheme: Theme = defaultTheme;
@@ -59,6 +67,9 @@ const uncontrolledScrollOffsets = new Map<string, number>();
 
 /** Nodes whose props were stamped with scrollOffset during the last paint. */
 let stampedScrollNodes: { node: Node; key: string }[] = [];
+
+/** The cursor state currently expected on the terminal. */
+let lastTerminalCursor: TerminalCursorState | null = { visible: false };
 
 function doRender(): void {
   renderScheduled = false;
@@ -105,43 +116,38 @@ function doRender(): void {
   unstampUncontrolledFocus();
   unstampUncontrolledScroll();
 
+  const nextCursor = getDesiredTerminalCursor();
+
   // Emit to terminal — differential when possible
   if (prevBuffer) {
-    const output = emitDiff(prevBuffer, currentBuffer, activeTheme);
+    const output = emitDiff(prevBuffer, currentBuffer, activeTheme, {
+      cursor: nextCursor,
+      previousCursor: lastTerminalCursor,
+    });
     if (output.length > 0) terminal.write(output);
   } else {
-    const output = emitBuffer(currentBuffer, activeTheme);
+    const output = emitBuffer(currentBuffer, activeTheme, {
+      cursor: nextCursor,
+      previousCursor: lastTerminalCursor,
+    });
     terminal.write(output);
   }
 
-  // Position the native terminal cursor at the focused TextInput's cursor.
-  // This gives us a blinking cursor for free (terminal-managed blink).
-  positionTerminalCursor();
+  lastTerminalCursor = nextCursor;
 }
 
 /**
- * After each render, show the native terminal cursor at the focused
- * TextInput's cursor position (gives blinking for free). When no
- * TextInput is focused, hide the cursor.
+ * Resolve the final terminal cursor state for the current frame.
+ * The cursor is shown only for a focused TextInput whose cursor is visible
+ * within the clipped viewport.
  */
-function positionTerminalCursor(): void {
-  if (!terminal) return;
-
-  // Find focused TextInput in the layout tree (check stamped state during
-  // render — we need to check controlled focus in the current layouts)
+function getDesiredTerminalCursor(): TerminalCursorState {
   const focusedTI = findFocusedTextInputLayout();
-  if (focusedTI) {
-    const props = focusedTI.node
-      .props as import("@cel-tui/types").TextInputProps;
-    const pos = getTextInputCursorScreenPos(props, focusedTI.rect);
-    if (pos) {
-      // CUP: move cursor to (row, col) — 1-indexed
-      terminal.write(`\x1b[${pos.y + 1};${pos.x + 1}H`);
-      terminal.showCursor();
-      return;
-    }
-  }
-  terminal.hideCursor();
+  if (!focusedTI) return { visible: false };
+
+  const props = focusedTI.node.props as import("@cel-tui/types").TextInputProps;
+  const pos = getTextInputCursorScreenPos(props, focusedTI.rect);
+  return pos ? { visible: true, x: pos.x, y: pos.y } : { visible: false };
 }
 
 /**
@@ -454,49 +460,6 @@ function changeFocus(target: LayoutNode | null): void {
 }
 
 /**
- * Compute the maximum scroll offset for a scrollable container or TextInput.
- * Returns 0 if content fits within the viewport.
- */
-function getMaxScrollOffset(target: LayoutNode): number {
-  const { rect, children } = target;
-
-  // TextInput: compute content height from wrapped text value
-  if (target.node.type === "textinput") {
-    const w = rect.width;
-    const value = target.node.props.value;
-    let lineCount = 0;
-    for (const rawLine of value.split("\n")) {
-      const lw = visibleWidth(rawLine);
-      lineCount += w > 0 && lw > w ? Math.ceil(lw / w) : 1;
-    }
-    return Math.max(0, lineCount - rect.height);
-  }
-
-  const isVertical = target.node.type === "vstack";
-  const props = target.node.type !== "text" ? target.node.props : null;
-  const padX = (props as any)?.padding?.x ?? 0;
-  const padY = (props as any)?.padding?.y ?? 0;
-
-  if (isVertical) {
-    let contentHeight = 0;
-    for (const child of children) {
-      const childBottom = child.rect.y + child.rect.height - rect.y;
-      if (childBottom > contentHeight) contentHeight = childBottom;
-    }
-    // Viewport is the inner height (minus bottom padding)
-    // Content starts at padY, so contentHeight includes top padding offset
-    return Math.max(0, contentHeight + padY - rect.height);
-  } else {
-    let contentWidth = 0;
-    for (const child of children) {
-      const childRight = child.rect.x + child.rect.width - rect.x;
-      if (childRight > contentWidth) contentWidth = childRight;
-    }
-    return Math.max(0, contentWidth + padX - rect.width);
-  }
-}
-
-/**
  * Resolve the current scroll offset for a layout node.
  * Checks controlled (props.scrollOffset), then uncontrolled (path-based map).
  */
@@ -539,7 +502,8 @@ function handleMouseEvent(event: MouseEvent): void {
     if (event.type === "scroll-up" || event.type === "scroll-down") {
       const target = findScrollTarget(path);
       if (target) {
-        const delta = event.type === "scroll-up" ? -1 : 1;
+        const step = getScrollStep(target);
+        const delta = event.type === "scroll-up" ? -step : step;
         const maxOffset = getMaxScrollOffset(target);
 
         if (target.node.type === "textinput") {
@@ -555,11 +519,15 @@ function handleMouseEvent(event: MouseEvent): void {
             if (props.onScroll) {
               // Controlled scroll: notify app.
               // Use batch accumulator if available (multiple events in one chunk),
-              // otherwise read from props.
-              const baseOffset =
+              // otherwise read from props. Clamp to maxOffset first so that
+              // Infinity (sticky-bottom) resolves to a finite value before
+              // applying the delta — otherwise Infinity + (-1) = Infinity
+              // and scrolling up never unsticks.
+              const rawBase =
                 batchScrollOffsets?.get(props) ??
                 (props as any).scrollOffset ??
                 0;
+              const baseOffset = Math.min(rawBase, maxOffset);
               const newOffset = Math.max(
                 0,
                 Math.min(maxOffset, baseOffset + delta),
@@ -685,12 +653,13 @@ function handleKeyEvent(key: string, rawData?: string): void {
     const props = focusedInput.node
       .props as import("@cel-tui/types").TextInputProps;
 
-    // Check submitKey
-    const submitKey = normalizeKey(props.submitKey ?? "enter");
-    if (key === submitKey && props.onSubmit) {
-      props.onSubmit();
-      cel.render();
-      return;
+    // onKeyPress fires before editing — return false prevents the default action
+    if (props.onKeyPress) {
+      const result = props.onKeyPress(key);
+      if (result === false) {
+        cel.render();
+        return;
+      }
     }
 
     // Editing keys are consumed by TextInput
@@ -728,6 +697,7 @@ function handleKeyEvent(key: string, rawData?: string): void {
           }
           break;
         case "enter":
+        case "shift+enter":
           newState = insertChar(editState, "\n");
           break;
         case "tab":
@@ -766,7 +736,16 @@ function handleKeyEvent(key: string, rawData?: string): void {
     for (let i = currentLayouts.length - 1; i >= 0; i--) {
       const path = findPathTo(currentLayouts[i]!, focused);
       if (path) {
-        const handlers = collectKeyPressHandlers(path);
+        let handlers = collectKeyPressHandlers(path);
+        // If a TextInput's onKeyPress was already called in the pre-editing
+        // hook above, exclude it from bubbling to avoid calling it twice.
+        if (
+          focusedInput &&
+          handlers.length > 0 &&
+          handlers[0]!.layoutNode === focusedInput
+        ) {
+          handlers = handlers.slice(1);
+        }
         if (handlers.length > 0) {
           let consumed = false;
           for (const h of handlers) {
@@ -875,6 +854,7 @@ export const cel = {
   init(term: Terminal, options?: { theme?: Theme }): void {
     terminal = term;
     activeTheme = options?.theme ?? defaultTheme;
+    lastTerminalCursor = { visible: false };
     terminal.start(handleInput, () => cel.render());
   },
 
@@ -920,6 +900,7 @@ export const cel = {
     stampedNode = null;
     uncontrolledScrollOffsets.clear();
     stampedScrollNodes = [];
+    lastTerminalCursor = { visible: false };
     activeTheme = defaultTheme;
   },
 
