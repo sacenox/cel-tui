@@ -8,7 +8,7 @@
 
 > **Text**(`content`, `props?`): [`TextNode`](../../../types/src/interfaces/TextNode.md)
 
-Defined in: [core/src/primitives/text.ts:27](https://github.com/sacenox/cel-tui/blob/7a13002be0f32f691a11f759a0697d7adbbfd9b6/packages/core/src/primitives/text.ts#L27)
+Defined in: [core/src/primitives/text.ts:27](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/core/src/primitives/text.ts#L27)
 
 Create a styled text leaf node.
 

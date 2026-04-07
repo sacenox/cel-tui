@@ -8,11 +8,12 @@
 
 > **ThemeValue** = `number` \| `string`
 
-Defined in: [types/src/index.ts:38](https://github.com/sacenox/cel-tui/blob/7a13002be0f32f691a11f759a0697d7adbbfd9b6/packages/types/src/index.ts#L38)
+Defined in: [types/src/index.ts:39](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/types/src/index.ts#L39)
 
 A theme value for a single color slot.
 
-- `number` (0–15) — ANSI palette index. Emitted as standard SGR codes
-  (e.g., index 1 → fg 31, bg 41).
+- `number` (0–15) — ANSI 16 palette index. Emitted as standard SGR codes
+  (e.g., index 1 → fg 31, bg 41). Values outside 0–15 are not supported
+  and will produce incorrect SGR codes.
 - `string` — 24-bit hex color (e.g., `"#ff0000"`). Emitted as
   true-color SGR codes (`38;2;r;g;b` / `48;2;r;g;b`).

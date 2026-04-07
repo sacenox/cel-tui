@@ -6,7 +6,7 @@
 
 # Interface: TextProps
 
-Defined in: [types/src/index.ts:274](https://github.com/sacenox/cel-tui/blob/7a13002be0f32f691a11f759a0697d7adbbfd9b6/packages/types/src/index.ts#L274)
+Defined in: [types/src/index.ts:286](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/types/src/index.ts#L286)
 
 Props for the Text primitive.
 
@@ -24,7 +24,7 @@ from content, newlines, and word-wrapping at the given width.
 
 > `optional` **bgColor?**: [`Color`](../type-aliases/Color.md)
 
-Defined in: [types/src/index.ts:78](https://github.com/sacenox/cel-tui/blob/7a13002be0f32f691a11f759a0697d7adbbfd9b6/packages/types/src/index.ts#L78)
+Defined in: [types/src/index.ts:79](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/types/src/index.ts#L79)
 
 Background color.
 
@@ -38,7 +38,7 @@ Background color.
 
 > `optional` **bold?**: `boolean`
 
-Defined in: [types/src/index.ts:70](https://github.com/sacenox/cel-tui/blob/7a13002be0f32f691a11f759a0697d7adbbfd9b6/packages/types/src/index.ts#L70)
+Defined in: [types/src/index.ts:71](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/types/src/index.ts#L71)
 
 Render text with bold weight.
 
@@ -52,7 +52,7 @@ Render text with bold weight.
 
 > `optional` **fgColor?**: [`Color`](../type-aliases/Color.md)
 
-Defined in: [types/src/index.ts:76](https://github.com/sacenox/cel-tui/blob/7a13002be0f32f691a11f759a0697d7adbbfd9b6/packages/types/src/index.ts#L76)
+Defined in: [types/src/index.ts:77](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/types/src/index.ts#L77)
 
 Foreground (text) color.
 
@@ -66,7 +66,7 @@ Foreground (text) color.
 
 > `optional` **italic?**: `boolean`
 
-Defined in: [types/src/index.ts:72](https://github.com/sacenox/cel-tui/blob/7a13002be0f32f691a11f759a0697d7adbbfd9b6/packages/types/src/index.ts#L72)
+Defined in: [types/src/index.ts:73](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/types/src/index.ts#L73)
 
 Render text in italic style.
 
@@ -80,7 +80,7 @@ Render text in italic style.
 
 > `optional` **repeat?**: `number` \| `"fill"`
 
-Defined in: [types/src/index.ts:283](https://github.com/sacenox/cel-tui/blob/7a13002be0f32f691a11f759a0697d7adbbfd9b6/packages/types/src/index.ts#L283)
+Defined in: [types/src/index.ts:295](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/types/src/index.ts#L295)
 
 Repeat the text content a fixed number of times or to fill the
 available width. When set, wrapping is ignored.
@@ -98,7 +98,7 @@ repeat: 20      // repeats exactly 20 times
 
 > `optional` **underline?**: `boolean`
 
-Defined in: [types/src/index.ts:74](https://github.com/sacenox/cel-tui/blob/7a13002be0f32f691a11f759a0697d7adbbfd9b6/packages/types/src/index.ts#L74)
+Defined in: [types/src/index.ts:75](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/types/src/index.ts#L75)
 
 Render text with an underline.
 
@@ -112,7 +112,7 @@ Render text with an underline.
 
 > `optional` **wrap?**: `"none"` \| `"word"`
 
-Defined in: [types/src/index.ts:292](https://github.com/sacenox/cel-tui/blob/7a13002be0f32f691a11f759a0697d7adbbfd9b6/packages/types/src/index.ts#L292)
+Defined in: [types/src/index.ts:304](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/types/src/index.ts#L304)
 
 Text wrapping mode.
 - `"none"` (default) — no wrapping, content is hard-clipped at the box edge.

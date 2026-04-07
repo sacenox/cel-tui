@@ -2,7 +2,7 @@
 
 **Machine:** 12th Gen Intel Core i9-12900, ~4.4 GHz  
 **Runtime:** Bun 1.3.9 (x64-linux)  
-**Date:** 2026-04-04
+**Date:** 2026-04-05 (updated from 2026-04-04 baseline)
 
 ## Ink Comparison (caveat emptor)
 
@@ -23,11 +23,11 @@ The comparison is included as a rough reference point, not a claim of
 superiority. Ink solves a broader set of problems; cel-tui trades
 features for raw throughput.
 
-| What                                       | cel-tui    | Ink 6.8.0                                         | Ratio      |
-| ------------------------------------------ | ---------- | ------------------------------------------------- | ---------- |
-| **Single render (comparable tree, 80×24)** | **65 µs**  | 632 µs (`renderToString`)                         | **~10×**   |
-| **1,000 re-renders**                       | **64 ms**  | 632 ms (`renderToString`) / 1,462 ms (`rerender`) | **10–23×** |
-| **Projected 100k re-renders**              | **~6.4 s** | ~63 s (`renderToString`) / ~146 s (`rerender`)    | **10–23×** |
+| What                                       | cel-tui    | Ink 6.8.0                                         | Ratio     |
+| ------------------------------------------ | ---------- | ------------------------------------------------- | --------- |
+| **Single render (comparable tree, 80×24)** | **65 µs**  | 632 µs (`renderToString`)                         | **~10×**  |
+| **1,000 re-renders**                       | **67 ms**  | 632 ms (`renderToString`) / 1,462 ms (`rerender`) | **9–22×** |
+| **Projected 100k re-renders**              | **~6.7 s** | ~63 s (`renderToString`) / ~146 s (`rerender`)    | **9–22×** |
 
 The Ink benchmark script we used is a custom `renderToString` loop (see
 [How to Reproduce](#how-to-reproduce)), not Ink's own shipped benchmark,
@@ -51,11 +51,11 @@ numbers are included above.
 | Input                        | Time     |
 | ---------------------------- | -------- |
 | ASCII short (5 chars)        | 4.1 ns   |
-| ASCII (64 chars)             | 40.3 ns  |
-| ASCII long (640 chars)       | 398.6 ns |
-| CJK + emoji (26 graphemes)   | 26.8 ns  |
-| Mixed ASCII + CJK (60 chars) | 5.1 ns   |
-| ANSI escape sequences        | 2.9 ns   |
+| ASCII (64 chars)             | 39.1 ns  |
+| ASCII long (640 chars)       | 386.6 ns |
+| CJK + emoji (26 graphemes)   | 26.6 ns  |
+| Mixed ASCII + CJK (60 chars) | 4.9 ns   |
+| ANSI escape sequences        | 3.2 ns   |
 | Empty string                 | 0.1 ns   |
 
 The fast ASCII path dominates — pure ASCII strings bypass grapheme segmentation entirely.
@@ -65,17 +65,17 @@ The fast ASCII path dominates — pure ASCII strings bypass grapheme segmentatio
 | Tree                          | Time     |
 | ----------------------------- | -------- |
 | 10 children (flat)            | 1.5 µs   |
-| 100 children (flat)           | 11.9 µs  |
-| 1,000 children (flat)         | 124.5 µs |
+| 100 children (flat)           | 12.0 µs  |
+| 1,000 children (flat)         | 125.1 µs |
 | depth=3 breadth=3 (40 nodes)  | 3.0 µs   |
-| depth=4 breadth=3 (121 nodes) | 15.3 µs  |
+| depth=4 breadth=3 (121 nodes) | 15.1 µs  |
 | depth=3 breadth=5 (156 nodes) | 9.5 µs   |
-| 50 styled groups (200 nodes)  | 49.9 µs  |
+| 50 styled groups (200 nodes)  | 52.6 µs  |
 | 10 word-wrap paragraphs       | 2.6 µs   |
-| 50 word-wrap paragraphs       | 12.3 µs  |
-| Ink-comparable tree           | 1.6 µs   |
-| App tree (20 messages)        | 9.9 µs   |
-| App tree (100 messages)       | 37.9 µs  |
+| 50 word-wrap paragraphs       | 13.1 µs  |
+| Ink-comparable tree           | 1.7 µs   |
+| App tree (20 messages)        | 10.1 µs  |
+| App tree (100 messages)       | 39.6 µs  |
 
 Layout scales linearly with node count (~120 ns/node for flat trees).
 
@@ -83,18 +83,18 @@ Layout scales linearly with node count (~120 ns/node for flat trees).
 
 | Scenario                      | Time   |
 | ----------------------------- | ------ |
-| 10 children (flat, 120×40)    | 95 µs  |
-| 100 children (flat, 120×40)   | 195 µs |
-| 1,000 children (flat, 120×40) | 198 µs |
-| Nested 121 nodes (120×40)     | 185 µs |
-| 50 styled groups (120×40)     | 220 µs |
-| 200 lines scrollable (120×40) | 198 µs |
-| 50 word-wrapped paragraphs    | 283 µs |
-| Ink-comparable (80×24)        | 46 µs  |
-| App tree 20 msgs (120×40)     | 187 µs |
-| 80×24 (small terminal)        | 110 µs |
-| 120×40 (medium terminal)      | 209 µs |
-| 200×50 (large terminal)       | 312 µs |
+| 10 children (flat, 120×40)    | 93 µs  |
+| 100 children (flat, 120×40)   | 193 µs |
+| 1,000 children (flat, 120×40) | 192 µs |
+| Nested 121 nodes (120×40)     | 180 µs |
+| 50 styled groups (120×40)     | 207 µs |
+| 200 lines scrollable (120×40) | 185 µs |
+| 50 word-wrapped paragraphs    | 286 µs |
+| Ink-comparable (80×24)        | 45 µs  |
+| App tree 20 msgs (120×40)     | 208 µs |
+| 80×24 (small terminal)        | 109 µs |
+| 120×40 (medium terminal)      | 196 µs |
+| 200×50 (large terminal)       | 284 µs |
 
 Paint is O(cells), not O(nodes) — 100 vs 1,000 children produce similar times because only visible cells are painted. Cost scales with terminal size.
 
@@ -102,14 +102,14 @@ Paint is O(cells), not O(nodes) — 100 vs 1,000 children produce similar times 
 
 | Operation                    | Time     |
 | ---------------------------- | -------- |
-| Buffer creation 80×24        | 24.2 µs  |
-| Buffer creation 120×40       | 58.6 µs  |
-| Buffer creation 200×50       | 122.2 µs |
-| emitBuffer 80×24 (full)      | 19.3 µs  |
-| emitBuffer 120×40 (full)     | 46.8 µs  |
-| emitDiff 80×24 (no changes)  | 11.6 µs  |
-| emitDiff 80×24 (partial)     | 11.9 µs  |
-| emitDiff 80×24 (full change) | 10.7 µs  |
+| Buffer creation 80×24        | 24.7 µs  |
+| Buffer creation 120×40       | 58.2 µs  |
+| Buffer creation 200×50       | 117.0 µs |
+| emitBuffer 80×24 (full)      | 21.4 µs  |
+| emitBuffer 120×40 (full)     | 46.4 µs  |
+| emitDiff 80×24 (no changes)  | 11.8 µs  |
+| emitDiff 80×24 (partial)     | 11.1 µs  |
+| emitDiff 80×24 (full change) | 11.2 µs  |
 
 Differential rendering has near-constant cost regardless of change amount — dominated by the comparison scan over all cells.
 
@@ -117,36 +117,36 @@ Differential rendering has near-constant cost regardless of change amount — do
 
 | Operation                    | Time    |
 | ---------------------------- | ------- |
-| hitTest flat 100, center     | 135 ns  |
-| hitTest nested 121, center   | 35 ns   |
-| hitTest app 50 msgs, center  | 102 ns  |
-| hitTest miss (out of bounds) | 1.5 ns  |
-| collectFocusable 100 buttons | 1.15 µs |
-| collectFocusable app tree    | 1.03 µs |
+| hitTest flat 100, center     | 145 ns  |
+| hitTest nested 121, center   | 41 ns   |
+| hitTest app 50 msgs, center  | 108 ns  |
+| hitTest miss (out of bounds) | 7.7 ns  |
+| collectFocusable 100 buttons | 1.13 µs |
+| collectFocusable app tree    | 0.96 µs |
 
 ### Key Parsing
 
 | Input                 | Time   |
 | --------------------- | ------ |
-| Printable char 'a'    | <1 ns  |
-| Ctrl+C (0x03)         | <1 ns  |
-| Escape                | <1 ns  |
-| Arrow up (CSI)        | 2.7 ns |
-| Shift+Tab (CSI Z)     | 7.6 ns |
-| F5 (CSI 15~)          | 163 ns |
-| Backspace (0x7F)      | 6.8 ns |
-| normalizeKey "ctrl+s" | 90 ns  |
+| Printable char 'a'    | 15 ns  |
+| Ctrl+C (0x03)         | 18 ns  |
+| Escape                | ~1 ns  |
+| Arrow up (CSI)        | 58 ns  |
+| Shift+Tab (CSI Z)     | <1 ns  |
+| F5 (CSI 15~)          | 111 ns |
+| Backspace (0x7F)      | 7.1 ns |
+| normalizeKey "ctrl+s" | 84 ns  |
 
 ### End-to-End Pipeline
 
 | Scenario                  | Time   | Renders/sec |
 | ------------------------- | ------ | ----------- |
-| Ink-comparable (80×24)    | 65 µs  | **15,400**  |
-| Flat 100 lines (80×24)    | 153 µs | 6,500       |
-| App tree 20 msgs (120×40) | 267 µs | 3,700       |
-| Re-render no-change diff  | 61 µs  | 16,400      |
-| Re-render +1 message diff | 252 µs | 3,970       |
-| 1,000 re-renders batch    | 64 ms  | 15,600      |
+| Ink-comparable (80×24)    | 67 µs  | **14,900**  |
+| Flat 100 lines (80×24)    | 152 µs | 6,600       |
+| App tree 20 msgs (120×40) | 268 µs | 3,700       |
+| Re-render no-change diff  | 61 µs  | 16,300      |
+| Re-render +1 message diff | 248 µs | 4,030       |
+| 1,000 re-renders batch    | 67 ms  | 14,800      |
 
 ## Ink Raw Numbers
 

@@ -8,7 +8,7 @@
 
 > `const` **cel**: `object`
 
-Defined in: [core/src/cel.ts:863](https://github.com/sacenox/cel-tui/blob/7a13002be0f32f691a11f759a0697d7adbbfd9b6/packages/core/src/cel.ts#L863)
+Defined in: [core/src/cel.ts:842](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/core/src/cel.ts#L842)
 
 cel-tui framework entrypoint.
 

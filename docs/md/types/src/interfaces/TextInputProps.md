@@ -6,7 +6,7 @@
 
 # Interface: TextInputProps
 
-Defined in: [types/src/index.ts:303](https://github.com/sacenox/cel-tui/blob/7a13002be0f32f691a11f759a0697d7adbbfd9b6/packages/types/src/index.ts#L303)
+Defined in: [types/src/index.ts:315](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/types/src/index.ts#L315)
 
 Props for the TextInput primitive.
 
@@ -25,7 +25,7 @@ Word-wrap is always on.
 
 > `optional` **alignItems?**: `"start"` \| `"end"` \| `"center"` \| `"stretch"`
 
-Defined in: [types/src/index.ts:154](https://github.com/sacenox/cel-tui/blob/7a13002be0f32f691a11f759a0697d7adbbfd9b6/packages/types/src/index.ts#L154)
+Defined in: [types/src/index.ts:155](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/types/src/index.ts#L155)
 
 Align children along the cross axis.
 - VStack cross axis = horizontal
@@ -41,7 +41,7 @@ Align children along the cross axis.
 
 > `optional` **bgColor?**: [`Color`](../type-aliases/Color.md)
 
-Defined in: [types/src/index.ts:78](https://github.com/sacenox/cel-tui/blob/7a13002be0f32f691a11f759a0697d7adbbfd9b6/packages/types/src/index.ts#L78)
+Defined in: [types/src/index.ts:79](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/types/src/index.ts#L79)
 
 Background color.
 
@@ -55,7 +55,7 @@ Background color.
 
 > `optional` **bold?**: `boolean`
 
-Defined in: [types/src/index.ts:70](https://github.com/sacenox/cel-tui/blob/7a13002be0f32f691a11f759a0697d7adbbfd9b6/packages/types/src/index.ts#L70)
+Defined in: [types/src/index.ts:71](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/types/src/index.ts#L71)
 
 Render text with bold weight.
 
@@ -69,7 +69,7 @@ Render text with bold weight.
 
 > `optional` **fgColor?**: [`Color`](../type-aliases/Color.md)
 
-Defined in: [types/src/index.ts:76](https://github.com/sacenox/cel-tui/blob/7a13002be0f32f691a11f759a0697d7adbbfd9b6/packages/types/src/index.ts#L76)
+Defined in: [types/src/index.ts:77](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/types/src/index.ts#L77)
 
 Foreground (text) color.
 
@@ -83,7 +83,7 @@ Foreground (text) color.
 
 > `optional` **flex?**: `number`
 
-Defined in: [types/src/index.ts:122](https://github.com/sacenox/cel-tui/blob/7a13002be0f32f691a11f759a0697d7adbbfd9b6/packages/types/src/index.ts#L122)
+Defined in: [types/src/index.ts:123](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/types/src/index.ts#L123)
 
 Flex grow factor. Space remaining after fixed and intrinsic children
 is distributed proportionally among flex children.
@@ -105,7 +105,7 @@ flex: 2  // double share
 
 > `optional` **flexWrap?**: `"nowrap"` \| `"wrap"`
 
-Defined in: [types/src/index.ts:168](https://github.com/sacenox/cel-tui/blob/7a13002be0f32f691a11f759a0697d7adbbfd9b6/packages/types/src/index.ts#L168)
+Defined in: [types/src/index.ts:169](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/types/src/index.ts#L169)
 
 Whether children wrap to the next line when they exceed the
 container's main-axis size. Only meaningful on HStack.
@@ -128,7 +128,7 @@ stacked vertically with `gap` spacing between them.
 
 > `optional` **focusable?**: `boolean`
 
-Defined in: [types/src/index.ts:208](https://github.com/sacenox/cel-tui/blob/7a13002be0f32f691a11f759a0697d7adbbfd9b6/packages/types/src/index.ts#L208)
+Defined in: [types/src/index.ts:220](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/types/src/index.ts#L220)
 
 Whether this container participates in focus traversal.
 Defaults to `true` when [onClick](ContainerProps.md#onclick) is set. Set to `false`
@@ -144,7 +144,7 @@ to make a container clickable by mouse but not reachable via Tab.
 
 > `optional` **focused?**: `boolean`
 
-Defined in: [types/src/index.ts:218](https://github.com/sacenox/cel-tui/blob/7a13002be0f32f691a11f759a0697d7adbbfd9b6/packages/types/src/index.ts#L218)
+Defined in: [types/src/index.ts:230](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/types/src/index.ts#L230)
 
 Whether this container is currently focused.
 
@@ -163,7 +163,7 @@ focus internally (Tab/Shift+Tab/Escape/click just work).
 
 > `optional` **focusStyle?**: [`StyleProps`](StyleProps.md)
 
-Defined in: [types/src/index.ts:244](https://github.com/sacenox/cel-tui/blob/7a13002be0f32f691a11f759a0697d7adbbfd9b6/packages/types/src/index.ts#L244)
+Defined in: [types/src/index.ts:256](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/types/src/index.ts#L256)
 
 Style overrides applied when this element is focused.
 Accepts any [StyleProps](StyleProps.md) — overridden values replace the
@@ -187,7 +187,7 @@ Works in both uncontrolled and controlled focus modes.
 
 > `optional` **gap?**: `number`
 
-Defined in: [types/src/index.ts:140](https://github.com/sacenox/cel-tui/blob/7a13002be0f32f691a11f759a0697d7adbbfd9b6/packages/types/src/index.ts#L140)
+Defined in: [types/src/index.ts:141](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/types/src/index.ts#L141)
 
 Spacing between children in cells.
 
@@ -201,7 +201,7 @@ Spacing between children in cells.
 
 > `optional` **height?**: [`SizeValue`](../type-aliases/SizeValue.md)
 
-Defined in: [types/src/index.ts:112](https://github.com/sacenox/cel-tui/blob/7a13002be0f32f691a11f759a0697d7adbbfd9b6/packages/types/src/index.ts#L112)
+Defined in: [types/src/index.ts:113](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/types/src/index.ts#L113)
 
 Fixed height in cells, or percentage of parent height.
 When omitted, the container uses intrinsic sizing (fits content)
@@ -217,7 +217,7 @@ or flex/percentage if those are set.
 
 > `optional` **italic?**: `boolean`
 
-Defined in: [types/src/index.ts:72](https://github.com/sacenox/cel-tui/blob/7a13002be0f32f691a11f759a0697d7adbbfd9b6/packages/types/src/index.ts#L72)
+Defined in: [types/src/index.ts:73](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/types/src/index.ts#L73)
 
 Render text in italic style.
 
@@ -231,7 +231,7 @@ Render text in italic style.
 
 > `optional` **justifyContent?**: `"start"` \| `"end"` \| `"center"` \| `"space-between"`
 
-Defined in: [types/src/index.ts:147](https://github.com/sacenox/cel-tui/blob/7a13002be0f32f691a11f759a0697d7adbbfd9b6/packages/types/src/index.ts#L147)
+Defined in: [types/src/index.ts:148](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/types/src/index.ts#L148)
 
 Distribute children along the main axis.
 - VStack main axis = vertical
@@ -247,7 +247,7 @@ Distribute children along the main axis.
 
 > `optional` **maxHeight?**: `number`
 
-Defined in: [types/src/index.ts:131](https://github.com/sacenox/cel-tui/blob/7a13002be0f32f691a11f759a0697d7adbbfd9b6/packages/types/src/index.ts#L131)
+Defined in: [types/src/index.ts:132](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/types/src/index.ts#L132)
 
 Maximum height constraint in cells.
 
@@ -261,7 +261,7 @@ Maximum height constraint in cells.
 
 > `optional` **maxWidth?**: `number`
 
-Defined in: [types/src/index.ts:127](https://github.com/sacenox/cel-tui/blob/7a13002be0f32f691a11f759a0697d7adbbfd9b6/packages/types/src/index.ts#L127)
+Defined in: [types/src/index.ts:128](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/types/src/index.ts#L128)
 
 Maximum width constraint in cells.
 
@@ -275,7 +275,7 @@ Maximum width constraint in cells.
 
 > `optional` **minHeight?**: `number`
 
-Defined in: [types/src/index.ts:129](https://github.com/sacenox/cel-tui/blob/7a13002be0f32f691a11f759a0697d7adbbfd9b6/packages/types/src/index.ts#L129)
+Defined in: [types/src/index.ts:130](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/types/src/index.ts#L130)
 
 Minimum height constraint in cells.
 
@@ -289,7 +289,7 @@ Minimum height constraint in cells.
 
 > `optional` **minWidth?**: `number`
 
-Defined in: [types/src/index.ts:125](https://github.com/sacenox/cel-tui/blob/7a13002be0f32f691a11f759a0697d7adbbfd9b6/packages/types/src/index.ts#L125)
+Defined in: [types/src/index.ts:126](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/types/src/index.ts#L126)
 
 Minimum width constraint in cells.
 
@@ -303,7 +303,7 @@ Minimum width constraint in cells.
 
 > `optional` **onBlur?**: () => `void`
 
-Defined in: [types/src/index.ts:232](https://github.com/sacenox/cel-tui/blob/7a13002be0f32f691a11f759a0697d7adbbfd9b6/packages/types/src/index.ts#L232)
+Defined in: [types/src/index.ts:244](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/types/src/index.ts#L244)
 
 Called when this container loses focus.
 In uncontrolled mode, this is a notification callback.
@@ -323,7 +323,7 @@ In controlled mode, update [focused](ContainerProps.md#focused) here.
 
 > **onChange**: (`value`) => `void`
 
-Defined in: [types/src/index.ts:313](https://github.com/sacenox/cel-tui/blob/7a13002be0f32f691a11f759a0697d7adbbfd9b6/packages/types/src/index.ts#L313)
+Defined in: [types/src/index.ts:325](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/types/src/index.ts#L325)
 
 Called when the user edits text. Update [value](#onchange) with the new
 string and call `cel.render()` to reflect the change.
@@ -346,7 +346,7 @@ The new text content.
 
 > `optional` **onClick?**: () => `void`
 
-Defined in: [types/src/index.ts:201](https://github.com/sacenox/cel-tui/blob/7a13002be0f32f691a11f759a0697d7adbbfd9b6/packages/types/src/index.ts#L201)
+Defined in: [types/src/index.ts:213](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/types/src/index.ts#L213)
 
 Called on mouse click or Enter key when this container is focused.
 Setting this prop makes the container focusable by default.
@@ -365,7 +365,7 @@ Setting this prop makes the container focusable by default.
 
 > `optional` **onFocus?**: () => `void`
 
-Defined in: [types/src/index.ts:225](https://github.com/sacenox/cel-tui/blob/7a13002be0f32f691a11f759a0697d7adbbfd9b6/packages/types/src/index.ts#L225)
+Defined in: [types/src/index.ts:237](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/types/src/index.ts#L237)
 
 Called when this container receives focus (Tab, Shift+Tab, or mouse click).
 In uncontrolled mode, this is a notification callback.
@@ -385,21 +385,12 @@ In controlled mode, update [focused](ContainerProps.md#focused) here.
 
 > `optional` **onKeyPress?**: (`key`) => `boolean` \| `void`
 
-Defined in: [types/src/index.ts:264](https://github.com/sacenox/cel-tui/blob/7a13002be0f32f691a11f759a0697d7adbbfd9b6/packages/types/src/index.ts#L264)
+Defined in: [types/src/index.ts:339](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/types/src/index.ts#L339)
 
-Called on key events that bubble up to this container.
-Keys are first handled by the focused element; unconsumed keys
-(e.g., modifier combos like `"ctrl+s"`) bubble up through ancestors.
-The root container's `onKeyPress` acts as the global key handler.
-
-Return `false` to indicate the key was **not consumed** — it will
-continue bubbling to the next ancestor handler. Any other return
-value (`undefined`, `true`, or no return) means the key was consumed
-and bubbling stops. This is backward-compatible: existing `void`
-handlers consume by default.
-
-Key format: all lowercase, modifiers joined by `+` in canonical
-order `ctrl+alt+shift+<key>` (e.g., `"ctrl+s"`, `"alt+up"`, `"escape"`).
+Key handler that fires **before** the built-in editing logic.
+Return `false` to prevent the default editing action for that key
+(no character insertion, no cursor movement, no deletion).
+Any other return (or no return) lets the default action proceed.
 
 #### Parameters
 
@@ -407,15 +398,20 @@ order `ctrl+alt+shift+<key>` (e.g., `"ctrl+s"`, `"alt+up"`, `"escape"`).
 
 `string`
 
-Normalized key string.
-
 #### Returns
 
 `boolean` \| `void`
 
-`false` to keep bubbling, anything else to consume.
+#### Example
 
-#### Inherited from
+```ts
+// Enter submits instead of inserting a newline
+onKeyPress: (key) => {
+  if (key === "enter") { handleSend(); return false; }
+}
+```
+
+#### Overrides
 
 [`ContainerProps`](ContainerProps.md).[`onKeyPress`](ContainerProps.md#onkeypress)
 
@@ -425,7 +421,7 @@ Normalized key string.
 
 > `optional` **onScroll?**: (`offset`, `maxOffset`) => `void`
 
-Defined in: [types/src/index.ts:195](https://github.com/sacenox/cel-tui/blob/7a13002be0f32f691a11f759a0697d7adbbfd9b6/packages/types/src/index.ts#L195)
+Defined in: [types/src/index.ts:207](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/types/src/index.ts#L207)
 
 Called when the user scrolls this container (mouse wheel).
 In controlled mode, update [scrollOffset](ContainerProps.md#scrolloffset) with the new value
@@ -455,29 +451,11 @@ The maximum scroll offset (content size minus viewport size).
 
 ***
 
-### onSubmit?
-
-> `optional` **onSubmit?**: () => `void`
-
-Defined in: [types/src/index.ts:319](https://github.com/sacenox/cel-tui/blob/7a13002be0f32f691a11f759a0697d7adbbfd9b6/packages/types/src/index.ts#L319)
-
-Called when the user presses the submit key.
-
-#### Returns
-
-`void`
-
-#### See
-
-[submitKey](#submitkey)
-
-***
-
 ### overflow?
 
 > `optional` **overflow?**: `"hidden"` \| `"scroll"`
 
-Defined in: [types/src/index.ts:175](https://github.com/sacenox/cel-tui/blob/7a13002be0f32f691a11f759a0697d7adbbfd9b6/packages/types/src/index.ts#L175)
+Defined in: [types/src/index.ts:176](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/types/src/index.ts#L176)
 
 Content overflow behavior.
 - `"hidden"` (default) — clip content at the container edge.
@@ -493,7 +471,7 @@ Content overflow behavior.
 
 > `optional` **padding?**: `object`
 
-Defined in: [types/src/index.ts:137](https://github.com/sacenox/cel-tui/blob/7a13002be0f32f691a11f759a0697d7adbbfd9b6/packages/types/src/index.ts#L137)
+Defined in: [types/src/index.ts:138](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/types/src/index.ts#L138)
 
 Internal padding in cells.
 `x` adds horizontal padding (left + right), `y` adds vertical (top + bottom).
@@ -516,7 +494,7 @@ Internal padding in cells.
 
 > `optional` **placeholder?**: [`TextNode`](TextNode.md)
 
-Defined in: [types/src/index.ts:337](https://github.com/sacenox/cel-tui/blob/7a13002be0f32f691a11f759a0697d7adbbfd9b6/packages/types/src/index.ts#L337)
+Defined in: [types/src/index.ts:348](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/types/src/index.ts#L348)
 
 A [TextNode](TextNode.md) displayed when [value](#value) is empty.
 Fully stylable — pass a `Text()` call with any styling props.
@@ -533,7 +511,7 @@ placeholder: Text("type a message...", { fgColor: "color08" })
 
 > `optional` **scrollbar?**: `boolean`
 
-Defined in: [types/src/index.ts:178](https://github.com/sacenox/cel-tui/blob/7a13002be0f32f691a11f759a0697d7adbbfd9b6/packages/types/src/index.ts#L178)
+Defined in: [types/src/index.ts:179](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/types/src/index.ts#L179)
 
 Show a scrollbar indicator when `overflow` is `"scroll"`.
 
@@ -547,7 +525,7 @@ Show a scrollbar indicator when `overflow` is `"scroll"`.
 
 > `optional` **scrollOffset?**: `number`
 
-Defined in: [types/src/index.ts:185](https://github.com/sacenox/cel-tui/blob/7a13002be0f32f691a11f759a0697d7adbbfd9b6/packages/types/src/index.ts#L185)
+Defined in: [types/src/index.ts:197](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/types/src/index.ts#L197)
 
 Controlled scroll position in cells. When provided, the app owns
 scroll state and must update this value via [onScroll](ContainerProps.md#onscroll).
@@ -559,25 +537,23 @@ When omitted, scroll is framework-managed (uncontrolled).
 
 ***
 
-### submitKey?
+### scrollStep?
 
-> `optional` **submitKey?**: `string`
+> `optional` **scrollStep?**: `number`
 
-Defined in: [types/src/index.ts:328](https://github.com/sacenox/cel-tui/blob/7a13002be0f32f691a11f759a0697d7adbbfd9b6/packages/types/src/index.ts#L328)
+Defined in: [types/src/index.ts:190](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/types/src/index.ts#L190)
 
-Key combo that fires [onSubmit](#onsubmit).
+Mouse wheel step size in cells along the container's main axis.
+When omitted, the framework uses an adaptive default based on the
+scroll target's viewport size: `floor(viewportMainAxis / 3)`,
+clamped to the range `3..8`.
 
-#### Default
+Affects mouse wheel input only — not programmatic [scrollOffset](ContainerProps.md#scrolloffset)
+updates or TextInput cursor-follow behavior.
 
-```ts
-"enter"
-```
+#### Inherited from
 
-#### Example
-
-```ts
-submitKey: "ctrl+enter"  // Enter inserts newline, Ctrl+Enter submits
-```
+[`ContainerProps`](ContainerProps.md).[`scrollStep`](ContainerProps.md#scrollstep)
 
 ***
 
@@ -585,7 +561,7 @@ submitKey: "ctrl+enter"  // Enter inserts newline, Ctrl+Enter submits
 
 > `optional` **underline?**: `boolean`
 
-Defined in: [types/src/index.ts:74](https://github.com/sacenox/cel-tui/blob/7a13002be0f32f691a11f759a0697d7adbbfd9b6/packages/types/src/index.ts#L74)
+Defined in: [types/src/index.ts:75](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/types/src/index.ts#L75)
 
 Render text with an underline.
 
@@ -599,7 +575,7 @@ Render text with an underline.
 
 > **value**: `string`
 
-Defined in: [types/src/index.ts:305](https://github.com/sacenox/cel-tui/blob/7a13002be0f32f691a11f759a0697d7adbbfd9b6/packages/types/src/index.ts#L305)
+Defined in: [types/src/index.ts:317](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/types/src/index.ts#L317)
 
 Current text content. Controlled — the app owns this value.
 
@@ -609,7 +585,7 @@ Current text content. Controlled — the app owns this value.
 
 > `optional` **width?**: [`SizeValue`](../type-aliases/SizeValue.md)
 
-Defined in: [types/src/index.ts:105](https://github.com/sacenox/cel-tui/blob/7a13002be0f32f691a11f759a0697d7adbbfd9b6/packages/types/src/index.ts#L105)
+Defined in: [types/src/index.ts:106](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/types/src/index.ts#L106)
 
 Fixed width in cells, or percentage of parent width.
 When omitted, the container uses intrinsic sizing (fits content)

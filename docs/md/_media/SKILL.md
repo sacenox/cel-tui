@@ -2,10 +2,10 @@
 name: cel-tui
 description: Build terminal user interfaces with cel-tui, a TypeScript TUI framework. Use when the user wants to create a TUI app, build a terminal UI, render text in the terminal, create a CLI with interactive elements, build a chat interface, text editor, or any interactive terminal application. Triggers include "build a TUI", "terminal UI", "interactive CLI", "text-based interface", "render to terminal", or any task requiring a programmatic terminal user interface.
 license: MIT
-compatibility: Requires Bun runtime and a terminal with SGR mouse mode support.
+compatibility: Requires Bun runtime and a terminal supporting the Kitty keyboard protocol and SGR mouse mode.
 metadata:
   author: sacenox
-  version: "0.2.0"
+  version: "0.4.0"
 ---
 
 # Building TUIs with cel-tui
@@ -75,7 +75,7 @@ The steps: `cel.init(terminal)` → `cel.viewport(() => tree)` → mutate state 
 | `Text(content, props?)`   | Leaf                    | Styled text, no children                  |
 | `TextInput(props)`        | Container (no children) | Multi-line editable text                  |
 
-Containers accept sizing (`width`, `height`, `flex`, `"50%"`, `minWidth`/`maxWidth`), layout (`padding`, `gap`, `justifyContent`, `alignItems`, `flexWrap`), scroll (`overflow: "scroll"`, `scrollbar`), styling (`fgColor`, `bgColor`, `bold`, `focusStyle`), and interaction (`onClick`, `focusable`, `focused`, `onKeyPress`). Colors are numbered palette slots (`"color00"`–`"color15"`), mapped to ANSI 16 by default. Custom themes can remap slots to true color via `cel.init(terminal, { theme })`.
+Containers accept sizing (`width`, `height`, `flex`, `"50%"`, `minWidth`/`maxWidth`), layout (`padding`, `gap`, `justifyContent`, `alignItems`, `flexWrap`), scroll (`overflow: "scroll"`, `scrollbar`, `scrollStep`, `scrollOffset`, `onScroll`), styling (`fgColor`, `bgColor`, `bold`, `focusStyle`), and interaction (`onClick`, `focusable`, `focused`, `onKeyPress`). Colors are numbered palette slots (`"color00"`–`"color15"`), mapped to ANSI 16 by default. Custom themes can remap slots to different ANSI indices or 24-bit true color via `cel.init(terminal, { theme })`.
 
 Read [references/api.md](references/api.md) for the full props listing, sizing strategies, text props, and component reference.
 
@@ -103,6 +103,17 @@ Scroll is **uncontrolled by default** — the framework manages scroll position 
 VStack({ overflow: "scroll", scrollbar: true }, [...items]);
 ```
 
+Mouse wheel scrolling uses an **adaptive step** by default based on the scroll target's visible main-axis viewport size:
+
+- `floor(viewportMainAxis / 3)`
+- clamped to `3..8`
+
+Override it with `scrollStep` when a view should scroll faster or slower:
+
+```ts
+VStack({ overflow: "scroll", scrollbar: true, scrollStep: 6 }, [...items]);
+```
+
 Provide `scrollOffset` + `onScroll` to opt into **controlled mode** — you own the state:
 
 ```ts
@@ -122,7 +133,7 @@ VStack(
 );
 ```
 
-Controlled mode enables patterns like auto-scroll to bottom on new content.
+Controlled mode enables patterns like auto-scroll to bottom on new content. `scrollStep` affects mouse wheel input only — not programmatic `scrollOffset` updates.
 
 ### Layers (modals)
 
@@ -214,11 +225,12 @@ mySelect.reset(); // clear filter/highlight programmatically
 
 - **State is external** — the framework has no state. Mutate variables then call `cel.render()`.
 - **Text is a pure leaf** — no sizing props, no children. Parent controls the box.
-- **TextInput consumes editing keys** when focused (printable chars, arrows, backspace). Modifier combos (`ctrl+s`) bubble up through ancestors via `onKeyPress`.
+- **TextInput consumes editing keys** when focused (printable chars, arrows, backspace, Enter, Tab). Enter inserts a newline by default. Use `onKeyPress` on TextInput to intercept keys before editing — return `false` to prevent the default action (e.g., intercept Enter for submit). Modifier combos (`ctrl+s`) are not editing keys and bubble up through ancestors via `onKeyPress`.
 - **Escape unfocuses** the current element. Tab/Shift+Tab traverses focusable elements (wraps around). After Escape, traversal continues from where focus was lost.
 - **Enter activates** a focused container's `onClick`. If no `onClick`, Enter reaches `onKeyPress`.
 - **`focusable: true`** without `onClick` makes a container keyboard-focusable (receives `onKeyPress` events via Tab). Used by stateful components like `Select`.
 - **Innermost handler wins** — for `onClick` and `onScroll`. For `onKeyPress`, keys **bubble up** through ancestors: return `false` from a handler to let the key continue to the next ancestor. Returning `void`/`undefined` consumes the key (stops bubbling). This is backward-compatible.
+- **Mouse wheel step is adaptive by default** — scrollable containers and `TextInput` use `floor(viewportMainAxis / 3)`, clamped to `3..8`. Set `scrollStep` to override it for a specific view.
 - **Container `bgColor`** fills the rect with opaque background before painting children. Always pair `bgColor` with `fgColor` for contrast — terminal default fg is designed for the terminal default bg, not for arbitrary palette backgrounds.
 - **Colors are numbered slots** (`"color00"`–`"color15"`), not names. The default theme maps to ANSI 16. Omit `fgColor`/`bgColor` for terminal defaults (guaranteed readable across themes).
 - **`repeat: "fill"` in HStack** gets width 0 (intrinsic width is 0). Workaround: wrap in `VStack({ flex: 1 }, [Text(" ", { repeat: "fill" })])`.

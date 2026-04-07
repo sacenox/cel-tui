@@ -8,7 +8,7 @@
 
 > **extractAnsiCode**(`str`, `pos`): \{ `code`: `string`; `length`: `number`; \} \| `null`
 
-Defined in: [core/src/width.ts:12](https://github.com/sacenox/cel-tui/blob/7a13002be0f32f691a11f759a0697d7adbbfd9b6/packages/core/src/width.ts#L12)
+Defined in: [core/src/width.ts:12](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/core/src/width.ts#L12)
 
 Extract an ANSI escape sequence starting at `pos` in `str`.
 Handles CSI (ESC [), OSC (ESC ]), and APC (ESC _) sequences.

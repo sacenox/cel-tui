@@ -36,17 +36,17 @@ export function styledTree(n: number): ContainerNode {
   const children: Node[] = [];
   for (let i = 0; i < n; i++) {
     children.push(
-      VStack({ fgColor: "cyan", bgColor: "black", padding: { x: 1 } }, [
-        Text(`Styled line ${i}`, { bold: true, fgColor: "yellow" }),
-        HStack({ fgColor: "white" }, [
+      VStack({ fgColor: "color06", bgColor: "color00", padding: { x: 1 } }, [
+        Text(`Styled line ${i}`, { bold: true, fgColor: "color03" }),
+        HStack({ fgColor: "color07" }, [
           Text("left "),
-          Text("right", { fgColor: "green" }),
+          Text("right", { fgColor: "color02" }),
         ]),
       ]),
     );
   }
   return VStack(
-    { height: "100%", fgColor: "white", bgColor: "blue" },
+    { height: "100%", fgColor: "color07", bgColor: "color04" },
     children,
   );
 }
@@ -77,7 +77,7 @@ export function wrappedTextTree(paragraphs: number): ContainerNode {
 /** Build a tree resembling the Ink benchmark: styled text, flex layout, word-wrap. */
 export function inkComparableTree(): ContainerNode {
   return VStack({ padding: { y: 1, x: 1 } }, [
-    Text("Hello World", { underline: true, bold: true, fgColor: "red" }),
+    Text("Hello World", { underline: true, bold: true, fgColor: "color01" }),
     VStack({ width: 60 }, [
       Text(
         "Cupcake ipsum dolor sit amet candy candy. Sesame snaps cookie I love tootsie roll apple pie bonbon wafer. Caramels sesame snaps icing cotton candy I love cookie sweet roll. I love bonbon sweet.",
@@ -85,11 +85,11 @@ export function inkComparableTree(): ContainerNode {
       ),
     ]),
     VStack({}, [
-      Text("Colors:", { fgColor: "black", bgColor: "white" }),
+      Text("Colors:", { fgColor: "color00", bgColor: "color07" }),
       VStack({ padding: { x: 1 } }, [
-        Text("- Red", { fgColor: "red" }),
-        Text("- Blue", { fgColor: "blue" }),
-        Text("- Green", { fgColor: "green" }),
+        Text("- Red", { fgColor: "color01" }),
+        Text("- Blue", { fgColor: "color04" }),
+        Text("- Green", { fgColor: "color02" }),
       ]),
     ]),
   ]);
@@ -101,19 +101,19 @@ export function appTree(messageCount: number): ContainerNode {
   for (let i = 0; i < messageCount; i++) {
     messages.push(
       VStack({}, [
-        Text(`▶ User message ${i}`, { bold: true, fgColor: "blue" }),
+        Text(`▶ User message ${i}`, { bold: true, fgColor: "color04" }),
         Text(
           `  This is the content of message ${i}. It can be quite long and detailed.`,
         ),
       ]),
     );
   }
-  return VStack({ height: "100%", fgColor: "white" }, [
+  return VStack({ height: "100%", fgColor: "color07" }, [
     // Header
     HStack({ height: 1, padding: { x: 1 } }, [
       Text("Agent Chat", { bold: true }),
       VStack({ flex: 1 }, []),
-      Text("model: gpt", { fgColor: "brightBlack" }),
+      Text("model: gpt", { fgColor: "color08" }),
     ]),
     // Body
     VStack(
@@ -123,8 +123,8 @@ export function appTree(messageCount: number): ContainerNode {
     // Input bar
     HStack({ height: 1, padding: { x: 1 }, gap: 1 }, [
       Text("> "),
-      Text("type a message...", { fgColor: "brightBlack" }),
-      HStack({ bgColor: "brightBlack" }, [Text("[Send]", { bold: true })]),
+      Text("type a message...", { fgColor: "color08" }),
+      HStack({ bgColor: "color08" }, [Text("[Send]", { bold: true })]),
     ]),
   ]);
 }

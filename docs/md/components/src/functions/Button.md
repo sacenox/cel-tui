@@ -8,7 +8,7 @@
 
 > **Button**(`label`, `props`): [`ContainerNode`](../../../types/src/interfaces/ContainerNode.md)
 
-Defined in: [components/src/button.ts:76](https://github.com/sacenox/cel-tui/blob/7a13002be0f32f691a11f759a0697d7adbbfd9b6/packages/components/src/button.ts#L76)
+Defined in: [components/src/button.ts:76](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/components/src/button.ts#L76)
 
 Clickable button with a styled text label.
 

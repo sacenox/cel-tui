@@ -8,7 +8,7 @@
 
 > **TextInput**(`props`): [`TextInputNode`](../../../types/src/interfaces/TextInputNode.md)
 
-Defined in: [core/src/primitives/text-input.ts:40](https://github.com/sacenox/cel-tui/blob/7a13002be0f32f691a11f759a0697d7adbbfd9b6/packages/core/src/primitives/text-input.ts#L40)
+Defined in: [core/src/primitives/text-input.ts:44](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/core/src/primitives/text-input.ts#L44)
 
 Create a multi-line editable text container.
 
@@ -21,8 +21,11 @@ Scroll is always uncontrolled — the view follows the cursor and
 responds to mouse wheel automatically.
 
 TextInput is always focusable. When focused, text-editing keys
-(printable characters, arrows, backspace, Tab) are consumed.
+(printable characters, arrows, backspace, Enter, Tab) are consumed.
 Modifier combos (e.g., `ctrl+s`) bubble up to ancestor `onKeyPress` handlers.
+
+Use `onKeyPress` to intercept keys before editing. Return `false` to
+prevent the default editing action for that key.
 
 ## Parameters
 
@@ -49,14 +52,15 @@ TextInput({
 ```
 
 ```ts
-// Growing input with max height
+// Growing input with max height, Enter submits
 TextInput({
   flex: 1,
   maxHeight: 10,
   value: text,
   onChange: handleChange,
-  onSubmit: handleSend,
-  submitKey: "ctrl+enter",
+  onKeyPress: (key) => {
+    if (key === "enter") { handleSend(); return false; }
+  },
   placeholder: Text("type a message...", { fgColor: "color08" }),
 })
 ```
