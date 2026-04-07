@@ -2,7 +2,7 @@
 name: cel-tui
 description: Build terminal user interfaces with cel-tui, a TypeScript TUI framework. Use when the user wants to create a TUI app, build a terminal UI, render text in the terminal, create a CLI with interactive elements, build a chat interface, text editor, or any interactive terminal application. Triggers include "build a TUI", "terminal UI", "interactive CLI", "text-based interface", "render to terminal", or any task requiring a programmatic terminal user interface.
 license: MIT
-compatibility: Requires Bun runtime and a terminal supporting the Kitty keyboard protocol and SGR mouse mode.
+compatibility: Requires Bun runtime. Best experience on Kitty-compatible terminals and in tmux with `set -s extended-keys on`; uses SGR mouse mode and accepts recoverable legacy key encodings when hosts do not preserve a pure Kitty stream.
 metadata:
   author: sacenox
   version: "0.4.0"
@@ -10,7 +10,15 @@ metadata:
 
 # Building TUIs with cel-tui
 
-cel-tui is a TypeScript TUI framework with a declarative functional API, flexbox layout, cell-buffer rendering, and style inheritance. It has 4 primitives and external state management.
+cel-tui is a TypeScript TUI framework with a declarative functional API, flexbox layout, cell-buffer rendering, style inheritance, and Kitty-first keyboard input. It has 4 primitives and external state management.
+
+## Terminal compatibility
+
+- **First-class:** Kitty-compatible terminals
+- **First-class:** `tmux` with `set -s extended-keys on`
+- **Best effort:** legacy terminals or multiplexers that collapse some modifier distinctions
+
+cel-tui enables Kitty level 1 for full modifier fidelity, but it also accepts recoverable legacy control bytes and ESC-prefixed Alt combinations so common keyboard flows keep working in tmux and mixed environments.
 
 ## Install
 
@@ -225,7 +233,7 @@ mySelect.reset(); // clear filter/highlight programmatically
 
 - **State is external** — the framework has no state. Mutate variables then call `cel.render()`.
 - **Text is a pure leaf** — no sizing props, no children. Parent controls the box.
-- **TextInput consumes editing keys** when focused (printable chars, arrows, backspace, Enter, Tab). Enter inserts a newline by default. Use `onKeyPress` on TextInput to intercept keys before editing — return `false` to prevent the default action (e.g., intercept Enter for submit). Modifier combos (`ctrl+s`) are not editing keys and bubble up through ancestors via `onKeyPress`.
+- **TextInput consumes insertable text and editing/navigation keys** when focused (printable text, arrows, backspace, Enter, Tab). Enter inserts a newline by default. Use `onKeyPress` on TextInput to intercept keys before editing — return `false` to prevent the default action (e.g., intercept Enter for submit). `onKeyPress` receives normalized semantic key strings, while inserted text preserves the original characters (uppercase `A` arrives as key `"a"` but inserts `"A"`). Modifier combos (`ctrl+s`) and non-insertable control keys are not editing keys and bubble up through ancestors via `onKeyPress`.
 - **Escape unfocuses** the current element. Tab/Shift+Tab traverses focusable elements (wraps around). After Escape, traversal continues from where focus was lost.
 - **Enter activates** a focused container's `onClick`. If no `onClick`, Enter reaches `onKeyPress`.
 - **`focusable: true`** without `onClick` makes a container keyboard-focusable (receives `onKeyPress` events via Tab). Used by stateful components like `Select`.
@@ -236,7 +244,8 @@ mySelect.reset(); // clear filter/highlight programmatically
 - **`repeat: "fill"` in HStack** gets width 0 (intrinsic width is 0). Workaround: wrap in `VStack({ flex: 1 }, [Text(" ", { repeat: "fill" })])`.
 - **Crash cleanup** — terminal state is restored on SIGINT, SIGTERM, uncaughtException.
 - **Always call `cel.stop()` before `process.exit()`** — restores raw mode, mouse tracking, and alternate screen.
-- **Kitty keyboard protocol required** — the framework requires the Kitty keyboard protocol (level 1). All modifier combos (`alt+x`, `ctrl+plus`, `shift+enter`) are fully supported. The terminal must support this protocol (Kitty, WezTerm, Ghostty, foot, Alacritty, Windows Terminal). macOS Terminal.app and older xterm are not supported.
+- **Kitty-first keyboard input** — the framework enables Kitty level 1 and gets full modifier fidelity when the host preserves it (`alt+x`, `ctrl+plus`, `shift+enter`, etc.). It also normalizes recoverable legacy encodings so common shortcuts keep working in tmux. For best results, use a Kitty-compatible terminal or `tmux` with `set -s extended-keys on`. On older legacy hosts, historically ambiguous collisions such as `ctrl+i` vs `tab` or `ctrl+m` vs `enter` cannot be recovered once the host collapses them.
+- **tmux is good for keyboard-driven manual checks** — common `tmux send-keys` paths work for printable chars, `Tab`/`BTab`, `Enter`, `Escape`, arrows, and many `Ctrl+letter` shortcuts. Use exact raw-sequence injection only when you need to target a protocol-specific encoding. Mouse input remains unreliable in tmux and should be verified in a real terminal.
 - **Button limitations** — `Button` from `@cel-tui/components` does not forward container sizing props (`width`, `height`, `flex`, `minWidth`, etc.). It supports styling (`fgColor`, `bgColor`, `bold`, etc.), `focusStyle`, `focused`, `onFocus`, `onBlur`, `onKeyPress`, and `padding`. For full layout control, use `HStack` + `Text` directly.
 
 ## Composing Components

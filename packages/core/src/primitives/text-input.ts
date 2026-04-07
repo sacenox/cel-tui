@@ -11,12 +11,14 @@ import type { TextInputNode, TextInputProps } from "@cel-tui/types";
  * Scroll is always uncontrolled — the view follows the cursor and
  * responds to mouse wheel automatically.
  *
- * TextInput is always focusable. When focused, text-editing keys
- * (printable characters, arrows, backspace, Enter, Tab) are consumed.
- * Modifier combos (e.g., `ctrl+s`) bubble up to ancestor `onKeyPress` handlers.
+ * TextInput is always focusable. When focused, it consumes insertable text
+ * plus editing/navigation keys (arrows, backspace, delete, Enter, Tab).
+ * Modifier combos (e.g., `ctrl+s`) and non-insertable control keys bubble
+ * up to ancestor `onKeyPress` handlers.
  *
- * Use `onKeyPress` to intercept keys before editing. Return `false` to
- * prevent the default editing action for that key.
+ * Use `onKeyPress` to intercept keys before editing. The handler receives a
+ * normalized semantic key string; inserted text preserves the original
+ * characters. Return `false` to prevent the default editing action.
  *
  * @param props - Value, callbacks, sizing, styling, and focus props.
  * @returns A text input node for the UI tree.

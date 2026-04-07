@@ -39,7 +39,7 @@ State is fully external to the framework. Use any state management approach — 
 | Layering                   | Multiple viewport layers, composited bottom-to-top        |
 | Mouse/scroll hit detection | Pointer-driven, topmost layer first, innermost node wins  |
 | Focus management           | Keyboard-driven, for `TextInput` and clickable containers |
-| Keyboard protocol          | Kitty keyboard protocol (required), unambiguous key input |
+| Keyboard input             | Kitty-first input with tmux/legacy compatibility          |
 
 ---
 
@@ -319,7 +319,7 @@ Focus is implicit — no `focusable` prop needed for the common case:
 
 **Escape** unfocuses the current element. **Tab / Shift+Tab** moves focus to the next/previous focusable element in document order (depth-first tree traversal).
 
-When a TextInput is focused, text-editing keys (printable characters, arrows, backspace, delete, Enter, Tab) go to the input. Modifier combos (e.g., `ctrl+s`) are not consumed by TextInput and bubble up. The TextInput's `onKeyPress` handler fires before editing — returning `false` prevents the default action, letting the app override any key's behavior. Press Escape to leave the input, then Tab to traverse.
+When a TextInput is focused, insertable text and text-editing keys (arrows, backspace, delete, Enter, Tab) go to the input. Modifier combos (e.g., `ctrl+s`) are not consumed by TextInput and bubble up. The TextInput's `onKeyPress` handler fires before editing — returning `false` prevents the default action, letting the app override any key's behavior. Legacy control-byte encodings are normalized when possible, so recoverable shortcuts still bubble in environments like `tmux`. Press Escape to leave the input, then Tab to traverse.
 
 ### Uncontrolled Focus
 
@@ -386,23 +386,36 @@ When this element receives focus, the container background becomes color06 and d
 
 Key events are routed through the focus and layer system, then bubble up the tree.
 
-### Kitty Keyboard Protocol
+### Kitty-First Keyboard Input
 
-cel-tui **requires** the [Kitty keyboard protocol](https://sw.kovidgoyal.net/kitty/keyboard-protocol/) for key input. This is a hard dependency — the framework will not function correctly without it.
+cel-tui enables the [Kitty keyboard protocol](https://sw.kovidgoyal.net/kitty/keyboard-protocol/) and treats it as the preferred source of key identity, but it does **not** assume stdin becomes a pure Kitty-only stream. The framework must work well in both native Kitty-compatible terminals and in `tmux` with `set -s extended-keys on`, where input may arrive as a mixture of Kitty sequences and legacy encodings.
 
-**Why:** Legacy terminal key encoding is fundamentally ambiguous. `Ctrl+I` and `Tab` produce the same byte. `Ctrl+M` and `Enter` are indistinguishable. Alt combos use an ESC prefix that's ambiguous with the Escape key itself. There is no standard encoding for `Ctrl++`, `Shift+Enter`, or many other combinations. The Kitty protocol solves all of this with an unambiguous, structured encoding where every key event includes explicit modifier flags.
+**Why:** Kitty level 1 remains the best available terminal keyboard protocol because it disambiguates modifier combos that legacy encodings collapse. However, real-world hosts — especially terminal multiplexers — may preserve some keys as legacy bytes or translate only part of the stream. The input layer therefore uses Kitty when available and accepts recoverable legacy forms for compatibility.
 
-**Protocol level:** The framework uses **level 1** (disambiguate escape codes). This provides unambiguous key identification with explicit modifier reporting for all keys. Higher levels are not currently used.
+**Support targets:**
+
+- **First-class:** native Kitty-compatible terminals (Kitty, WezTerm, Ghostty, foot, Alacritty, Windows Terminal, and others)
+- **First-class:** `tmux` with `set -s extended-keys on`
+- **Best effort:** legacy terminals or multiplexers that do not preserve Kitty distinctions
 
 **Lifecycle:**
 
-1. `cel.init()` enables the Kitty keyboard protocol (`CSI > 1 u`) and sets a push flag so the mode is restored on exit
-2. All key input is parsed from the Kitty `CSI unicode-codepoint ; modifiers u` format, with fallback CSI parsing for functional keys (`CSI 1 ; modifiers <A-H>` arrows, `CSI number ; modifiers ~` function keys, etc.)
+1. `cel.init()` enables Kitty keyboard protocol **level 1** (`CSI > 1 u`) and sets a push flag so the mode is restored on exit
+2. The input decoder accepts a mixed stream of:
+   - Kitty `CSI unicode-codepoint ; modifiers u`
+   - legacy CSI letter / tilde sequences for arrows, Home/End, Delete, PageUp/Down, and function keys
+   - raw printable text
+   - legacy ASCII control bytes for recoverable `ctrl+letter` shortcuts
+   - recoverable ESC-prefixed Alt combinations
 3. `cel.stop()` pops the keyboard mode (`CSI < u`), restoring the terminal's previous state
 
-**Level 1 encoding details:** At level 1, unmodified special keys that have well-known legacy encodings (Tab, Enter, Escape, Backspace) retain those single-byte encodings. Only modified variants (e.g., Shift+Tab, Ctrl+Enter) use the CSI u format. The parser handles both paths.
+**Stream model:** Terminals and multiplexers may batch multiple keyboard and mouse sequences into a single stdin chunk. The framework treats stdin as a stream and decodes all events in order.
 
-**Supported terminals:** Kitty, WezTerm, Ghostty, foot, Alacritty, Windows Terminal, and others. macOS Terminal.app and older xterm versions do not support this protocol.
+**Level 1 details:** At Kitty level 1, unmodified special keys with well-known legacy encodings (Tab, Enter, Escape, Backspace) may still arrive as single-byte legacy input. Modified variants use structured sequences when the host preserves them. The parser must handle both forms.
+
+**tmux compatibility:** In `tmux`, even with extended keys enabled, some shortcuts may still arrive in legacy form rather than Kitty-normalized form. cel-tui treats this as a supported environment, not an error case: recoverable legacy encodings should normalize to the same key strings as native Kitty input.
+
+**Unavoidable ambiguity:** Some legacy encodings are indistinguishable once a host has collapsed them. For example, `Ctrl+I` vs `Tab`, `Ctrl+M` vs `Enter`, and `Ctrl+[` vs `Escape` cannot be recovered if the terminal or multiplexer emits only the shared legacy byte. In those cases the framework uses the legacy key meaning (`tab`, `enter`, `escape`) and cannot infer the modifier combo.
 
 > **Future enhancement:** Higher protocol levels enable key-release events (`level 2`), associated text reporting (`level 3`), and full key event types (`level 4`). These would enable held-key detection for game-like UIs, distinguishing physical key layout from logical input, and other advanced input patterns. The framework may adopt higher levels in the future.
 
@@ -411,7 +424,7 @@ cel-tui **requires** the [Kitty keyboard protocol](https://sw.kovidgoyal.net/kit
 1. **Topmost layer** receives the key event
 2. If a **TextInput** is focused:
    - If the TextInput has `onKeyPress`, call it first. If `onKeyPress` returns `false`, the key's **default editing action is prevented** — no character insertion, no cursor movement, nothing. The key is consumed.
-   - Otherwise, the TextInput processes editing keys (printable characters, arrows, backspace, delete, Enter, Tab). Modifier combos (e.g., `ctrl+s`) are not editing keys and pass through.
+   - Otherwise, the TextInput processes insertable text and editing/navigation keys (arrows, backspace, delete, Enter, Tab). Modifier combos (e.g., `ctrl+s`) and non-insertable control keys are not editing keys and pass through.
 3. If a **clickable container** is focused, Enter fires `onClick`. Other keys pass through.
 4. Unconsumed keys **bubble up** through ancestors — each `onKeyPress` handler in the ancestor chain is called from innermost to root.
 5. A handler that returns `false` signals the key was **not consumed** — bubbling continues to the next ancestor. Any other return (`undefined`, `true`, or no return) **stops bubbling** (backward-compatible: existing `void` handlers consume by default).
@@ -440,7 +453,9 @@ All lowercase, modifiers joined by `+` in canonical order `ctrl+alt+shift+<key>`
 
 The framework normalizes modifier order, so `"shift+ctrl+s"` and `"ctrl+shift+s"` both match.
 
-Because the Kitty protocol provides explicit modifier flags, all modifier combinations are fully supported — including `alt+<key>`, `ctrl+plus`, `shift+enter`, and other combos that are ambiguous or impossible in legacy terminal encoding.
+Key strings are semantic identifiers for handlers, not necessarily the exact text inserted into a TextInput. For example, pressing uppercase `A` normalizes to key `"a"` while still inserting `"A"` into the input.
+
+When the host preserves Kitty modifier data, all modifier combinations are fully supported — including `alt+<key>`, `ctrl+plus`, `shift+enter`, and other combos that are ambiguous or impossible in legacy terminal encoding. In compatibility paths, recoverable legacy forms normalize to the same key strings, but historically ambiguous collisions (for example `ctrl+i` vs `tab`) remain limited by what the terminal or multiplexer reports.
 
 ### Activation
 
@@ -570,12 +585,12 @@ TextInput(props: TextInputProps)
 
 Container sizing props (`width`, `height`, `flex`, `min*`, `max*`, `padding`), focus props (`focused`, `onFocus`, `onBlur`, `focusStyle`), styling props, wheel scroll prop (`scrollStep`), and:
 
-| Prop          | Type                               | Description                                                                              |
-| ------------- | ---------------------------------- | ---------------------------------------------------------------------------------------- |
-| `value`       | `string`                           | Current text content (controlled)                                                        |
-| `onChange`    | `(value: string) => void`          | Called on text change                                                                    |
-| `onKeyPress`  | `(key: string) => boolean \| void` | Key handler, fires before editing. Return `false` to prevent the default editing action. |
-| `placeholder` | `TextNode`                         | Text node shown when value is empty (pass a `Text()` call)                               |
+| Prop          | Type                               | Description                                                                                                                        |
+| ------------- | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `value`       | `string`                           | Current text content (controlled)                                                                                                  |
+| `onChange`    | `(value: string) => void`          | Called on text change                                                                                                              |
+| `onKeyPress`  | `(key: string) => boolean \| void` | Key handler, fires before editing. Receives normalized semantic key strings. Return `false` to prevent the default editing action. |
+| `placeholder` | `TextNode`                         | Text node shown when value is empty (pass a `Text()` call)                                                                         |
 
 Word-wrap is always on. Cursor position is framework-managed.
 

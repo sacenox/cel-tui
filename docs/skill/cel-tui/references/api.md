@@ -33,7 +33,7 @@ All props accepted by `VStack` and `HStack`:
   focused,                // boolean (controlled — omit for uncontrolled)
   onFocus,                // () => void
   onBlur,                 // () => void
-  onKeyPress,             // (key: string) => boolean | void — return false to keep bubbling
+  onKeyPress,             // (key: string) => boolean | void — normalized semantic key string; return false to keep bubbling
 }
 ```
 
@@ -88,7 +88,7 @@ Colors: 16 numbered palette slots — `"color00"` through `"color15"`. Mapped to
 TextInput({
   value, // string (controlled)
   onChange, // (value: string) => void
-  onKeyPress, // (key: string) => boolean | void — return false to prevent default editing action
+  onKeyPress, // (key: string) => boolean | void — normalized semantic key string; return false to prevent default editing action
   placeholder, // Text() node shown when empty
   // + all container props (sizing, styling, focus, scrollStep, etc.)
 });
@@ -110,6 +110,8 @@ TextInput({
 });
 ```
 
+When focused, TextInput consumes insertable text plus editing/navigation keys. Modifier combos and non-insertable control keys bubble. Key strings are semantic identifiers for handlers, not necessarily the exact inserted text — uppercase `A` normalizes to key `"a"` while still inserting `"A"`.
+
 ## Sizing Strategies
 
 Containers accept 4 sizing strategies:
@@ -130,6 +132,8 @@ TextInput accepts container sizing props (`flex`, `width`, `height`, `padding`, 
 ## Key Format
 
 All lowercase, modifiers joined by `+`: `"ctrl+s"`, `"ctrl+shift+n"`, `"escape"`, `"enter"`, `"alt+up"`, `"f1"`. Framework normalizes modifier order.
+
+cel-tui is **Kitty-first** and works well in `tmux` with `set -s extended-keys on`. Recoverable legacy forms normalize to the same key strings, but historically collapsed collisions (`ctrl+i` vs `tab`, `ctrl+m` vs `enter`, `ctrl+[` vs `escape`) remain limited by what the host terminal or multiplexer reports.
 
 ## Pre-made Components
 

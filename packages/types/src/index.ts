@@ -269,8 +269,10 @@ export interface ContainerProps extends StyleProps {
    *
    * Key format: all lowercase, modifiers joined by `+` in canonical
    * order `ctrl+alt+shift+<key>` (e.g., `"ctrl+s"`, `"alt+up"`, `"escape"`).
+   * The key string is a **semantic identifier**, not necessarily the exact
+   * inserted text — for example, uppercase `A` is reported as key `"a"`.
    *
-   * @param key - Normalized key string.
+   * @param key - Normalized semantic key string.
    * @returns `false` to keep bubbling, anything else to consume.
    */
   onKeyPress?: (key: string) => boolean | void;
@@ -311,6 +313,10 @@ export interface TextProps extends StyleProps {
  * sizing props but has no children — its content is the {@link value} prop.
  * Scroll is always framework-managed (follows cursor and responds to mouse wheel).
  * Word-wrap is always on.
+ *
+ * When focused, TextInput consumes insertable text plus editing/navigation
+ * keys (arrows, backspace, delete, Enter, Tab). Modifier combos and
+ * non-insertable control keys bubble to ancestor {@link onKeyPress} handlers.
  */
 export interface TextInputProps extends ContainerProps {
   /** Current text content. Controlled — the app owns this value. */
@@ -329,6 +335,10 @@ export interface TextInputProps extends ContainerProps {
    * Return `false` to prevent the default editing action for that key
    * (no character insertion, no cursor movement, no deletion).
    * Any other return (or no return) lets the default action proceed.
+   *
+   * Receives the normalized **semantic** key string, not necessarily the
+   * exact inserted text. For example, typing uppercase `A` reports key
+   * `"a"` here while still inserting `"A"` into the input.
    *
    * @example
    * // Enter submits instead of inserting a newline

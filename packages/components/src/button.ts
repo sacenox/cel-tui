@@ -34,8 +34,8 @@ export interface ButtonProps extends StyleProps {
    */
   focusStyle?: StyleProps;
   /**
-   * Key event handler. Receives keys that bubble up to this button.
-   * Return `false` to keep bubbling.
+   * Key event handler. Receives normalized semantic keys that bubble up
+   * to this button. Return `false` to keep bubbling.
    */
   onKeyPress?: (key: string) => boolean | void;
   /** Internal padding in cells. */

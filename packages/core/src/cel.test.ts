@@ -12,6 +12,7 @@ const ENTER = kittyEncode("enter");
 const ESCAPE = kittyEncode("escape");
 const SHIFT_TAB = kittyEncode("shift+tab");
 const CTRL_S = kittyEncode("ctrl+s");
+const LEGACY_CTRL_R = "\x12";
 
 describe("cel end-to-end", () => {
   let term: MockTerminal;
@@ -184,6 +185,29 @@ describe("cel end-to-end", () => {
       await waitForRender();
 
       expect(receivedKey).toBe("ctrl+s");
+    });
+
+    test("batched keyboard events are all processed in order", async () => {
+      const term = setup(20, 5);
+      const receivedKeys: string[] = [];
+      cel.viewport(() =>
+        VStack(
+          {
+            width: 20,
+            height: 5,
+            onKeyPress: (key) => {
+              receivedKeys.push(key);
+            },
+          },
+          [Text("hello")],
+        ),
+      );
+      await waitForRender();
+
+      term.sendInput(`${LEGACY_CTRL_R}${CTRL_S}`);
+      await waitForRender();
+
+      expect(receivedKeys).toEqual(["ctrl+r", "ctrl+s"]);
     });
 
     test("onScroll fires on mouse wheel using the adaptive default step", async () => {

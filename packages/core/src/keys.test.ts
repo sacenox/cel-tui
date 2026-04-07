@@ -117,6 +117,21 @@ describe("parseKey", () => {
     });
   });
 
+  describe("legacy compatibility encodings", () => {
+    test("recoverable ASCII control bytes normalize to ctrl+letter", () => {
+      expect(parseKey("\x01")).toBe("ctrl+a");
+      expect(parseKey("\x08")).toBe("ctrl+h");
+      expect(parseKey("\x12")).toBe("ctrl+r");
+      expect(parseKey("\x1a")).toBe("ctrl+z");
+    });
+
+    test("ESC-prefixed Alt combinations normalize to alt+<key>", () => {
+      expect(parseKey("\x1bx")).toBe("alt+x");
+      expect(parseKey("\x1bX")).toBe("alt+x");
+      expect(parseKey("\x1b+")).toBe("alt+plus");
+    });
+  });
+
   // --- CSI u: special keys (also valid, sent by some terminals) ---
 
   describe("CSI u special keys", () => {
@@ -292,7 +307,9 @@ describe("isEditingKey", () => {
 
   test("modifier combos are NOT editing keys", () => {
     expect(isEditingKey("ctrl+s")).toBe(false);
+    expect(isEditingKey("ctrl+r")).toBe(false);
     expect(isEditingKey("alt+x")).toBe(false);
+    expect(isEditingKey("alt+plus")).toBe(false);
     expect(isEditingKey("ctrl+shift+n")).toBe(false);
     expect(isEditingKey("shift+tab")).toBe(false);
   });

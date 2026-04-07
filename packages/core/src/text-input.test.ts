@@ -10,6 +10,8 @@ const ENTER = kittyEncode("enter");
 const BACKSPACE = kittyEncode("backspace");
 const CTRL_S = kittyEncode("ctrl+s");
 const LEFT = kittyEncode("left");
+const LEGACY_CTRL_R = "\x12";
+const LEGACY_ALT_X = "\x1bx";
 
 describe("TextInput integration", () => {
   let term: MockTerminal;
@@ -73,6 +75,55 @@ describe("TextInput integration", () => {
     await waitForRender();
 
     expect(value).toBe("hi!");
+  });
+
+  test("batched printable input inserts all characters in order", async () => {
+    const term = setup(20, 3);
+    let value = "hi";
+    cel.viewport(() =>
+      VStack({}, [
+        TextInput({
+          value,
+          focused: true,
+          onChange: (v) => {
+            value = v;
+          },
+        }),
+      ]),
+    );
+    await waitForRender();
+
+    term.sendInput("ab");
+    await waitForRender();
+
+    expect(value).toBe("hiab");
+  });
+
+  test("onKeyPress receives normalized keys while TextInput inserts original text", async () => {
+    const term = setup(20, 3);
+    let keyReceived = "";
+    let value = "";
+    cel.viewport(() =>
+      VStack({}, [
+        TextInput({
+          value,
+          focused: true,
+          onChange: (v) => {
+            value = v;
+          },
+          onKeyPress: (key) => {
+            keyReceived = key;
+          },
+        }),
+      ]),
+    );
+    await waitForRender();
+
+    term.sendInput("A");
+    await waitForRender();
+
+    expect(keyReceived).toBe("a");
+    expect(value).toBe("A");
   });
 
   test("backspace deletes character", async () => {
@@ -339,6 +390,68 @@ describe("TextInput integration", () => {
 
     expect(receivedKey).toBe("ctrl+s");
     expect(value).toBe("text"); // Value unchanged
+  });
+
+  test("legacy ctrl+letter from tmux bubbles to ancestor without editing", async () => {
+    const term = setup(20, 3);
+    let parentKey = "";
+    let value = "text";
+    cel.viewport(() =>
+      VStack(
+        {
+          onKeyPress: (key) => {
+            parentKey = key;
+          },
+        },
+        [
+          TextInput({
+            value,
+            focused: true,
+            onChange: (v) => {
+              value = v;
+            },
+          }),
+        ],
+      ),
+    );
+    await waitForRender();
+
+    term.sendInput(LEGACY_CTRL_R);
+    await waitForRender();
+
+    expect(parentKey).toBe("ctrl+r");
+    expect(value).toBe("text");
+  });
+
+  test("ESC-prefixed Alt combos bubble to ancestor without editing", async () => {
+    const term = setup(20, 3);
+    let parentKey = "";
+    let value = "text";
+    cel.viewport(() =>
+      VStack(
+        {
+          onKeyPress: (key) => {
+            parentKey = key;
+          },
+        },
+        [
+          TextInput({
+            value,
+            focused: true,
+            onChange: (v) => {
+              value = v;
+            },
+          }),
+        ],
+      ),
+    );
+    await waitForRender();
+
+    term.sendInput(LEGACY_ALT_X);
+    await waitForRender();
+
+    expect(parentKey).toBe("alt+x");
+    expect(value).toBe("text");
   });
 
   test("cursor position persists across re-renders", async () => {

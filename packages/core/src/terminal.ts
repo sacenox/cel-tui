@@ -11,7 +11,13 @@ export interface Terminal {
   get columns(): number;
   /** Terminal height in rows. */
   get rows(): number;
-  /** Enter raw mode, enable Kitty keyboard protocol, enable mouse tracking, hide cursor. */
+  /**
+   * Enter raw mode, enable Kitty level 1 keyboard reporting, enable mouse
+   * tracking, and hide the cursor.
+   *
+   * The framework prefers Kitty semantics but its parser also accepts mixed
+   * tmux/legacy keyboard encodings that may still arrive on stdin.
+   */
   start(onInput: (data: string) => void, onResize: () => void): void;
   /** Restore terminal state. */
   stop(): void;
@@ -24,8 +30,10 @@ export interface Terminal {
 /**
  * Real terminal using process.stdin/stdout.
  *
- * Enables the Kitty keyboard protocol (level 1) for unambiguous key input,
- * SGR mouse tracking, and raw mode. All modes are restored on stop/crash.
+ * Enables Kitty keyboard protocol level 1, SGR mouse tracking, and raw mode.
+ * The runtime prefers Kitty semantics for full modifier fidelity, while the
+ * parser remains compatible with mixed tmux/legacy keyboard encodings that
+ * may still arrive on stdin. All modes are restored on stop/crash.
  */
 export class ProcessTerminal implements Terminal {
   private wasRaw = false;

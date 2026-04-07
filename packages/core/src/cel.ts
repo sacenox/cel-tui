@@ -1,4 +1,9 @@
-import type { Node, Theme } from "@cel-tui/types";
+import type {
+  Node,
+  TextInputNode,
+  TextInputProps,
+  Theme,
+} from "@cel-tui/types";
 import { CellBuffer } from "./cell-buffer.js";
 import { emitBuffer, emitDiff, defaultTheme } from "./emitter.js";
 import {
@@ -8,7 +13,7 @@ import {
   collectKeyPressHandlers,
   collectFocusable,
 } from "./hit-test.js";
-import { parseKey, isEditingKey } from "./keys.js";
+import { decodeKeyEvents, isEditingKey, type KeyInput } from "./keys.js";
 import { layout, type LayoutNode } from "./layout.js";
 import {
   paint,
@@ -195,25 +200,49 @@ const SGR_MOUSE_RE = /\x1b\[<(\d+);(\d+);(\d+)([Mm])/g;
 // need to remember the offset we already dispatched via onScroll.
 let batchScrollOffsets: Map<object, number> | null = null;
 
+// Tracks the focused TextInput's latest edit state during a batched keyboard
+// chunk. The layout tree does not re-render until the next tick, so subsequent
+// keys in the same chunk must see the updated value/cursor immediately.
+let batchTextInputEdits: Map<TextInputProps, EditState> | null = null;
+
 function handleInput(data: string): void {
-  // Terminals may batch multiple mouse events into one data chunk.
-  // Scan for all SGR mouse sequences and handle each one.
   SGR_MOUSE_RE.lastIndex = 0;
-  let match = SGR_MOUSE_RE.exec(data);
-  if (match) {
-    batchScrollOffsets = new Map();
+  batchTextInputEdits = new Map();
+
+  let lastIndex = 0;
+
+  try {
+    let match = SGR_MOUSE_RE.exec(data);
     while (match) {
+      if (match.index > lastIndex) {
+        handleKeyChunk(data.slice(lastIndex, match.index));
+      }
+
+      if (batchScrollOffsets === null) {
+        batchScrollOffsets = new Map();
+      }
+
       const mouse = parseSgrMatch(match);
       if (mouse) handleMouseEvent(mouse);
+
+      lastIndex = match.index + match[0].length;
       match = SGR_MOUSE_RE.exec(data);
     }
-    batchScrollOffsets = null;
-    return;
-  }
 
-  // Keyboard input
-  const key = parseKey(data);
-  handleKeyEvent(key, data);
+    if (lastIndex < data.length) {
+      handleKeyChunk(data.slice(lastIndex));
+    }
+  } finally {
+    batchScrollOffsets = null;
+    batchTextInputEdits = null;
+  }
+}
+
+function handleKeyChunk(data: string): void {
+  if (data.length === 0) return;
+  for (const key of decodeKeyEvents(data)) {
+    handleKeyEvent(key);
+  }
 }
 
 interface MouseEvent {
@@ -572,7 +601,18 @@ function findClickFocusTarget(path: LayoutNode[]): LayoutNode | null {
   return null;
 }
 
-function handleKeyEvent(key: string, rawData?: string): void {
+function getTextInputEditState(props: TextInputProps): EditState {
+  const batched = batchTextInputEdits?.get(props);
+  if (batched) return batched;
+  return {
+    value: props.value,
+    cursor: getTextInputCursor(props),
+  };
+}
+
+function handleKeyEvent(event: KeyInput): void {
+  const { key, text } = event;
+
   // --- Focus traversal keys ---
 
   // Tab / Shift+Tab: cycle through focusable elements
@@ -646,12 +686,10 @@ function handleKeyEvent(key: string, rawData?: string): void {
   }
 
   // --- TextInput key routing ---
-  // Find the focused TextInput (if any) to route editing keys
   const focusedInput = findFocusedTextInput();
 
   if (focusedInput) {
-    const props = focusedInput.node
-      .props as import("@cel-tui/types").TextInputProps;
+    const props = focusedInput.node.props as TextInputProps;
 
     // onKeyPress fires before editing — return false prevents the default action
     if (props.onKeyPress) {
@@ -662,12 +700,12 @@ function handleKeyEvent(key: string, rawData?: string): void {
       }
     }
 
-    // Editing keys are consumed by TextInput
-    if (isEditingKey(key)) {
-      const cursor = getTextInputCursor(props);
-      const editState: EditState = { value: props.value, cursor };
-      let newState: EditState | null = null;
+    let newState: EditState | null = null;
+    const editState = getTextInputEditState(props);
 
+    if (text !== undefined) {
+      newState = insertChar(editState, text);
+    } else if (isEditingKey(key)) {
       switch (key) {
         case "backspace":
           newState = deleteBackward(editState);
@@ -683,8 +721,7 @@ function handleKeyEvent(key: string, rawData?: string): void {
         case "end":
           {
             const tiPadX =
-              (focusedInput.node as import("@cel-tui/types").TextInputNode)
-                .props.padding?.x ?? 0;
+              (focusedInput.node as TextInputNode).props.padding?.x ?? 0;
             const contentWidth = Math.max(
               0,
               focusedInput.rect.width - tiPadX * 2,
@@ -709,24 +746,17 @@ function handleKeyEvent(key: string, rawData?: string): void {
         case "plus":
           newState = insertChar(editState, "+");
           break;
-        default:
-          // Single printable character — use raw data to preserve case
-          if (key.length === 1 && rawData && rawData.length === 1) {
-            newState = insertChar(editState, rawData);
-          } else if (key.length === 1) {
-            newState = insertChar(editState, key);
-          }
-          break;
       }
+    }
 
-      if (newState && newState !== editState) {
-        setTextInputCursor(props, newState.cursor);
-        if (newState.value !== editState.value) {
-          props.onChange(newState.value);
-        }
-        cel.render();
-        return;
+    if (newState && newState !== editState) {
+      batchTextInputEdits?.set(props, newState);
+      setTextInputCursor(props, newState.cursor);
+      if (newState.value !== editState.value) {
+        props.onChange(newState.value);
       }
+      cel.render();
+      return;
     }
   }
 

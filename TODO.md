@@ -12,8 +12,6 @@ Remaining work, known bugs, and planned improvements.
 
 ## Bugs / Spec Violations
 
-- 🔧 **Streaming wrapped Markdown with inline formatting can corrupt until rendering settles** — high priority. The risky behavior is in `packages/components/src/markdown.ts`: plain paragraphs render as a single `Text(..., { wrap: "word" })`, but formatted paragraphs/list items/blockquote content render as `HStack({ flexWrap: "wrap" })` trees built from split inline spans. During streaming, partial markdown can change shape across renders (for example plain text becoming a formatted span once closing markers arrive), forcing repeated live reflow of wrapped HStack trees. Apps report that the display can look corrupted at wrap boundaries during streaming and then self-correct once the final render shape stabilizes. Fix: reproduce with a minimal streaming testcase around inline formatting crossing wrap boundaries, then harden the diff/render path and add regression coverage for repeated re-renders of wrapped formatted Markdown.
-
 - 🔧 **Scrollbar thumb position ignores padding** — `paintScrollbar` in `paint.ts` computes `maxOffset = contentHeight - rect.height` without accounting for container padding, while the scroll clamping logic uses `contentHeight + padY - rect.height`. For padded scrollable containers the thumb position is slightly off.
 
 - 🔧 **Key events leak through layers** — When no element is focused and the topmost layer's root has no `onKeyPress`, `handleKeyEvent` falls through to lower layers. Mouse input stops at the topmost layer with a node at the event position, but keyboard input doesn't follow the same rule. A modal overlay without its own root `onKeyPress` would leak keys to the base layer, breaking the "events target the topmost layer" principle.

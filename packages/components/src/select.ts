@@ -65,7 +65,7 @@ export interface SelectProps {
    * Called on key events that bubble up to the Select.
    * Return `false` to keep bubbling to ancestors.
    *
-   * @param key - The key string.
+   * @param key - The normalized semantic key string.
    */
   onKeyPress?: (key: string) => boolean | void;
   /** Fixed width in cells or percentage. */
