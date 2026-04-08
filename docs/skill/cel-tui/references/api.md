@@ -37,6 +37,28 @@ All props accepted by `VStack` and `HStack`:
 }
 ```
 
+## Measurement Helpers
+
+```ts
+measureContentHeight(node, { width }); // number
+```
+
+- Measures a node tree's **intrinsic content height** at the provided wrapping width.
+- This is a content-measurement helper, not a viewport/clipping helper.
+- The provided `width` is authoritative — use the actual width the subtree wraps at.
+- Main use case: prepend-style scrollback, where older content is inserted above the current viewport and the app needs to preserve the viewport anchor.
+
+```ts
+const addedHeight = measureContentHeight(
+  VStack({}, olderMessages.map(renderMessage)),
+  { width: historyContentWidth },
+);
+
+scrollOffset += addedHeight;
+```
+
+Measure the content subtree you are adding. If a wrapper's visible height is controlled by `height`, `flex`, or percentage sizing, measure the content inside that wrapper instead. For padded content, pass the outer width when measuring the padded container itself, or the inner content width when measuring its children directly.
+
 ## Scroll
 
 Scroll supports **uncontrolled** (default) and **controlled** modes, mirroring the focus model:

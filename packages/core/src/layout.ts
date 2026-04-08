@@ -121,6 +121,15 @@ function intrinsicMainSize(
           resolveSizeValue(cProps?.width, 0) ??
           intrinsicMainSize(child, false, innerCross);
       }
+      if (cProps) {
+        const minMain = isVertical
+          ? (cProps.minHeight ?? 0)
+          : (cProps.minWidth ?? 0);
+        const maxMain = isVertical
+          ? (cProps.maxHeight ?? Infinity)
+          : (cProps.maxWidth ?? Infinity);
+        childMain = clamp(childMain, minMain, maxMain);
+      }
       total += childMain;
       if (i < node.children.length - 1) total += gap;
     }
@@ -150,9 +159,12 @@ function intrinsicMainSize(
         }
       }
       wrapWidths.push(w);
-      const h =
+      let h =
         resolveSizeValue(cProps?.height, 0) ??
         intrinsicMainSize(child, true, innerCross);
+      if (cProps) {
+        h = clamp(h, cProps.minHeight ?? 0, cProps.maxHeight ?? Infinity);
+      }
       wrapHeights.push(h);
     }
     const wrapRows = assignWrapRows(wrapWidths, innerCross, gap);
@@ -258,6 +270,37 @@ function largestRemainder(fractions: number[], total: number): number[] {
 }
 
 // --- Main layout ---
+
+/**
+ * Measure a node tree's intrinsic content height at the provided width.
+ *
+ * This is a content-measurement helper, not a viewport/clipping helper.
+ * The caller-provided `width` is the authoritative wrapping width for the
+ * measured subtree. Measurement starts at the given node, ignores that
+ * node's own main-axis height constraints, and walks downward through its
+ * descendants. Descendant sizing rules still apply normally.
+ *
+ * Use this for intrinsically sized content such as scrollback/message
+ * history chunks. If a wrapper's visible height is controlled by `height`,
+ * `flex`, or percentage sizing, measure the content subtree inside that
+ * wrapper instead.
+ *
+ * @example
+ * ```ts
+ * const addedHeight = measureContentHeight(
+ *   VStack({}, olderMessages.map(renderMessage)),
+ *   { width: historyContentWidth },
+ * );
+ *
+ * scrollOffset += addedHeight;
+ * ```
+ */
+export function measureContentHeight(
+  node: Node,
+  options: { width: number },
+): number {
+  return intrinsicMainSize(node, true, options.width);
+}
 
 /**
  * Compute the layout for a UI tree.

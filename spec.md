@@ -21,6 +21,18 @@ cel.render()
 
 State is fully external to the framework. Use any state management approach — plain variables, classes, libraries. The framework just calls the render function and renders the returned tree.
 
+### Measurement Helpers
+
+```ts
+measureContentHeight(node: Node, options: { width: number }): number
+```
+
+Measures a node tree's **intrinsic content height** in terminal cells when wrapped within the provided width. The measurement walks downward from the given node and follows the same content rules as layout: text wrapping, padding, gap, intrinsic container sizing, fixed-size descendants, wrapping HStacks, and TextInput content height.
+
+This helper is for **content subtrees** whose height is not externally constrained. Typical use cases: scrollback/message history chunks, prepend-anchor preservation, markdown blocks, and any other intrinsically sized content. It is **not** a viewport measurement API — if a container's visible height is determined by `height`, `flex`, or percentage sizing, measure the content subtree inside that container instead.
+
+`width` should be the actual wrapping width for the node being measured. If you measure a padded container, pass its outer width so the helper can account for that container's own padding. If you measure the children inside a padded container directly, pass the inner content width.
+
 ### Primitives
 
 | Category  | Primitive                 | Description                                        |
@@ -265,6 +277,19 @@ VStack({
 ```
 
 While `stickToBottom` is true, `Infinity` is clamped to the current maximum on each render — new content automatically scrolls into view. When the user scrolls up, `stickToBottom` becomes false and the explicit offset takes over. Scrolling back to the bottom re-enables sticky mode.
+
+For prepend-style scrollback, apps can preserve the current viewport anchor by measuring the height of the newly inserted content and increasing `scrollOffset` by that amount:
+
+```ts
+const addedHeight = measureContentHeight(
+  VStack({}, olderMessages.map(renderMessage)),
+  { width: historyContentWidth },
+);
+
+scrollOffset += addedHeight;
+```
+
+`historyContentWidth` is the width the inserted content actually wraps at. For a padded scroll container, that usually means the container's inner content width.
 
 ---
 

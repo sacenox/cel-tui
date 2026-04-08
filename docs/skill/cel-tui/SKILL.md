@@ -143,6 +143,23 @@ VStack(
 
 Controlled mode enables patterns like auto-scroll to bottom on new content. `scrollStep` affects mouse wheel input only — not programmatic `scrollOffset` updates.
 
+### Measuring content height
+
+Use `measureContentHeight(node, { width })` when your app knows the wrapping width but needs to know how tall a content subtree will be.
+
+```ts
+import { measureContentHeight, VStack } from "@cel-tui/core";
+
+const addedHeight = measureContentHeight(
+  VStack({}, olderMessages.map(renderMessage)),
+  { width: historyContentWidth },
+);
+
+scrollOffset += addedHeight;
+```
+
+This is for **intrinsic content measurement**, not viewport/clipping measurement. The provided `width` is authoritative. Measure the content subtree you are adding or anchoring around — not a wrapper whose visible height is controlled by `height`, `flex`, or percentage sizing. If you measure a padded container, pass its outer width; if you measure the children inside a padded container directly, pass the inner content width.
+
 ### Layers (modals)
 
 Return an array from the render function — layers composite bottom-to-top:

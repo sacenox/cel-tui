@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { measureContentHeight } from "./index.js";
 import { layout, type LayoutNode, type Rect } from "./layout.js";
 import { VStack, HStack } from "./primitives/stacks.js";
 import { Text } from "./primitives/text.js";
@@ -1245,6 +1246,91 @@ describe("layout", () => {
       expect(result.children[0]!.rect.height).toBe(3);
       // Text "after" should be right after it
       expect(result.children[1]!.rect.y).toBe(3);
+    });
+  });
+
+  describe("measureContentHeight", () => {
+    test("wrapped Text returns the visual line count for the provided width", () => {
+      // Arrange
+      const node = Text("foo bar baz", { wrap: "word" });
+
+      // Act
+      const height = measureContentHeight(node, { width: 6 });
+
+      // Assert
+      expect(height).toBe(3);
+    });
+
+    test("padded VStack accounts for its own padding when measuring children", () => {
+      // Arrange
+      const node = VStack({ padding: { x: 1, y: 1 }, gap: 1 }, [
+        Text("foo bar", { wrap: "word" }),
+        Text("baz"),
+      ]);
+
+      // Act
+      const height = measureContentHeight(node, { width: 8 });
+
+      // Assert
+      expect(height).toBe(6);
+    });
+
+    test("wrapping HStack returns the sum of row heights plus row gaps", () => {
+      // Arrange
+      const node = HStack({ flexWrap: "wrap", gap: 1 }, [
+        VStack({ width: 5, height: 2 }, []),
+        VStack({ width: 5, height: 3 }, []),
+        VStack({ width: 5, height: 4 }, []),
+      ]);
+
+      // Act
+      const height = measureContentHeight(node, { width: 11 });
+
+      // Assert
+      expect(height).toBe(8);
+    });
+
+    test("TextInput returns wrapped content height including its own padding", () => {
+      // Arrange
+      const node = TextInput({
+        padding: { x: 1, y: 1 },
+        value: "foo bar baz",
+        onChange: () => {},
+      });
+
+      // Act
+      const height = measureContentHeight(node, { width: 8 });
+
+      // Assert
+      expect(height).toBe(5);
+    });
+
+    test("explicit root height does not limit the measured content height", () => {
+      // Arrange
+      const node = VStack({ height: 1 }, [
+        Text("line 1"),
+        Text("line 2"),
+        Text("line 3"),
+      ]);
+
+      // Act
+      const height = measureContentHeight(node, { width: 10 });
+
+      // Assert
+      expect(height).toBe(3);
+    });
+
+    test("caller-provided width overrides the measured root width prop", () => {
+      // Arrange
+      const node = VStack({ width: 10 }, [
+        Text("foo bar baz", { wrap: "word" }),
+      ]);
+
+      // Act
+      const height = measureContentHeight(node, { width: 100 });
+
+      // Assert
+      expect(height).toBe(1);
     });
   });
 });
