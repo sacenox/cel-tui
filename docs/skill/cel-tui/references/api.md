@@ -160,7 +160,15 @@ cel-tui is **Kitty-first** and works well in `tmux` with `set -s extended-keys o
 ## Pre-made Components
 
 ```ts
-import { Spacer, Divider, Button, Select } from "@cel-tui/components";
+import {
+  Spacer,
+  Divider,
+  Button,
+  Select,
+  VDivider,
+  Markdown,
+  SyntaxHighlight,
+} from "@cel-tui/components";
 
 Spacer(); // VStack({ flex: 1 }, [])
 Divider(); // Text("─", { repeat: "fill" })
@@ -269,6 +277,27 @@ Markdown(content, {
 ```
 
 Streaming works naturally — append chunks and call `cel.render()`. Unclosed blocks are handled gracefully.
+
+### SyntaxHighlight (rendered code)
+
+Returns a `VStack` — place it directly in a container's children:
+
+```ts
+import { SyntaxHighlight } from "@cel-tui/components";
+
+VStack({ flex: 1, overflow: "scroll", padding: { x: 1 } }, [
+  SyntaxHighlight(code, "typescript"),
+]);
+
+SyntaxHighlight(code, "javascript", { theme: "dark-plus" });
+```
+
+- Signature: `SyntaxHighlight(content, language, props?)`
+- `language` accepts bundled Shiki language ids and aliases
+- `props.theme` accepts a bundled Shiki theme name or a custom theme registration object
+- Uses a terminal-friendly ANSI 16 fallback theme by default
+- First render may show plain text while the Shiki runtime, language, or theme loads; unsupported languages also render plain text
+- Append-only updates reuse a small per-language cache, so streaming code output works well
 
 ## Theme
 

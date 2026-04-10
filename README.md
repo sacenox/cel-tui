@@ -80,11 +80,11 @@ Some historical legacy collisions remain impossible to recover once a host has a
 
 ## Packages
 
-| Package               | Description                                                               |
-| --------------------- | ------------------------------------------------------------------------- |
-| `@cel-tui/types`      | Shared type definitions                                                   |
-| `@cel-tui/core`       | Framework engine and primitives                                           |
-| `@cel-tui/components` | Pre-made components (Button, Spacer, Divider, VDivider, Select, Markdown) |
+| Package               | Description                                                                                |
+| --------------------- | ------------------------------------------------------------------------------------------ |
+| `@cel-tui/types`      | Shared type definitions                                                                    |
+| `@cel-tui/core`       | Framework engine and primitives                                                            |
+| `@cel-tui/components` | Pre-made components (Button, Spacer, Divider, VDivider, Select, Markdown, SyntaxHighlight) |
 
 ## Documentation
 

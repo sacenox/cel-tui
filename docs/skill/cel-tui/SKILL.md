@@ -5,7 +5,7 @@ license: MIT
 compatibility: Requires Bun runtime. Best experience on Kitty-compatible terminals and in tmux with `set -s extended-keys on`; uses SGR mouse mode and accepts recoverable legacy key encodings when hosts do not preserve a pure Kitty stream.
 metadata:
   author: sacenox
-  version: "0.5.0"
+  version: "0.6.0"
 ---
 
 # Building TUIs with cel-tui
@@ -246,6 +246,20 @@ cel.viewport(() =>
 mySelect.reset(); // clear filter/highlight programmatically
 ```
 
+### SyntaxHighlight component
+
+```ts
+import { SyntaxHighlight } from "@cel-tui/components";
+
+VStack({ flex: 1, overflow: "scroll", padding: { x: 1 } }, [
+  SyntaxHighlight(source, "typescript"),
+]);
+
+SyntaxHighlight(source, "javascript", { theme: "dark-plus" });
+```
+
+`SyntaxHighlight(content, language, props?)` renders bundled Shiki languages and aliases into cel-tui primitives. First render may show plain text while Shiki runtime, language, or theme loads; the component re-renders automatically once ready.
+
 ## Gotchas
 
 - **State is external** — the framework has no state. Mutate variables then call `cel.render()`.
@@ -264,6 +278,7 @@ mySelect.reset(); // clear filter/highlight programmatically
 - **Kitty-first keyboard input** — the framework enables Kitty level 1 and gets full modifier fidelity when the host preserves it (`alt+x`, `ctrl+plus`, `shift+enter`, etc.). It also normalizes recoverable legacy encodings so common shortcuts keep working in tmux. For best results, use a Kitty-compatible terminal or `tmux` with `set -s extended-keys on`. On older legacy hosts, historically ambiguous collisions such as `ctrl+i` vs `tab` or `ctrl+m` vs `enter` cannot be recovered once the host collapses them.
 - **tmux is good for keyboard-driven manual checks** — common `tmux send-keys` paths work for printable chars, `Tab`/`BTab`, `Enter`, `Escape`, arrows, and many `Ctrl+letter` shortcuts. Use exact raw-sequence injection only when you need to target a protocol-specific encoding. Mouse input remains unreliable in tmux and should be verified in a real terminal.
 - **Button limitations** — `Button` from `@cel-tui/components` does not forward container sizing props (`width`, `height`, `flex`, `minWidth`, etc.). It supports styling (`fgColor`, `bgColor`, `bold`, etc.), `focusStyle`, `focused`, `onFocus`, `onBlur`, `onKeyPress`, and `padding`. For full layout control, use `HStack` + `Text` directly.
+- **SyntaxHighlight loads lazily** — first render may show plain text until the Shiki runtime, requested language, and requested theme finish loading. Unsupported language ids also render plain text.
 
 ## Composing Components
 
