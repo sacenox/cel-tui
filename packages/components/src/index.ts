@@ -34,3 +34,4 @@ export {
   type BlockToken,
   type InlineSpan,
 } from "./markdown.js";
+export { SyntaxHighlight } from "./syntax-highlight.js";
