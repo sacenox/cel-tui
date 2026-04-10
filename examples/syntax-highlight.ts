@@ -8,13 +8,81 @@
  */
 
 import { cel, VStack, HStack, Text, ProcessTerminal } from "@cel-tui/core";
-import { Divider, Spacer, SyntaxHighlight } from "@cel-tui/components";
+import {
+  Divider,
+  Spacer,
+  SyntaxHighlight,
+  type SyntaxHighlightTheme,
+} from "@cel-tui/components";
 
 const LANGUAGE = "typescript";
 const MIN_COLS = 52;
 const MIN_ROWS = 16;
 const CHUNK_SIZE = 3;
 const TICK_MS = 18;
+
+const CUSTOM_THEME: SyntaxHighlightTheme = {
+  name: "cel-demo-sunset",
+  type: "dark",
+  fg: "#f8f8f2",
+  bg: "#1f2335",
+  tokenColors: [
+    { settings: { foreground: "#f8f8f2" } },
+    {
+      scope: ["comment", "string.quoted.docstring.multi"],
+      settings: { foreground: "#7f849c", fontStyle: "italic" },
+    },
+    {
+      scope: ["keyword", "storage", "entity.name.operator"],
+      settings: { foreground: "#ff79c6" },
+    },
+    {
+      scope: ["string", "markup.inline"],
+      settings: { foreground: "#f1fa8c" },
+    },
+    {
+      scope: ["constant.numeric", "constant.language", "constant.character"],
+      settings: { foreground: "#ffb86c" },
+    },
+    {
+      scope: ["entity.name.function", "support.function", "meta.function-call"],
+      settings: { foreground: "#50fa7b" },
+    },
+    {
+      scope: [
+        "entity.name.type",
+        "support.type",
+        "support.class",
+        "entity.other.inherited-class",
+      ],
+      settings: { foreground: "#8be9fd" },
+    },
+    {
+      scope: [
+        "variable.parameter",
+        "meta.object-literal.key",
+        "meta.property-name",
+      ],
+      settings: { foreground: "#bd93f9" },
+    },
+  ],
+};
+
+const THEME_OPTIONS: ReadonlyArray<{
+  label: string;
+  help: string;
+  theme?: SyntaxHighlightTheme;
+}> = [
+  {
+    label: "terminal ansi16",
+    help: "Default theme follows terminal defaults plus ANSI slots.",
+  },
+  {
+    label: "custom sunset",
+    help: "Custom Shiki theme remapped onto cel ANSI slots.",
+    theme: CUSTOM_THEME,
+  },
+];
 
 const FULL_CODE = [
   "/**",
@@ -38,10 +106,12 @@ const FULL_CODE = [
   "for (const user of users) {",
   "  console.log(greet(user));",
   "}",
+  "Long ass line to see the wrapping behaviuour on the example.Long ass line to see the wrapping behaviuour on the example.Long ass line to see the wrapping behaviuour on the example.Long ass line to see the wrapping behaviuour on the example.Long ass line to see the wrapping behaviuour on the example.Long ass line to see the wrapping behaviuour on the example.",
 ].join("\n");
 
 let content = "";
 let paused = false;
+let themeIndex = 0;
 let streamTimer: ReturnType<typeof setTimeout> | null = null;
 
 function quit() {
@@ -100,6 +170,11 @@ function togglePause() {
   cel.render();
 }
 
+function toggleTheme() {
+  themeIndex = (themeIndex + 1) % THEME_OPTIONS.length;
+  cel.render();
+}
+
 startStreaming();
 
 cel.init(new ProcessTerminal());
@@ -135,6 +210,7 @@ cel.viewport(() => {
 
   const status = isDone() ? "done" : paused ? "paused" : "streaming";
   const statusColor = isDone() ? "color02" : paused ? "color03" : "color06";
+  const theme = THEME_OPTIONS[themeIndex]!;
 
   return VStack(
     {
@@ -143,12 +219,14 @@ cel.viewport(() => {
         if (key === "ctrl+q" || key === "ctrl+c") quit();
         if (key === "ctrl+r") restart();
         if (key === "ctrl+p") togglePause();
+        if (key === "ctrl+t") toggleTheme();
       },
     },
     [
-      HStack({ padding: { x: 1 } }, [
+      HStack({ padding: { x: 1 }, gap: 2 }, [
         Text("SyntaxHighlight Demo", { bold: true, fgColor: "color06" }),
         Spacer(),
+        Text(`theme: ${theme.label}`, { fgColor: "color03" }),
         Text(LANGUAGE, { fgColor: "color08" }),
       ]),
       Divider({ fgColor: "color08" }),
@@ -159,7 +237,7 @@ cel.viewport(() => {
         }),
       ]),
       HStack({ padding: { x: 1 } }, [
-        Text("Shiki loads lazily. Colors appear after first render.", {
+        Text(theme.help, {
           fgColor: "color08",
           italic: true,
         }),
@@ -172,17 +250,41 @@ cel.viewport(() => {
           scrollbar: true,
           padding: { x: 1 },
         },
-        [SyntaxHighlight(content, LANGUAGE)],
+        [SyntaxHighlight(content, LANGUAGE, { theme: theme.theme })],
       ),
       Divider({ fgColor: "color08" }),
-      HStack({ padding: { x: 1 }, gap: 1 }, [
-        Text("Ctrl+R", { fgColor: "color07", bgColor: "color08", bold: true }),
-        Text("restart", { fgColor: "color08" }),
-        Text("  "),
-        Text("Ctrl+P", { fgColor: "color07", bgColor: "color08", bold: true }),
-        Text("pause/resume", { fgColor: "color08" }),
-        Spacer(),
-        Text("Ctrl+Q quit", { fgColor: "color08" }),
+      VStack({ padding: { x: 1 } }, [
+        HStack({ gap: 1 }, [
+          Text("Ctrl+R", {
+            fgColor: "color07",
+            bgColor: "color08",
+            bold: true,
+          }),
+          Text("restart", { fgColor: "color08" }),
+          Text("  "),
+          Text("Ctrl+P", {
+            fgColor: "color07",
+            bgColor: "color08",
+            bold: true,
+          }),
+          Text("pause", { fgColor: "color08" }),
+          Text("  "),
+          Text("Ctrl+T", {
+            fgColor: "color07",
+            bgColor: "color08",
+            bold: true,
+          }),
+          Text("theme", { fgColor: "color08" }),
+        ]),
+        HStack({ gap: 1 }, [
+          Spacer(),
+          Text("Ctrl+Q", {
+            fgColor: "color07",
+            bgColor: "color08",
+            bold: true,
+          }),
+          Text("quit", { fgColor: "color08" }),
+        ]),
       ]),
     ],
   );

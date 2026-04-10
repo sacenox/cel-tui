@@ -1,13 +1,19 @@
 import type { Color, ContainerNode, Node, StyleProps } from "@cel-tui/types";
 import { cel, HStack, Text, VStack } from "@cel-tui/core";
-import type { BuiltinLanguage, Highlighter, ThemedToken } from "shiki";
+import type {
+  BuiltinLanguage,
+  BuiltinTheme,
+  Highlighter,
+  ThemeRegistration,
+  ThemedToken,
+} from "shiki";
 import type {
   ShikiStreamTokenizer,
   ShikiStreamTokenizerEnqueueResult,
 } from "shiki-stream";
 
-const INTERNAL_THEME = "min-dark";
-const MAX_STATES_PER_LANGUAGE = 4;
+const DEFAULT_THEME_NAME = "cel-ansi16";
+const MAX_STATES_PER_KEY = 4;
 
 const FONT_STYLE_ITALIC = 1;
 const FONT_STYLE_BOLD = 2;
@@ -31,6 +37,20 @@ const ANSI_SLOT_HEX: ReadonlyArray<readonly [Color, string]> = [
   ["color14", "#29b8db"],
   ["color15", "#ffffff"],
 ];
+const ANSI_SLOT_HEX_BY_COLOR = new Map<Color, string>(ANSI_SLOT_HEX);
+
+export type SyntaxHighlightTheme = BuiltinTheme | ThemeRegistration;
+
+/** Props for the {@link SyntaxHighlight} component. */
+export interface SyntaxHighlightProps {
+  /**
+   * Optional Shiki theme override.
+   *
+   * Pass either a bundled Shiki theme name (for example `"dark-plus"`)
+   * or a custom Shiki theme registration object.
+   */
+  theme?: SyntaxHighlightTheme;
+}
 
 type SyntaxHighlightStatus = "ready" | "loading" | "error" | "unsupported";
 
@@ -40,12 +60,128 @@ interface SyntaxHighlightRuntime {
   ShikiStreamTokenizer: (typeof import("shiki-stream"))["ShikiStreamTokenizer"];
 }
 
+interface ResolvedSyntaxHighlightTheme {
+  cacheKey: string;
+  loadableTheme: SyntaxHighlightTheme;
+  themeName: string;
+  defaultFg?: string;
+  defaultBg?: string;
+  useTerminalDefaults: boolean;
+}
+
+const DEFAULT_THEME: ThemeRegistration = {
+  name: DEFAULT_THEME_NAME,
+  displayName: "cel ANSI 16",
+  type: "dark",
+  fg: ansiHex("color07"),
+  bg: ansiHex("color00"),
+  colors: {
+    foreground: ansiHex("color07"),
+    "editor.foreground": ansiHex("color07"),
+    "editor.background": ansiHex("color00"),
+    "terminal.ansiBlack": ansiHex("color00"),
+    "terminal.ansiRed": ansiHex("color01"),
+    "terminal.ansiGreen": ansiHex("color02"),
+    "terminal.ansiYellow": ansiHex("color03"),
+    "terminal.ansiBlue": ansiHex("color04"),
+    "terminal.ansiMagenta": ansiHex("color05"),
+    "terminal.ansiCyan": ansiHex("color06"),
+    "terminal.ansiWhite": ansiHex("color07"),
+    "terminal.ansiBrightBlack": ansiHex("color08"),
+    "terminal.ansiBrightRed": ansiHex("color09"),
+    "terminal.ansiBrightGreen": ansiHex("color10"),
+    "terminal.ansiBrightYellow": ansiHex("color11"),
+    "terminal.ansiBrightBlue": ansiHex("color12"),
+    "terminal.ansiBrightMagenta": ansiHex("color13"),
+    "terminal.ansiBrightCyan": ansiHex("color14"),
+    "terminal.ansiBrightWhite": ansiHex("color15"),
+  },
+  tokenColors: [
+    { settings: { foreground: ansiHex("color07") } },
+    {
+      scope: ["comment", "string.quoted.docstring.multi"],
+      settings: { foreground: ansiHex("color08"), fontStyle: "italic" },
+    },
+    {
+      scope: ["string", "markup.inline"],
+      settings: { foreground: ansiHex("color02") },
+    },
+    {
+      scope: [
+        "constant.numeric",
+        "constant.language",
+        "constant.character",
+        "constant.other.placeholder",
+      ],
+      settings: { foreground: ansiHex("color03") },
+    },
+    {
+      scope: ["keyword", "storage", "entity.name.operator"],
+      settings: { foreground: ansiHex("color05") },
+    },
+    {
+      scope: ["entity.name.function", "support.function", "meta.function-call"],
+      settings: { foreground: ansiHex("color04") },
+    },
+    {
+      scope: [
+        "entity.name.type",
+        "support.type",
+        "support.class",
+        "entity.other.inherited-class",
+      ],
+      settings: { foreground: ansiHex("color06") },
+    },
+    {
+      scope: ["variable.parameter"],
+      settings: { foreground: ansiHex("color11") },
+    },
+    {
+      scope: [
+        "entity.other.attribute-name",
+        "meta.object-literal.key",
+        "meta.property-name",
+        "support.type.property-name",
+      ],
+      settings: { foreground: ansiHex("color06") },
+    },
+    {
+      scope: ["entity.name.tag", "string.regexp", "invalid"],
+      settings: { foreground: ansiHex("color01") },
+    },
+    {
+      scope: ["markup.bold", "strong", "markup.heading"],
+      settings: { fontStyle: "bold", foreground: ansiHex("color09") },
+    },
+    {
+      scope: ["markup.italic", "emphasis"],
+      settings: { fontStyle: "italic" },
+    },
+    {
+      scope: ["markup.underline", "meta.link.inline.markdown"],
+      settings: { foreground: ansiHex("color04"), fontStyle: "underline" },
+    },
+  ],
+};
+
+const DEFAULT_RESOLVED_THEME: ResolvedSyntaxHighlightTheme = {
+  cacheKey: DEFAULT_THEME_NAME,
+  loadableTheme: DEFAULT_THEME,
+  themeName: DEFAULT_THEME_NAME,
+  defaultFg: normalizeHex(DEFAULT_THEME.fg ?? ansiHex("color07")),
+  defaultBg: normalizeHex(DEFAULT_THEME.bg ?? ansiHex("color00")),
+  useTerminalDefaults: true,
+};
+
 const rgbCache = new Map<string, readonly [number, number, number]>();
 const colorSlotCache = new Map<string, Color>();
 const loadedLanguages = new Set<string>();
 const loadingLanguages = new Map<string, Promise<void>>();
 const languageErrors = new Map<string, Error>();
-const statesByLanguage = new Map<string, SyntaxHighlightState[]>();
+const loadedThemes = new Set<string>();
+const loadingThemes = new Map<string, Promise<void>>();
+const themeErrors = new Map<string, Error>();
+const statesByKey = new Map<string, SyntaxHighlightState[]>();
 
 let runtimePromise: Promise<SyntaxHighlightRuntime> | null = null;
 let runtimeInstance: SyntaxHighlightRuntime | null = null;
@@ -58,6 +194,7 @@ interface SyntaxHighlightState {
   lastContent: string;
   tokenizer: ShikiStreamTokenizer;
   lastNode: ContainerNode | null;
+  theme: ResolvedSyntaxHighlightTheme;
 }
 
 interface HighlightRun {
@@ -65,8 +202,64 @@ interface HighlightRun {
   style: StyleProps;
 }
 
+function ansiHex(color: Color): string {
+  const hex = ANSI_SLOT_HEX_BY_COLOR.get(color);
+  if (!hex) {
+    throw new Error(`Unknown ANSI slot: ${color}`);
+  }
+  return hex;
+}
+
 function normalizeError(error: unknown): Error {
   return error instanceof Error ? error : new Error(String(error));
+}
+
+function hashString(input: string): string {
+  let hash = 2166136261;
+  for (let i = 0; i < input.length; i++) {
+    hash = Math.imul(hash ^ input.charCodeAt(i), 16777619);
+  }
+  return (hash >>> 0).toString(36);
+}
+
+function resolveTheme(
+  theme?: SyntaxHighlightTheme,
+): ResolvedSyntaxHighlightTheme {
+  if (!theme) {
+    return DEFAULT_RESOLVED_THEME;
+  }
+
+  if (typeof theme === "string") {
+    return {
+      cacheKey: `builtin:${theme}`,
+      loadableTheme: theme,
+      themeName: theme,
+      useTerminalDefaults: false,
+    };
+  }
+
+  const serialized = JSON.stringify(theme);
+  const cacheHash = hashString(serialized);
+  const themeName =
+    typeof theme.name === "string" && theme.name.length > 0
+      ? theme.name
+      : `cel-syntax-${cacheHash}`;
+  const loadableTheme =
+    themeName === theme.name ? theme : { ...theme, name: themeName };
+
+  return {
+    cacheKey: `custom:${cacheHash}`,
+    loadableTheme,
+    themeName,
+    useTerminalDefaults: false,
+  };
+}
+
+function stateKey(
+  language: string,
+  theme: ResolvedSyntaxHighlightTheme,
+): string {
+  return `${language}\u0000${theme.cacheKey}`;
 }
 
 function getRuntimePromise(): Promise<SyntaxHighlightRuntime> {
@@ -105,12 +298,13 @@ function getHighlighterPromise(): Promise<Highlighter> {
     highlighterPromise = getRuntimePromise()
       .then((runtime) =>
         runtime.createHighlighter({
-          themes: [INTERNAL_THEME],
+          themes: [DEFAULT_THEME],
           langs: [],
         }),
       )
       .then((highlighter) => {
         highlighterInstance = highlighter;
+        loadedThemes.add(DEFAULT_RESOLVED_THEME.cacheKey);
         return highlighter;
       })
       .catch((error) => {
@@ -132,8 +326,16 @@ function hasBundledLanguage(
   return Object.hasOwn(runtime.bundledLanguages, language);
 }
 
-function ensureLanguageReady(language: string): SyntaxHighlightStatus {
-  if (runtimeError || highlighterError || languageErrors.has(language)) {
+function ensureHighlightReady(
+  language: string,
+  theme: ResolvedSyntaxHighlightTheme,
+): SyntaxHighlightStatus {
+  if (
+    runtimeError ||
+    highlighterError ||
+    languageErrors.has(language) ||
+    themeErrors.has(theme.cacheKey)
+  ) {
     return "error";
   }
 
@@ -146,58 +348,86 @@ function ensureLanguageReady(language: string): SyntaxHighlightStatus {
     return "unsupported";
   }
 
-  if (loadedLanguages.has(language) && highlighterInstance) {
-    return "ready";
+  if (!highlighterInstance) {
+    void getHighlighterPromise();
+    return "loading";
   }
 
-  if (!loadingLanguages.has(language)) {
-    const promise = getHighlighterPromise()
-      .then((highlighter) =>
-        highlighter.loadLanguage(language as BuiltinLanguage),
-      )
-      .then(() => {
-        loadedLanguages.add(language);
-      })
-      .catch((error) => {
-        languageErrors.set(language, normalizeError(error));
-      })
-      .finally(() => {
-        loadingLanguages.delete(language);
-        cel.render();
-      });
+  let pending = false;
 
-    loadingLanguages.set(language, promise);
+  if (!loadedThemes.has(theme.cacheKey)) {
+    pending = true;
+
+    if (!loadingThemes.has(theme.cacheKey)) {
+      const promise = getHighlighterPromise()
+        .then((highlighter) => highlighter.loadTheme(theme.loadableTheme))
+        .then(() => {
+          loadedThemes.add(theme.cacheKey);
+        })
+        .catch((error) => {
+          themeErrors.set(theme.cacheKey, normalizeError(error));
+        })
+        .finally(() => {
+          loadingThemes.delete(theme.cacheKey);
+          cel.render();
+        });
+
+      loadingThemes.set(theme.cacheKey, promise);
+    }
   }
 
-  return "loading";
+  if (!loadedLanguages.has(language)) {
+    pending = true;
+
+    if (!loadingLanguages.has(language)) {
+      const promise = getHighlighterPromise()
+        .then((highlighter) =>
+          highlighter.loadLanguage(language as BuiltinLanguage),
+        )
+        .then(() => {
+          loadedLanguages.add(language);
+        })
+        .catch((error) => {
+          languageErrors.set(language, normalizeError(error));
+        })
+        .finally(() => {
+          loadingLanguages.delete(language);
+          cel.render();
+        });
+
+      loadingLanguages.set(language, promise);
+    }
+  }
+
+  return pending ? "loading" : "ready";
 }
 
-function getStates(language: string): SyntaxHighlightState[] {
-  let states = statesByLanguage.get(language);
+function getStates(key: string): SyntaxHighlightState[] {
+  let states = statesByKey.get(key);
   if (!states) {
     states = [];
-    statesByLanguage.set(language, states);
+    statesByKey.set(key, states);
   }
   return states;
 }
 
-function touchState(language: string, state: SyntaxHighlightState): void {
-  const states = getStates(language);
+function touchState(key: string, state: SyntaxHighlightState): void {
+  const states = getStates(key);
   const index = states.indexOf(state);
   if (index !== -1) {
     states.splice(index, 1);
   }
   states.push(state);
-  if (states.length > MAX_STATES_PER_LANGUAGE) {
+  if (states.length > MAX_STATES_PER_KEY) {
     states.shift();
   }
 }
 
 function findState(
-  language: string,
+  key: string,
   content: string,
 ): SyntaxHighlightState | undefined {
-  const states = getStates(language);
+  const states = getStates(key);
 
   for (let i = states.length - 1; i >= 0; i--) {
     const state = states[i]!;
@@ -225,6 +455,7 @@ function findState(
 
 function createState(
   language: string,
+  theme: ResolvedSyntaxHighlightTheme,
   highlighter: Highlighter,
   runtime: SyntaxHighlightRuntime,
 ): SyntaxHighlightState {
@@ -233,9 +464,10 @@ function createState(
     tokenizer: new runtime.ShikiStreamTokenizer({
       highlighter,
       lang: language,
-      theme: INTERNAL_THEME,
+      theme: theme.themeName,
     }),
     lastNode: null,
+    theme,
   };
 }
 
@@ -361,15 +593,26 @@ function colorToSlot(color: string | undefined): Color | undefined {
   return best;
 }
 
-function tokenToStyle(token: ThemedToken): StyleProps {
+function tokenToStyle(
+  token: ThemedToken,
+  theme: ResolvedSyntaxHighlightTheme,
+): StyleProps {
   const fontStyle =
     typeof token.fontStyle === "number" && token.fontStyle > 0
       ? token.fontStyle
       : 0;
+  const tokenFg = token.color ? normalizeHex(token.color) : undefined;
+  const tokenBg = token.bgColor ? normalizeHex(token.bgColor) : undefined;
 
   return {
-    fgColor: colorToSlot(token.color),
-    bgColor: colorToSlot(token.bgColor),
+    fgColor:
+      theme.useTerminalDefaults && tokenFg === theme.defaultFg
+        ? undefined
+        : colorToSlot(tokenFg),
+    bgColor:
+      theme.useTerminalDefaults && tokenBg === theme.defaultBg
+        ? undefined
+        : colorToSlot(tokenBg),
     italic: (fontStyle & FONT_STYLE_ITALIC) !== 0 || undefined,
     bold: (fontStyle & FONT_STYLE_BOLD) !== 0 || undefined,
     underline: (fontStyle & FONT_STYLE_UNDERLINE) !== 0 || undefined,
@@ -404,11 +647,14 @@ function pushRun(
   line.push({ content, style });
 }
 
-function tokensToLines(tokens: readonly ThemedToken[]): HighlightRun[][] {
+function tokensToLines(
+  tokens: readonly ThemedToken[],
+  theme: ResolvedSyntaxHighlightTheme,
+): HighlightRun[][] {
   const lines: HighlightRun[][] = [[]];
 
   for (const token of tokens) {
-    const style = tokenToStyle(token);
+    const style = tokenToStyle(token, theme);
     const pieces = token.content.split("\n");
 
     for (let i = 0; i < pieces.length; i++) {
@@ -423,14 +669,21 @@ function tokensToLines(tokens: readonly ThemedToken[]): HighlightRun[][] {
   return lines;
 }
 
-function lineToNode(line: HighlightRun[]): Node {
-  if (line.length === 0) {
-    return HStack({}, [Text("")]);
+function runToNodes(run: HighlightRun): Node[] {
+  const pieces = run.content.match(/\S+|\s+/g);
+  if (!pieces) {
+    return [];
   }
 
+  return pieces.map((piece) => Text(piece, run.style));
+}
+
+function lineToNode(line: HighlightRun[]): Node {
+  const children = line.flatMap(runToNodes);
+
   return HStack(
-    {},
-    line.map((run) => Text(run.content, run.style)),
+    { flexWrap: "wrap" },
+    children.length > 0 ? children : [Text("")],
   );
 }
 
@@ -438,7 +691,9 @@ function renderPlainContent(content: string): ContainerNode {
   const lines = content.split("\n");
   return VStack(
     {},
-    lines.map((line) => HStack({}, [Text(line)])),
+    lines.map((line) =>
+      lineToNode(line.length > 0 ? [{ content: line, style: {} }] : []),
+    ),
   );
 }
 
@@ -447,10 +702,10 @@ function renderHighlightedState(state: SyntaxHighlightState): ContainerNode {
     return state.lastNode;
   }
 
-  const lines = tokensToLines([
-    ...state.tokenizer.tokensStable,
-    ...state.tokenizer.tokensUnstable,
-  ]);
+  const lines = tokensToLines(
+    [...state.tokenizer.tokensStable, ...state.tokenizer.tokensUnstable],
+    state.theme,
+  );
 
   state.lastNode = VStack({}, lines.map(lineToNode));
   return state.lastNode;
@@ -465,12 +720,18 @@ function renderHighlightedState(state: SyntaxHighlightState): ContainerNode {
  * edits fall back to a full re-highlight of that snippet.
  *
  * Shiki runtime code loads lazily on first use. Until the requested
- * language is ready, or if loading fails, the component renders plain
- * text and schedules a re-render. Unknown language ids also render plain
- * text.
+ * language and theme are ready, or if loading fails, the component
+ * renders plain text and schedules a re-render. Unknown language ids
+ * also render plain text.
+ *
+ * By default, the component uses a terminal-friendly ANSI 16 fallback
+ * theme. Base foreground/background colors fall through to the terminal
+ * defaults, while syntax scopes map onto the ANSI palette slots used by
+ * cel-tui. Highlighted output also word-wraps by default.
  *
  * @param content - Source code to render.
  * @param language - Shiki bundled language id or alias.
+ * @param props - Optional theme override.
  * @returns A `VStack` containing one highlighted line per child.
  *
  * @example
@@ -479,6 +740,9 @@ function renderHighlightedState(state: SyntaxHighlightState): ContainerNode {
  * VStack({ overflow: "scroll" }, [
  *   SyntaxHighlight(code, "javascript"),
  * ])
+ *
+ * @example
+ * SyntaxHighlight(code, "typescript", { theme: "dark-plus" })
  *
  * @example
  * let code = "";
@@ -494,16 +758,19 @@ function renderHighlightedState(state: SyntaxHighlightState): ContainerNode {
 export function SyntaxHighlight(
   content: string,
   language: string,
+  props?: SyntaxHighlightProps,
 ): ContainerNode {
-  const status = ensureLanguageReady(language);
+  const theme = resolveTheme(props?.theme);
+  const status = ensureHighlightReady(language, theme);
   if (status !== "ready" || !highlighterInstance || !runtimeInstance) {
     return renderPlainContent(content);
   }
 
+  const key = stateKey(language, theme);
   const state =
-    findState(language, content) ??
-    createState(language, highlighterInstance, runtimeInstance);
+    findState(key, content) ??
+    createState(language, theme, highlighterInstance, runtimeInstance);
   updateState(state, content);
-  touchState(language, state);
+  touchState(key, state);
   return renderHighlightedState(state);
 }
