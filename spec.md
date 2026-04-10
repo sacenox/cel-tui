@@ -425,14 +425,14 @@ cel-tui enables the [Kitty keyboard protocol](https://sw.kovidgoyal.net/kitty/ke
 
 **Lifecycle:**
 
-1. `cel.init()` enables Kitty keyboard protocol **level 1** (`CSI > 1 u`) and sets a push flag so the mode is restored on exit
+1. `cel.init()` enables Kitty keyboard protocol **level 1** (`CSI > 1 u`) and bracketed paste mode (`CSI ? 2004 h`), and sets a push flag so the keyboard mode is restored on exit
 2. The input decoder accepts a mixed stream of:
    - Kitty `CSI unicode-codepoint ; modifiers u`
    - legacy CSI letter / tilde sequences for arrows, Home/End, Delete, PageUp/Down, and function keys
    - raw printable text
    - legacy ASCII control bytes for recoverable `ctrl+letter` shortcuts
    - recoverable ESC-prefixed Alt combinations
-3. `cel.stop()` pops the keyboard mode (`CSI < u`), restoring the terminal's previous state
+3. `cel.stop()` pops the keyboard mode (`CSI < u`) and disables bracketed paste mode (`CSI ? 2004 l`), restoring the terminal's previous state
 
 **Stream model:** Terminals and multiplexers may batch multiple keyboard and mouse sequences into a single stdin chunk. The framework treats stdin as a stream and decodes all events in order.
 
@@ -441,6 +441,22 @@ cel-tui enables the [Kitty keyboard protocol](https://sw.kovidgoyal.net/kitty/ke
 **tmux compatibility:** In `tmux`, even with extended keys enabled, some shortcuts may still arrive in legacy form rather than Kitty-normalized form. cel-tui treats this as a supported environment, not an error case: recoverable legacy encodings should normalize to the same key strings as native Kitty input.
 
 **Unavoidable ambiguity:** Some legacy encodings are indistinguishable once a host has collapsed them. For example, `Ctrl+I` vs `Tab`, `Ctrl+M` vs `Enter`, and `Ctrl+[` vs `Escape` cannot be recovered if the terminal or multiplexer emits only the shared legacy byte. In those cases the framework uses the legacy key meaning (`tab`, `enter`, `escape`) and cannot infer the modifier combo.
+
+### Bracketed Paste Mode
+
+cel-tui enables bracketed paste mode so the terminal wraps pasted content with `CSI 200~` and `CSI 201~`. This lets the framework distinguish paste from typing and prevents pasted bytes from being mis-decoded as keyboard sequences.
+
+**Paste stream model:** The paste start marker, payload, and end marker may be split across multiple stdin chunks. The input layer must track paste state across chunks and wait for the closing marker before ending the paste.
+
+**Paste semantics:**
+
+- Inside a bracketed paste region, bytes are treated as literal pasted content until `CSI 201~` arrives. Kitty key decoding, legacy key parsing, and ESC-prefixed Alt handling do not run on the payload.
+- Newlines, tabs, spaces, and repeated characters are preserved exactly as pasted.
+- If a TextInput is focused, the full pasted payload is inserted at the cursor as a single batch edit. `onChange` fires once with the final value, then cursor-follow and scroll updates apply to the post-paste state.
+- Bracketed paste is **not** a key event. `onKeyPress` handlers are not called for the paste markers or for the pasted text itself.
+- If no TextInput is focused, pasted text is ignored by the framework.
+
+**Fallback:** If the terminal or multiplexer ignores bracketed paste mode and emits only raw text, the framework cannot distinguish paste from typing; that input falls back to the normal mixed-stream keyboard path.
 
 > **Future enhancement:** Higher protocol levels enable key-release events (`level 2`), associated text reporting (`level 3`), and full key event types (`level 4`). These would enable held-key detection for game-like UIs, distinguishing physical key layout from logical input, and other advanced input patterns. The framework may adopt higher levels in the future.
 
@@ -617,7 +633,7 @@ Container sizing props (`width`, `height`, `flex`, `min*`, `max*`, `padding`), f
 | `onKeyPress`  | `(key: string) => boolean \| void` | Key handler, fires before editing. Receives normalized semantic key strings. Return `false` to prevent the default editing action. |
 | `placeholder` | `TextNode`                         | Text node shown when value is empty (pass a `Text()` call)                                                                         |
 
-Word-wrap is always on. Cursor position is framework-managed.
+Word-wrap is always on. Cursor position is framework-managed. In bracketed paste mode, pasted text is inserted literally at the cursor as one batch edit: one `onChange`, no `onKeyPress`, newlines and tabs preserved.
 
 #### Growing / Shrinking Pattern
 

@@ -191,8 +191,19 @@ function findFocusedTIInTree(ln: LayoutNode): LayoutNode | null {
 
 // --- Input handling ---
 
-// Regex for a single SGR mouse event (non-anchored, for scanning batched input)
-const SGR_MOUSE_RE = /\x1b\[<(\d+);(\d+);(\d+)([Mm])/g;
+const BRACKETED_PASTE_START = "\x1b[200~";
+const BRACKETED_PASTE_END = "\x1b[201~";
+
+// Regex for a single SGR mouse event, anchored to the current parse position.
+const SGR_MOUSE_RE = /^\x1b\[<(\d+);(\d+);(\d+)([Mm])/;
+
+// Trailing keyboard data that ended with an incomplete CSI sequence.
+let pendingKeyData = "";
+
+// Bracketed paste state across stdin chunks.
+let inBracketedPaste = false;
+let bracketedPasteData = "";
+let bracketedPasteSuffix = "";
 
 // Tracks accumulated scroll offsets during a batch of mouse events.
 // Controlled scroll reads scrollOffset from props, which doesn't update until
@@ -206,32 +217,61 @@ let batchScrollOffsets: Map<object, number> | null = null;
 let batchTextInputEdits: Map<TextInputProps, EditState> | null = null;
 
 function handleInput(data: string): void {
-  SGR_MOUSE_RE.lastIndex = 0;
   batchTextInputEdits = new Map();
 
-  let lastIndex = 0;
-
   try {
-    let match = SGR_MOUSE_RE.exec(data);
-    while (match) {
-      if (match.index > lastIndex) {
-        handleKeyChunk(data.slice(lastIndex, match.index));
-      }
+    let remaining = data;
 
-      if (batchScrollOffsets === null) {
-        batchScrollOffsets = new Map();
-      }
-
-      const mouse = parseSgrMatch(match);
-      if (mouse) handleMouseEvent(mouse);
-
-      lastIndex = match.index + match[0].length;
-      match = SGR_MOUSE_RE.exec(data);
+    if (inBracketedPaste) {
+      remaining = consumeBracketedPasteData(remaining);
+      if (remaining.length === 0) return;
     }
 
-    if (lastIndex < data.length) {
-      handleKeyChunk(data.slice(lastIndex));
+    let chunk = pendingKeyData + remaining;
+    pendingKeyData = "";
+
+    let keyChunkStart = 0;
+    let index = 0;
+
+    while (index < chunk.length) {
+      if (chunk.startsWith(BRACKETED_PASTE_START, index)) {
+        handleKeyChunk(chunk.slice(keyChunkStart, index));
+
+        index += BRACKETED_PASTE_START.length;
+        keyChunkStart = index;
+        inBracketedPaste = true;
+
+        const afterPaste = consumeBracketedPasteData(chunk.slice(index));
+        if (afterPaste.length === 0) return;
+
+        chunk = afterPaste;
+        index = 0;
+        keyChunkStart = 0;
+        continue;
+      }
+
+      const mouse = readSgrMouseEvent(chunk, index);
+      if (mouse) {
+        handleKeyChunk(chunk.slice(keyChunkStart, index));
+
+        if (batchScrollOffsets === null) {
+          batchScrollOffsets = new Map();
+        }
+        if (mouse.event) handleMouseEvent(mouse.event);
+
+        index = mouse.nextIndex;
+        keyChunkStart = index;
+        continue;
+      }
+
+      index++;
     }
+
+    const { complete, pending } = splitIncompleteCsiSuffix(
+      chunk.slice(keyChunkStart),
+    );
+    handleKeyChunk(complete);
+    pendingKeyData = pending;
   } finally {
     batchScrollOffsets = null;
     batchTextInputEdits = null;
@@ -245,10 +285,82 @@ function handleKeyChunk(data: string): void {
   }
 }
 
+function consumeBracketedPasteData(data: string): string {
+  const chunk = bracketedPasteSuffix + data;
+  bracketedPasteSuffix = "";
+
+  const endIndex = chunk.indexOf(BRACKETED_PASTE_END);
+  if (endIndex === -1) {
+    const { complete, pending } = splitTrailingMarkerPrefix(
+      chunk,
+      BRACKETED_PASTE_END,
+    );
+    bracketedPasteData += complete;
+    bracketedPasteSuffix = pending;
+    return "";
+  }
+
+  bracketedPasteData += chunk.slice(0, endIndex);
+  const pastedText = bracketedPasteData;
+
+  inBracketedPaste = false;
+  bracketedPasteData = "";
+  bracketedPasteSuffix = "";
+  handleBracketedPaste(pastedText);
+
+  return chunk.slice(endIndex + BRACKETED_PASTE_END.length);
+}
+
+function splitTrailingMarkerPrefix(
+  data: string,
+  marker: string,
+): { complete: string; pending: string } {
+  const maxPrefixLength = Math.min(data.length, marker.length - 1);
+  for (let length = maxPrefixLength; length > 0; length--) {
+    if (data.endsWith(marker.slice(0, length))) {
+      return {
+        complete: data.slice(0, data.length - length),
+        pending: data.slice(data.length - length),
+      };
+    }
+  }
+  return { complete: data, pending: "" };
+}
+
+function splitIncompleteCsiSuffix(data: string): {
+  complete: string;
+  pending: string;
+} {
+  const csiStart = data.lastIndexOf("\x1b[");
+  if (csiStart === -1) return { complete: data, pending: "" };
+
+  const suffix = data.slice(csiStart);
+  for (let i = 2; i < suffix.length; i++) {
+    const code = suffix.charCodeAt(i);
+    if (code >= 0x40 && code <= 0x7e) {
+      return { complete: data, pending: "" };
+    }
+  }
+
+  return { complete: data.slice(0, csiStart), pending: suffix };
+}
+
 interface MouseEvent {
   type: "click" | "scroll-up" | "scroll-down";
   x: number;
   y: number;
+}
+
+function readSgrMouseEvent(
+  data: string,
+  index: number,
+): { event: MouseEvent | null; nextIndex: number } | null {
+  const match = SGR_MOUSE_RE.exec(data.slice(index));
+  if (!match) return null;
+  return {
+    event: parseSgrMatch(match),
+    nextIndex: index + match[0].length,
+  };
 }
 
 /**
@@ -610,6 +722,31 @@ function getTextInputEditState(props: TextInputProps): EditState {
   };
 }
 
+function commitTextInputEdit(
+  props: TextInputProps,
+  previousState: EditState,
+  nextState: EditState,
+): void {
+  batchTextInputEdits?.set(props, nextState);
+  setTextInputCursor(props, nextState.cursor);
+  if (nextState.value !== previousState.value) {
+    props.onChange(nextState.value);
+  }
+  cel.render();
+}
+
+function handleBracketedPaste(text: string): void {
+  if (text.length === 0) return;
+
+  const focusedInput = findFocusedTextInput();
+  if (!focusedInput) return;
+
+  const props = focusedInput.node.props as TextInputProps;
+  const editState = getTextInputEditState(props);
+  const nextState = insertChar(editState, text);
+  commitTextInputEdit(props, editState, nextState);
+}
+
 function handleKeyEvent(event: KeyInput): void {
   const { key, text } = event;
 
@@ -750,12 +887,7 @@ function handleKeyEvent(event: KeyInput): void {
     }
 
     if (newState && newState !== editState) {
-      batchTextInputEdits?.set(props, newState);
-      setTextInputCursor(props, newState.cursor);
-      if (newState.value !== editState.value) {
-        props.onChange(newState.value);
-      }
-      cel.render();
+      commitTextInputEdit(props, editState, newState);
       return;
     }
   }
@@ -874,8 +1006,8 @@ export const cel = {
    * Initialize the framework with a terminal implementation.
    * Must be called before {@link cel.viewport}.
    *
-   * Enables the Kitty keyboard protocol (level 1) via the terminal,
-   * enters raw mode, and starts mouse tracking.
+   * Enables the Kitty keyboard protocol (level 1) and bracketed paste mode via
+   * the terminal, enters raw mode, and starts mouse tracking.
    *
    * @param term - Terminal to render to (ProcessTerminal or MockTerminal).
    * @param options - Optional configuration.
@@ -914,8 +1046,8 @@ export const cel = {
   /**
    * Stop the framework and restore terminal state.
    *
-   * Pops the Kitty keyboard protocol mode, disables mouse tracking,
-   * and restores the terminal to its previous state.
+   * Pops the Kitty keyboard protocol mode, disables bracketed paste and mouse
+   * tracking, and restores the terminal to its previous state.
    */
   stop(): void {
     terminal?.stop();
@@ -930,6 +1062,10 @@ export const cel = {
     stampedNode = null;
     uncontrolledScrollOffsets.clear();
     stampedScrollNodes = [];
+    pendingKeyData = "";
+    inBracketedPaste = false;
+    bracketedPasteData = "";
+    bracketedPasteSuffix = "";
     lastTerminalCursor = { visible: false };
     activeTheme = defaultTheme;
   },

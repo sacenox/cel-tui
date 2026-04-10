@@ -12,6 +12,12 @@ const CTRL_S = kittyEncode("ctrl+s");
 const LEFT = kittyEncode("left");
 const LEGACY_CTRL_R = "\x12";
 const LEGACY_ALT_X = "\x1bx";
+const BRACKETED_PASTE_START = "\x1b[200~";
+const BRACKETED_PASTE_END = "\x1b[201~";
+
+function bracketedPaste(text: string): string {
+  return `${BRACKETED_PASTE_START}${text}${BRACKETED_PASTE_END}`;
+}
 
 describe("TextInput integration", () => {
   let term: MockTerminal;
@@ -97,6 +103,141 @@ describe("TextInput integration", () => {
     await waitForRender();
 
     expect(value).toBe("hiab");
+  });
+
+  test("bracketed paste in focused TextInput inserts full payload literally and skips onKeyPress", async () => {
+    const term = setup(20, 3);
+    let value = "hi";
+    let onChangeCalls = 0;
+    const keys: string[] = [];
+
+    cel.viewport(() =>
+      VStack({}, [
+        TextInput({
+          value,
+          focused: true,
+          onChange: (v) => {
+            value = v;
+            onChangeCalls++;
+          },
+          onKeyPress: (key) => {
+            keys.push(key);
+          },
+        }),
+      ]),
+    );
+    await waitForRender();
+
+    term.sendInput(bracketedPaste("!\n\tok"));
+    await waitForRender();
+
+    expect(value).toBe("hi!\n\tok");
+    expect(onChangeCalls).toBe(1);
+    expect(keys).toEqual([]);
+  });
+
+  test("bracketed paste split across stdin chunks waits for end marker and fires one onChange", async () => {
+    const term = setup(20, 3);
+    let value = "";
+    let onChangeCalls = 0;
+
+    cel.viewport(() =>
+      VStack({}, [
+        TextInput({
+          value,
+          focused: true,
+          onChange: (v) => {
+            value = v;
+            onChangeCalls++;
+          },
+        }),
+      ]),
+    );
+    await waitForRender();
+
+    term.sendInput(`${BRACKETED_PASTE_START}hel`);
+    await waitForRender();
+    expect(value).toBe("");
+    expect(onChangeCalls).toBe(0);
+
+    term.sendInput("lo\nwo");
+    await waitForRender();
+    expect(value).toBe("");
+    expect(onChangeCalls).toBe(0);
+
+    term.sendInput(`rld${BRACKETED_PASTE_END}`);
+    await waitForRender();
+
+    expect(value).toBe("hello\nworld");
+    expect(onChangeCalls).toBe(1);
+  });
+
+  test("bracketed paste start marker can be split across stdin chunks", async () => {
+    const term = setup(20, 3);
+    let value = "";
+    let onChangeCalls = 0;
+
+    cel.viewport(() =>
+      VStack({}, [
+        TextInput({
+          value,
+          focused: true,
+          onChange: (v) => {
+            value = v;
+            onChangeCalls++;
+          },
+        }),
+      ]),
+    );
+    await waitForRender();
+
+    term.sendInput("\x1b[20");
+    await waitForRender();
+    expect(value).toBe("");
+    expect(onChangeCalls).toBe(0);
+
+    term.sendInput("0~hi");
+    await waitForRender();
+    expect(value).toBe("");
+    expect(onChangeCalls).toBe(0);
+
+    term.sendInput(BRACKETED_PASTE_END);
+    await waitForRender();
+
+    expect(value).toBe("hi");
+    expect(onChangeCalls).toBe(1);
+  });
+
+  test("bracketed paste with no focused TextInput is ignored and does not bubble as keys", async () => {
+    const term = setup(20, 3);
+    let value = "";
+    const receivedKeys: string[] = [];
+
+    cel.viewport(() =>
+      VStack(
+        {
+          onKeyPress: (key) => {
+            receivedKeys.push(key);
+          },
+        },
+        [
+          TextInput({
+            value,
+            focused: false,
+            onChange: (v) => {
+              value = v;
+            },
+          }),
+        ],
+      ),
+    );
+    await waitForRender();
+
+    term.sendInput(bracketedPaste("abc\n\tdef"));
+    await waitForRender();
+
+    expect(value).toBe("");
+    expect(receivedKeys).toEqual([]);
   });
 
   test("onKeyPress receives normalized keys while TextInput inserts original text", async () => {
