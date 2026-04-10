@@ -293,11 +293,11 @@ SyntaxHighlight(code, "javascript", { theme: "dark-plus" });
 ```
 
 - Signature: `SyntaxHighlight(content, language, props?)`
-- `language` accepts bundled Shiki language ids and aliases
-- `props.theme` accepts a bundled Shiki theme name or a custom theme registration object
+- `language` accepts registered lowlight/highlight.js language ids and aliases
+- `props.theme` accepts the built-in presets (`"default"`, `"dark-plus"`) or a best-effort token theme registration object
 - Uses a terminal-friendly ANSI 16 fallback theme by default
-- First render may show plain text while the Shiki runtime, language, or theme loads; unsupported languages also render plain text
-- Append-only updates reuse a small per-language cache, so streaming code output works well
+- Highlighting is synchronous; unsupported languages render plain text
+- Append-only updates reuse a small per-language cache by re-highlighting only a suffix window near the end of the block
 
 ## Theme
 

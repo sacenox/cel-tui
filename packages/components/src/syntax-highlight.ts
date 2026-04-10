@@ -1,23 +1,12 @@
 import type { Color, ContainerNode, Node, StyleProps } from "@cel-tui/types";
-import { cel, HStack, Text, VStack } from "@cel-tui/core";
-import type {
-  BuiltinLanguage,
-  BuiltinTheme,
-  Highlighter,
-  ThemeRegistration,
-  ThemedToken,
-} from "shiki";
-import type {
-  ShikiStreamTokenizer,
-  ShikiStreamTokenizerEnqueueResult,
-} from "shiki-stream";
+import { HStack, Text, VStack } from "@cel-tui/core";
+import { all, createLowlight } from "lowlight";
+
+const lowlight = createLowlight(all);
 
 const DEFAULT_THEME_NAME = "cel-ansi16";
+const APPEND_REHIGHLIGHT_WINDOW = 8_192;
 const MAX_STATES_PER_KEY = 4;
-
-const FONT_STYLE_ITALIC = 1;
-const FONT_STYLE_BOLD = 2;
-const FONT_STYLE_UNDERLINE = 4;
 
 const ANSI_SLOT_HEX: ReadonlyArray<readonly [Color, string]> = [
   ["color00", "#000000"],
@@ -37,164 +26,71 @@ const ANSI_SLOT_HEX: ReadonlyArray<readonly [Color, string]> = [
   ["color14", "#29b8db"],
   ["color15", "#ffffff"],
 ];
-const ANSI_SLOT_HEX_BY_COLOR = new Map<Color, string>(ANSI_SLOT_HEX);
 
-export type SyntaxHighlightTheme = BuiltinTheme | ThemeRegistration;
+type TokenCategory =
+  | "addition"
+  | "comment"
+  | "deletion"
+  | "emphasis"
+  | "function"
+  | "keyword"
+  | "link"
+  | "literal"
+  | "meta"
+  | "number"
+  | "parameter"
+  | "property"
+  | "regexp"
+  | "string"
+  | "strong"
+  | "tag"
+  | "type"
+  | "variable";
+
+/** A best-effort token color override entry. */
+export interface SyntaxHighlightThemeTokenColor {
+  /** Target scopes or categories. */
+  scope?: string | readonly string[];
+  /** Style settings for the matched scopes. */
+  settings: {
+    foreground?: string;
+    background?: string;
+    fontStyle?: string;
+  };
+}
+
+/** Theme registration shape accepted by {@link SyntaxHighlight}. */
+export interface SyntaxHighlightThemeRegistration {
+  /** Optional theme name. */
+  name?: string;
+  /** Optional light/dark hint. */
+  type?: "light" | "dark";
+  /** Optional base foreground color. */
+  fg?: string;
+  /** Optional base background color. */
+  bg?: string;
+  /** Token color overrides. */
+  tokenColors?: readonly SyntaxHighlightThemeTokenColor[];
+}
+
+/**
+ * SyntaxHighlight theme.
+ *
+ * String presets are intentionally small and stable. Unknown preset names fall
+ * back to the default terminal-friendly theme.
+ */
+export type SyntaxHighlightTheme = string | SyntaxHighlightThemeRegistration;
 
 /** Props for the {@link SyntaxHighlight} component. */
 export interface SyntaxHighlightProps {
   /**
-   * Optional Shiki theme override.
+   * Optional theme override.
    *
-   * Pass either a bundled Shiki theme name (for example `"dark-plus"`)
-   * or a custom Shiki theme registration object.
+   * Built-in presets currently include `"default"` and `"dark-plus"`.
+   * Theme registration objects are applied as best-effort overrides onto the
+   * lowlight/highlight.js token categories used by this component.
    */
   theme?: SyntaxHighlightTheme;
-}
-
-type SyntaxHighlightStatus = "ready" | "loading" | "error" | "unsupported";
-
-interface SyntaxHighlightRuntime {
-  bundledLanguages: Record<string, unknown>;
-  createHighlighter: (typeof import("shiki"))["createHighlighter"];
-  ShikiStreamTokenizer: (typeof import("shiki-stream"))["ShikiStreamTokenizer"];
-}
-
-interface ResolvedSyntaxHighlightTheme {
-  cacheKey: string;
-  loadableTheme: SyntaxHighlightTheme;
-  themeName: string;
-  defaultFg?: string;
-  defaultBg?: string;
-  useTerminalDefaults: boolean;
-}
-
-const DEFAULT_THEME: ThemeRegistration = {
-  name: DEFAULT_THEME_NAME,
-  displayName: "cel ANSI 16",
-  type: "dark",
-  fg: ansiHex("color07"),
-  bg: ansiHex("color00"),
-  colors: {
-    foreground: ansiHex("color07"),
-    "editor.foreground": ansiHex("color07"),
-    "editor.background": ansiHex("color00"),
-    "terminal.ansiBlack": ansiHex("color00"),
-    "terminal.ansiRed": ansiHex("color01"),
-    "terminal.ansiGreen": ansiHex("color02"),
-    "terminal.ansiYellow": ansiHex("color03"),
-    "terminal.ansiBlue": ansiHex("color04"),
-    "terminal.ansiMagenta": ansiHex("color05"),
-    "terminal.ansiCyan": ansiHex("color06"),
-    "terminal.ansiWhite": ansiHex("color07"),
-    "terminal.ansiBrightBlack": ansiHex("color08"),
-    "terminal.ansiBrightRed": ansiHex("color09"),
-    "terminal.ansiBrightGreen": ansiHex("color10"),
-    "terminal.ansiBrightYellow": ansiHex("color11"),
-    "terminal.ansiBrightBlue": ansiHex("color12"),
-    "terminal.ansiBrightMagenta": ansiHex("color13"),
-    "terminal.ansiBrightCyan": ansiHex("color14"),
-    "terminal.ansiBrightWhite": ansiHex("color15"),
-  },
-  tokenColors: [
-    { settings: { foreground: ansiHex("color07") } },
-    {
-      scope: ["comment", "string.quoted.docstring.multi"],
-      settings: { foreground: ansiHex("color08"), fontStyle: "italic" },
-    },
-    {
-      scope: ["string", "markup.inline"],
-      settings: { foreground: ansiHex("color02") },
-    },
-    {
-      scope: [
-        "constant.numeric",
-        "constant.language",
-        "constant.character",
-        "constant.other.placeholder",
-      ],
-      settings: { foreground: ansiHex("color03") },
-    },
-    {
-      scope: ["keyword", "storage", "entity.name.operator"],
-      settings: { foreground: ansiHex("color05") },
-    },
-    {
-      scope: ["entity.name.function", "support.function", "meta.function-call"],
-      settings: { foreground: ansiHex("color04") },
-    },
-    {
-      scope: [
-        "entity.name.type",
-        "support.type",
-        "support.class",
-        "entity.other.inherited-class",
-      ],
-      settings: { foreground: ansiHex("color06") },
-    },
-    {
-      scope: ["variable.parameter"],
-      settings: { foreground: ansiHex("color11") },
-    },
-    {
-      scope: [
-        "entity.other.attribute-name",
-        "meta.object-literal.key",
-        "meta.property-name",
-        "support.type.property-name",
-      ],
-      settings: { foreground: ansiHex("color06") },
-    },
-    {
-      scope: ["entity.name.tag", "string.regexp", "invalid"],
-      settings: { foreground: ansiHex("color01") },
-    },
-    {
-      scope: ["markup.bold", "strong", "markup.heading"],
-      settings: { fontStyle: "bold", foreground: ansiHex("color09") },
-    },
-    {
-      scope: ["markup.italic", "emphasis"],
-      settings: { fontStyle: "italic" },
-    },
-    {
-      scope: ["markup.underline", "meta.link.inline.markdown"],
-      settings: { foreground: ansiHex("color04"), fontStyle: "underline" },
-    },
-  ],
-};
-
-const DEFAULT_RESOLVED_THEME: ResolvedSyntaxHighlightTheme = {
-  cacheKey: DEFAULT_THEME_NAME,
-  loadableTheme: DEFAULT_THEME,
-  themeName: DEFAULT_THEME_NAME,
-  defaultFg: normalizeHex(DEFAULT_THEME.fg ?? ansiHex("color07")),
-  defaultBg: normalizeHex(DEFAULT_THEME.bg ?? ansiHex("color00")),
-  useTerminalDefaults: true,
-};
-
-const rgbCache = new Map<string, readonly [number, number, number]>();
-const colorSlotCache = new Map<string, Color>();
-const loadedLanguages = new Set<string>();
-const loadingLanguages = new Map<string, Promise<void>>();
-const languageErrors = new Map<string, Error>();
-const loadedThemes = new Set<string>();
-const loadingThemes = new Map<string, Promise<void>>();
-const themeErrors = new Map<string, Error>();
-const statesByKey = new Map<string, SyntaxHighlightState[]>();
-
-let runtimePromise: Promise<SyntaxHighlightRuntime> | null = null;
-let runtimeInstance: SyntaxHighlightRuntime | null = null;
-let runtimeError: Error | null = null;
-let highlighterPromise: Promise<Highlighter> | null = null;
-let highlighterInstance: Highlighter | null = null;
-let highlighterError: Error | null = null;
-
-interface SyntaxHighlightState {
-  lastContent: string;
-  tokenizer: ShikiStreamTokenizer;
-  lastNode: ContainerNode | null;
-  theme: ResolvedSyntaxHighlightTheme;
 }
 
 interface HighlightRun {
@@ -202,17 +98,162 @@ interface HighlightRun {
   style: StyleProps;
 }
 
-function ansiHex(color: Color): string {
-  const hex = ANSI_SLOT_HEX_BY_COLOR.get(color);
-  if (!hex) {
-    throw new Error(`Unknown ANSI slot: ${color}`);
-  }
-  return hex;
+interface ResolvedClassStyle {
+  resetToBase?: boolean;
+  style: StyleProps;
 }
 
-function normalizeError(error: unknown): Error {
-  return error instanceof Error ? error : new Error(String(error));
+interface ResolvedSyntaxHighlightTheme {
+  baseStyle: StyleProps;
+  cacheKey: string;
+  classStyles: ReadonlyMap<string, ResolvedClassStyle>;
 }
+
+interface SyntaxHighlightState {
+  lastContent: string;
+  lastNode: ContainerNode | null;
+  lines: HighlightRun[][];
+  theme: ResolvedSyntaxHighlightTheme;
+}
+
+interface HighlightTextNode {
+  type: "text";
+  value: string;
+}
+
+interface HighlightElementNode {
+  type: "element";
+  children: HighlightNode[];
+  properties?: {
+    className?: string | readonly string[];
+  };
+}
+
+type HighlightNode = HighlightElementNode | HighlightTextNode;
+
+const rgbCache = new Map<string, readonly [number, number, number]>();
+const colorSlotCache = new Map<string, Color>();
+const statesByKey = new Map<string, SyntaxHighlightState[]>();
+
+const DEFAULT_CATEGORY_STYLES: Readonly<Record<TokenCategory, StyleProps>> = {
+  addition: { fgColor: "color02" },
+  comment: { fgColor: "color08", italic: true },
+  deletion: { fgColor: "color01" },
+  emphasis: { italic: true },
+  function: { fgColor: "color04" },
+  keyword: { fgColor: "color05" },
+  link: { fgColor: "color04", underline: true },
+  literal: { fgColor: "color03" },
+  meta: { fgColor: "color09", bold: true },
+  number: { fgColor: "color03" },
+  parameter: { fgColor: "color11" },
+  property: { fgColor: "color06" },
+  regexp: { fgColor: "color01" },
+  string: { fgColor: "color02" },
+  strong: { bold: true },
+  tag: { fgColor: "color01" },
+  type: { fgColor: "color06" },
+  variable: {},
+};
+
+const DARK_PLUS_CATEGORY_STYLES: Readonly<
+  Partial<Record<TokenCategory, StyleProps>>
+> = {
+  comment: { fgColor: "color08", italic: true },
+  function: { fgColor: "color11" },
+  keyword: { fgColor: "color12" },
+  meta: { fgColor: "color08" },
+  number: { fgColor: "color10" },
+  property: { fgColor: "color07" },
+  regexp: { fgColor: "color09" },
+  string: { fgColor: "color09" },
+  tag: { fgColor: "color09" },
+  type: { fgColor: "color06" },
+};
+
+const CATEGORY_CLASSES: Readonly<Record<TokenCategory, readonly string[]>> = {
+  addition: ["addition"],
+  comment: ["comment", "doctag", "quote"],
+  deletion: ["deletion"],
+  emphasis: ["emphasis"],
+  function: ["function_", "title"],
+  keyword: ["keyword", "operator", "selector-pseudo"],
+  link: ["link"],
+  literal: ["bullet", "literal", "symbol"],
+  meta: ["meta", "section"],
+  number: ["number"],
+  parameter: ["params"],
+  property: [
+    "attr",
+    "attribute",
+    "property",
+    "selector-attr",
+    "selector-class",
+    "selector-id",
+  ],
+  regexp: ["regexp"],
+  string: ["string"],
+  strong: ["strong"],
+  tag: ["name", "selector-tag", "tag"],
+  type: ["built_in", "class_", "type"],
+  variable: ["variable"],
+};
+
+const CATEGORY_SCOPE_HINTS: Readonly<Record<TokenCategory, readonly string[]>> =
+  {
+    addition: ["addition", "markup.inserted"],
+    comment: ["comment", "quote"],
+    deletion: ["deletion", "markup.deleted"],
+    emphasis: ["emphasis", "markup.italic"],
+    function: [
+      "entity.name.function",
+      "function",
+      "meta.function-call",
+      "support.function",
+      "title",
+    ],
+    keyword: ["entity.name.operator", "keyword", "operator", "storage"],
+    link: ["link", "meta.link"],
+    literal: [
+      "bullet",
+      "constant.character",
+      "constant.language",
+      "literal",
+      "symbol",
+    ],
+    meta: ["markup.heading", "meta", "section"],
+    number: ["constant.numeric", "number"],
+    parameter: ["params", "variable.parameter"],
+    property: [
+      "attr",
+      "attribute",
+      "entity.other.attribute-name",
+      "meta.object-literal.key",
+      "meta.property-name",
+      "property",
+      "support.type.property-name",
+    ],
+    regexp: ["regexp", "string.regexp"],
+    string: ["markup.inline", "string"],
+    strong: ["markup.bold", "markup.heading", "strong"],
+    tag: ["entity.name.tag", "name", "selector-tag", "tag"],
+    type: [
+      "built_in",
+      "class",
+      "entity.name.type",
+      "entity.other.inherited-class",
+      "support.class",
+      "support.type",
+      "type",
+    ],
+    variable: ["variable"],
+  };
+
+const DEFAULT_RESOLVED_THEME = buildResolvedTheme(
+  DEFAULT_THEME_NAME,
+  {},
+  DEFAULT_CATEGORY_STYLES,
+);
 
 function hashString(input: string): string {
   let hash = 2166136261;
@@ -222,37 +263,200 @@ function hashString(input: string): string {
   return (hash >>> 0).toString(36);
 }
 
+function normalizeHex(color: string): string {
+  const lower = color.toLowerCase();
+  if (lower.length === 4) {
+    return `#${lower[1]}${lower[1]}${lower[2]}${lower[2]}${lower[3]}${lower[3]}`;
+  }
+  if (lower.length === 9) {
+    return lower.slice(0, 7);
+  }
+  return lower;
+}
+
+function parseHex(color: string): readonly [number, number, number] {
+  const cached = rgbCache.get(color);
+  if (cached) {
+    return cached;
+  }
+
+  const normalized = normalizeHex(color);
+  const rgb: readonly [number, number, number] = [
+    Number.parseInt(normalized.slice(1, 3), 16),
+    Number.parseInt(normalized.slice(3, 5), 16),
+    Number.parseInt(normalized.slice(5, 7), 16),
+  ];
+  rgbCache.set(color, rgb);
+  return rgb;
+}
+
+function colorDistance(
+  a: readonly [number, number, number],
+  b: readonly [number, number, number],
+): number {
+  const dr = a[0] - b[0];
+  const dg = a[1] - b[1];
+  const db = a[2] - b[2];
+  return dr * dr + dg * dg + db * db;
+}
+
+function colorToSlot(color: string | undefined): Color | undefined {
+  if (!color) {
+    return undefined;
+  }
+
+  const normalized = normalizeHex(color);
+  const cached = colorSlotCache.get(normalized);
+  if (cached) {
+    return cached;
+  }
+
+  const rgb = parseHex(normalized);
+  let best = ANSI_SLOT_HEX[0]![0];
+  let bestDistance = Number.POSITIVE_INFINITY;
+
+  for (const [slot, hex] of ANSI_SLOT_HEX) {
+    const distance = colorDistance(rgb, parseHex(hex));
+    if (distance < bestDistance) {
+      best = slot;
+      bestDistance = distance;
+    }
+  }
+
+  colorSlotCache.set(normalized, best);
+  return best;
+}
+
+function mergeStyles(base: StyleProps, overrides: StyleProps): StyleProps {
+  return {
+    fgColor: overrides.fgColor ?? base.fgColor,
+    bgColor: overrides.bgColor ?? base.bgColor,
+    bold: overrides.bold ?? base.bold,
+    italic: overrides.italic ?? base.italic,
+    underline: overrides.underline ?? base.underline,
+  };
+}
+
+function sameStyle(a: StyleProps, b: StyleProps): boolean {
+  return (
+    a.fgColor === b.fgColor &&
+    a.bgColor === b.bgColor &&
+    a.bold === b.bold &&
+    a.italic === b.italic &&
+    a.underline === b.underline
+  );
+}
+
+function themeSettingsToStyle(settings: {
+  background?: string;
+  fontStyle?: string;
+  foreground?: string;
+}): StyleProps {
+  const fontStyle = settings.fontStyle?.trim().toLowerCase();
+  const fontTokens = fontStyle ? fontStyle.split(/\s+/) : [];
+
+  return {
+    fgColor: colorToSlot(settings.foreground),
+    bgColor: colorToSlot(settings.background),
+    bold: fontTokens.includes("bold") || undefined,
+    italic: fontTokens.includes("italic") || undefined,
+    underline: fontTokens.includes("underline") || undefined,
+  };
+}
+
+function buildResolvedTheme(
+  cacheKey: string,
+  baseStyle: StyleProps,
+  categoryStyles: Readonly<Record<TokenCategory, StyleProps>>,
+): ResolvedSyntaxHighlightTheme {
+  const classStyles = new Map<string, ResolvedClassStyle>();
+
+  for (const [category, classes] of Object.entries(CATEGORY_CLASSES) as [
+    TokenCategory,
+    readonly string[],
+  ][]) {
+    const style = categoryStyles[category];
+    for (const className of classes) {
+      classStyles.set(className, { style });
+    }
+  }
+
+  classStyles.set("subst", {
+    resetToBase: true,
+    style: baseStyle,
+  });
+
+  return {
+    baseStyle,
+    cacheKey,
+    classStyles,
+  };
+}
+
+function scopeMatchesHint(scope: string, hint: string): boolean {
+  return scope === hint || scope.startsWith(`${hint}.`);
+}
+
 function resolveTheme(
   theme?: SyntaxHighlightTheme,
 ): ResolvedSyntaxHighlightTheme {
-  if (!theme) {
+  if (!theme || theme === "default") {
     return DEFAULT_RESOLVED_THEME;
   }
 
   if (typeof theme === "string") {
-    return {
-      cacheKey: `builtin:${theme}`,
-      loadableTheme: theme,
-      themeName: theme,
-      useTerminalDefaults: false,
-    };
+    if (theme !== "dark-plus") {
+      return DEFAULT_RESOLVED_THEME;
+    }
+
+    return buildResolvedTheme(
+      "preset:dark-plus",
+      { fgColor: "color07" },
+      {
+        ...DEFAULT_CATEGORY_STYLES,
+        ...DARK_PLUS_CATEGORY_STYLES,
+      },
+    );
   }
 
   const serialized = JSON.stringify(theme);
   const cacheHash = hashString(serialized);
-  const themeName =
-    typeof theme.name === "string" && theme.name.length > 0
-      ? theme.name
-      : `cel-syntax-${cacheHash}`;
-  const loadableTheme =
-    themeName === theme.name ? theme : { ...theme, name: themeName };
-
-  return {
-    cacheKey: `custom:${cacheHash}`,
-    loadableTheme,
-    themeName,
-    useTerminalDefaults: false,
+  const baseStyle = themeSettingsToStyle({
+    background: theme.bg,
+    foreground: theme.fg,
+  });
+  const categoryStyles: Record<TokenCategory, StyleProps> = {
+    ...DEFAULT_CATEGORY_STYLES,
   };
+
+  for (const tokenColor of theme.tokenColors ?? []) {
+    const style = themeSettingsToStyle(tokenColor.settings);
+    const scopes = tokenColor.scope
+      ? Array.isArray(tokenColor.scope)
+        ? tokenColor.scope
+        : [tokenColor.scope]
+      : [];
+
+    if (scopes.length === 0) {
+      Object.assign(baseStyle, mergeStyles(baseStyle, style));
+      continue;
+    }
+
+    for (const [category, hints] of Object.entries(CATEGORY_SCOPE_HINTS) as [
+      TokenCategory,
+      readonly string[],
+    ][]) {
+      if (
+        scopes.some((scope) =>
+          hints.some((hint) => scopeMatchesHint(scope, hint)),
+        )
+      ) {
+        categoryStyles[category] = mergeStyles(categoryStyles[category], style);
+      }
+    }
+  }
+
+  return buildResolvedTheme(`custom:${cacheHash}`, baseStyle, categoryStyles);
 }
 
 function stateKey(
@@ -260,146 +464,6 @@ function stateKey(
   theme: ResolvedSyntaxHighlightTheme,
 ): string {
   return `${language}\u0000${theme.cacheKey}`;
-}
-
-function getRuntimePromise(): Promise<SyntaxHighlightRuntime> {
-  if (runtimeError) {
-    return Promise.reject(runtimeError);
-  }
-
-  if (!runtimePromise) {
-    runtimePromise = Promise.all([import("shiki"), import("shiki-stream")])
-      .then(([shiki, shikiStream]) => {
-        runtimeInstance = {
-          bundledLanguages: shiki.bundledLanguages as Record<string, unknown>,
-          createHighlighter: shiki.createHighlighter,
-          ShikiStreamTokenizer: shikiStream.ShikiStreamTokenizer,
-        };
-        return runtimeInstance;
-      })
-      .catch((error) => {
-        runtimeError = normalizeError(error);
-        throw runtimeError;
-      })
-      .finally(() => {
-        cel.render();
-      });
-  }
-
-  return runtimePromise;
-}
-
-function getHighlighterPromise(): Promise<Highlighter> {
-  if (highlighterError) {
-    return Promise.reject(highlighterError);
-  }
-
-  if (!highlighterPromise) {
-    highlighterPromise = getRuntimePromise()
-      .then((runtime) =>
-        runtime.createHighlighter({
-          themes: [DEFAULT_THEME],
-          langs: [],
-        }),
-      )
-      .then((highlighter) => {
-        highlighterInstance = highlighter;
-        loadedThemes.add(DEFAULT_RESOLVED_THEME.cacheKey);
-        return highlighter;
-      })
-      .catch((error) => {
-        highlighterError = normalizeError(error);
-        throw highlighterError;
-      })
-      .finally(() => {
-        cel.render();
-      });
-  }
-
-  return highlighterPromise;
-}
-
-function hasBundledLanguage(
-  language: string,
-  runtime: SyntaxHighlightRuntime,
-): boolean {
-  return Object.hasOwn(runtime.bundledLanguages, language);
-}
-
-function ensureHighlightReady(
-  language: string,
-  theme: ResolvedSyntaxHighlightTheme,
-): SyntaxHighlightStatus {
-  if (
-    runtimeError ||
-    highlighterError ||
-    languageErrors.has(language) ||
-    themeErrors.has(theme.cacheKey)
-  ) {
-    return "error";
-  }
-
-  if (!runtimeInstance) {
-    void getRuntimePromise();
-    return "loading";
-  }
-
-  if (!hasBundledLanguage(language, runtimeInstance)) {
-    return "unsupported";
-  }
-
-  if (!highlighterInstance) {
-    void getHighlighterPromise();
-    return "loading";
-  }
-
-  let pending = false;
-
-  if (!loadedThemes.has(theme.cacheKey)) {
-    pending = true;
-
-    if (!loadingThemes.has(theme.cacheKey)) {
-      const promise = getHighlighterPromise()
-        .then((highlighter) => highlighter.loadTheme(theme.loadableTheme))
-        .then(() => {
-          loadedThemes.add(theme.cacheKey);
-        })
-        .catch((error) => {
-          themeErrors.set(theme.cacheKey, normalizeError(error));
-        })
-        .finally(() => {
-          loadingThemes.delete(theme.cacheKey);
-          cel.render();
-        });
-
-      loadingThemes.set(theme.cacheKey, promise);
-    }
-  }
-
-  if (!loadedLanguages.has(language)) {
-    pending = true;
-
-    if (!loadingLanguages.has(language)) {
-      const promise = getHighlighterPromise()
-        .then((highlighter) =>
-          highlighter.loadLanguage(language as BuiltinLanguage),
-        )
-        .then(() => {
-          loadedLanguages.add(language);
-        })
-        .catch((error) => {
-          languageErrors.set(language, normalizeError(error));
-        })
-        .finally(() => {
-          loadingLanguages.delete(language);
-          cel.render();
-        });
-
-      loadingLanguages.set(language, promise);
-    }
-  }
-
-  return pending ? "loading" : "ready";
 }
 
 function getStates(key: string): SyntaxHighlightState[] {
@@ -418,6 +482,7 @@ function touchState(key: string, state: SyntaxHighlightState): void {
     states.splice(index, 1);
   }
   states.push(state);
+
   if (states.length > MAX_STATES_PER_KEY) {
     states.shift();
   }
@@ -454,179 +519,33 @@ function findState(
 }
 
 function createState(
-  language: string,
   theme: ResolvedSyntaxHighlightTheme,
-  highlighter: Highlighter,
-  runtime: SyntaxHighlightRuntime,
 ): SyntaxHighlightState {
   return {
     lastContent: "",
-    tokenizer: new runtime.ShikiStreamTokenizer({
-      highlighter,
-      lang: language,
-      theme: theme.themeName,
-    }),
     lastNode: null,
+    lines: [[]],
     theme,
   };
 }
 
-function updateState(state: SyntaxHighlightState, content: string): void {
-  if (content === state.lastContent) {
-    return;
-  }
-
-  if (!content.startsWith(state.lastContent)) {
-    state.tokenizer.clear();
-    state.lastContent = "";
-  }
-
-  const appended = content.slice(state.lastContent.length);
-  enqueueSync(state.tokenizer, appended);
-  state.lastContent = content;
-  state.lastNode = null;
-}
-
-function enqueueSync(
-  tokenizer: ShikiStreamTokenizer,
-  chunk: string,
-): ShikiStreamTokenizerEnqueueResult {
-  const chunkLines = (tokenizer.lastUnstableCodeChunk + chunk).split("\n");
-
-  const stable: ThemedToken[] = [];
-  let unstable: ThemedToken[] = [];
-  const recall = tokenizer.tokensUnstable.length;
-
-  chunkLines.forEach((line, index) => {
-    const isLastLine = index === chunkLines.length - 1;
-
-    const result = tokenizer.options.highlighter.codeToTokens(line, {
-      ...tokenizer.options,
-      grammarState: tokenizer.lastStableGrammarState,
-    });
-
-    const tokens = [...(result.tokens[0] ?? [])];
-    if (!isLastLine) {
-      tokens.push({ content: "\n", offset: 0 });
+function countNewlines(input: string): number {
+  let count = 0;
+  for (let i = 0; i < input.length; i++) {
+    if (input.charCodeAt(i) === 10) {
+      count++;
     }
-
-    if (!isLastLine) {
-      tokenizer.lastStableGrammarState = result.grammarState;
-      stable.push(...tokens);
-    } else {
-      unstable = tokens;
-      tokenizer.lastUnstableCodeChunk = line;
-    }
-  });
-
-  tokenizer.tokensStable.push(...stable);
-  tokenizer.tokensUnstable = unstable;
-
-  return {
-    recall,
-    stable,
-    unstable,
-  };
+  }
+  return count;
 }
 
-function parseHex(color: string): readonly [number, number, number] {
-  const cached = rgbCache.get(color);
-  if (cached) {
-    return cached;
-  }
-
-  const normalized = normalizeHex(color);
-  const rgb: readonly [number, number, number] = [
-    Number.parseInt(normalized.slice(1, 3), 16),
-    Number.parseInt(normalized.slice(3, 5), 16),
-    Number.parseInt(normalized.slice(5, 7), 16),
-  ];
-  rgbCache.set(color, rgb);
-  return rgb;
-}
-
-function normalizeHex(color: string): string {
-  const lower = color.toLowerCase();
-  if (lower.length === 4) {
-    return `#${lower[1]}${lower[1]}${lower[2]}${lower[2]}${lower[3]}${lower[3]}`;
-  }
-  if (lower.length === 9) {
-    return lower.slice(0, 7);
-  }
-  return lower;
-}
-
-function colorDistance(
-  a: readonly [number, number, number],
-  b: readonly [number, number, number],
+function findAppendWindowStart(
+  content: string,
+  previousLength: number,
 ): number {
-  const dr = a[0] - b[0];
-  const dg = a[1] - b[1];
-  const db = a[2] - b[2];
-  return dr * dr + dg * dg + db * db;
-}
-
-function colorToSlot(color: string | undefined): Color | undefined {
-  if (!color) {
-    return undefined;
-  }
-
-  const normalized = normalizeHex(color);
-  const cached = colorSlotCache.get(normalized);
-  if (cached) {
-    return cached;
-  }
-
-  const rgb = parseHex(normalized);
-  let best = ANSI_SLOT_HEX[0]![0];
-  let bestDistance = Number.POSITIVE_INFINITY;
-
-  for (const [slot, hex] of ANSI_SLOT_HEX) {
-    const distance = colorDistance(rgb, parseHex(hex));
-    if (distance < bestDistance) {
-      bestDistance = distance;
-      best = slot;
-    }
-  }
-
-  colorSlotCache.set(normalized, best);
-  return best;
-}
-
-function tokenToStyle(
-  token: ThemedToken,
-  theme: ResolvedSyntaxHighlightTheme,
-): StyleProps {
-  const fontStyle =
-    typeof token.fontStyle === "number" && token.fontStyle > 0
-      ? token.fontStyle
-      : 0;
-  const tokenFg = token.color ? normalizeHex(token.color) : undefined;
-  const tokenBg = token.bgColor ? normalizeHex(token.bgColor) : undefined;
-
-  return {
-    fgColor:
-      theme.useTerminalDefaults && tokenFg === theme.defaultFg
-        ? undefined
-        : colorToSlot(tokenFg),
-    bgColor:
-      theme.useTerminalDefaults && tokenBg === theme.defaultBg
-        ? undefined
-        : colorToSlot(tokenBg),
-    italic: (fontStyle & FONT_STYLE_ITALIC) !== 0 || undefined,
-    bold: (fontStyle & FONT_STYLE_BOLD) !== 0 || undefined,
-    underline: (fontStyle & FONT_STYLE_UNDERLINE) !== 0 || undefined,
-  };
-}
-
-function sameStyle(a: StyleProps, b: StyleProps): boolean {
-  return (
-    a.fgColor === b.fgColor &&
-    a.bgColor === b.bgColor &&
-    a.bold === b.bold &&
-    a.italic === b.italic &&
-    a.underline === b.underline
-  );
+  const target = Math.max(0, previousLength - APPEND_REHIGHLIGHT_WINDOW);
+  const newline = content.lastIndexOf("\n", target);
+  return newline === -1 ? 0 : newline + 1;
 }
 
 function pushRun(
@@ -647,26 +566,122 @@ function pushRun(
   line.push({ content, style });
 }
 
-function tokensToLines(
-  tokens: readonly ThemedToken[],
+function getClassNames(node: HighlightElementNode): readonly string[] {
+  const className = node.properties?.className;
+  if (Array.isArray(className)) {
+    return className;
+  }
+  return typeof className === "string" ? [className] : [];
+}
+
+function resolveNodeStyle(
+  inherited: StyleProps,
+  classNames: readonly string[],
+  theme: ResolvedSyntaxHighlightTheme,
+): StyleProps {
+  let style = inherited;
+
+  for (const className of classNames) {
+    const normalized = className.startsWith("hljs-")
+      ? className.slice(5)
+      : className;
+    const classStyle = theme.classStyles.get(normalized);
+    if (!classStyle) {
+      continue;
+    }
+
+    style = classStyle.resetToBase
+      ? mergeStyles(theme.baseStyle, classStyle.style)
+      : mergeStyles(style, classStyle.style);
+  }
+
+  return style;
+}
+
+function pushText(
+  lines: HighlightRun[][],
+  content: string,
+  style: StyleProps,
+): void {
+  const pieces = content.split("\n");
+
+  for (let i = 0; i < pieces.length; i++) {
+    pushRun(lines[lines.length - 1]!, pieces[i]!, style);
+    if (i < pieces.length - 1) {
+      lines.push([]);
+    }
+  }
+}
+
+function pushHighlightNode(
+  lines: HighlightRun[][],
+  node: HighlightNode,
+  inheritedStyle: StyleProps,
+  theme: ResolvedSyntaxHighlightTheme,
+): void {
+  if (node.type === "text") {
+    pushText(lines, node.value, inheritedStyle);
+    return;
+  }
+
+  const style = resolveNodeStyle(inheritedStyle, getClassNames(node), theme);
+  for (const child of node.children) {
+    pushHighlightNode(lines, child, style, theme);
+  }
+}
+
+function highlightContentToLines(
+  content: string,
+  language: string,
   theme: ResolvedSyntaxHighlightTheme,
 ): HighlightRun[][] {
+  if (content.length === 0) {
+    return [[]];
+  }
+
+  const root = lowlight.highlight(language, content) as {
+    children: HighlightNode[];
+  };
   const lines: HighlightRun[][] = [[]];
 
-  for (const token of tokens) {
-    const style = tokenToStyle(token, theme);
-    const pieces = token.content.split("\n");
-
-    for (let i = 0; i < pieces.length; i++) {
-      const piece = pieces[i]!;
-      pushRun(lines[lines.length - 1]!, piece, style);
-      if (i < pieces.length - 1) {
-        lines.push([]);
-      }
-    }
+  for (const child of root.children) {
+    pushHighlightNode(lines, child, theme.baseStyle, theme);
   }
 
   return lines;
+}
+
+function updateState(
+  state: SyntaxHighlightState,
+  language: string,
+  content: string,
+): void {
+  if (content === state.lastContent) {
+    return;
+  }
+
+  if (!content.startsWith(state.lastContent)) {
+    state.lines = highlightContentToLines(content, language, state.theme);
+    state.lastContent = content;
+    state.lastNode = null;
+    return;
+  }
+
+  const windowStart = findAppendWindowStart(content, state.lastContent.length);
+  const prefixLineCount = Math.min(
+    countNewlines(content.slice(0, windowStart)),
+    state.lines.length,
+  );
+  const suffixLines = highlightContentToLines(
+    content.slice(windowStart),
+    language,
+    state.theme,
+  );
+
+  state.lines.length = prefixLineCount;
+  state.lines.push(...suffixLines);
+  state.lastContent = content;
+  state.lastNode = null;
 }
 
 function runToNodes(run: HighlightRun): Node[] {
@@ -702,58 +717,26 @@ function renderHighlightedState(state: SyntaxHighlightState): ContainerNode {
     return state.lastNode;
   }
 
-  const lines = tokensToLines(
-    [...state.tokenizer.tokensStable, ...state.tokenizer.tokensUnstable],
-    state.theme,
-  );
-
-  state.lastNode = VStack({}, lines.map(lineToNode));
+  state.lastNode = VStack({}, state.lines.map(lineToNode));
   return state.lastNode;
 }
 
 /**
  * Render syntax-highlighted code as cel-tui primitives.
  *
- * Uses a long-lived Shiki highlighter internally and keeps a small
- * per-language streaming cache. When the same content grows by appending
- * more text across renders, only the new suffix is tokenized. Non-append
- * edits fall back to a full re-highlight of that snippet.
+ * Uses lowlight/highlight.js synchronously with a small append-only cache. When
+ * content grows by appending new text, only a suffix window near the end is
+ * re-highlighted and merged back into the cached lines. Non-append edits fall
+ * back to a full re-highlight of the snippet.
  *
- * Shiki runtime code loads lazily on first use. Until the requested
- * language and theme are ready, or if loading fails, the component
- * renders plain text and schedules a re-render. Unknown language ids
- * also render plain text.
- *
- * By default, the component uses a terminal-friendly ANSI 16 fallback
- * theme. Base foreground/background colors fall through to the terminal
- * defaults, while syntax scopes map onto the ANSI palette slots used by
- * cel-tui. Highlighted output also word-wraps by default.
+ * Unknown languages render as plain text. The default theme is terminal-friendly
+ * and maps lowlight token classes onto cel's ANSI palette slots while leaving
+ * base text on terminal defaults.
  *
  * @param content - Source code to render.
- * @param language - Shiki bundled language id or alias.
+ * @param language - Registered highlight.js language id or alias.
  * @param props - Optional theme override.
  * @returns A `VStack` containing one highlighted line per child.
- *
- * @example
- * let code = "const answer = 42";
- *
- * VStack({ overflow: "scroll" }, [
- *   SyntaxHighlight(code, "javascript"),
- * ])
- *
- * @example
- * SyntaxHighlight(code, "typescript", { theme: "dark-plus" })
- *
- * @example
- * let code = "";
- * onChunk((chunk) => {
- *   code += chunk;
- *   cel.render();
- * });
- *
- * VStack({ overflow: "scroll" }, [
- *   SyntaxHighlight(code, "typescript"),
- * ])
  */
 export function SyntaxHighlight(
   content: string,
@@ -761,16 +744,14 @@ export function SyntaxHighlight(
   props?: SyntaxHighlightProps,
 ): ContainerNode {
   const theme = resolveTheme(props?.theme);
-  const status = ensureHighlightReady(language, theme);
-  if (status !== "ready" || !highlighterInstance || !runtimeInstance) {
+
+  if (!lowlight.registered(language)) {
     return renderPlainContent(content);
   }
 
   const key = stateKey(language, theme);
-  const state =
-    findState(key, content) ??
-    createState(language, theme, highlighterInstance, runtimeInstance);
-  updateState(state, content);
+  const state = findState(key, content) ?? createState(theme);
+  updateState(state, language, content);
   touchState(key, state);
   return renderHighlightedState(state);
 }

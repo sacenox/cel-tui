@@ -65,30 +65,17 @@ function hasStyledText(node: ContainerNode): boolean {
   });
 }
 
-async function waitForHighlight(
+function render(
   content: string,
   language: string,
   props?: SyntaxHighlightProps,
-): Promise<ContainerNode> {
-  const deadline = Date.now() + 10_000;
-
-  while (true) {
-    const node = SyntaxHighlight(content, language, props);
-    if (hasStyledText(node)) {
-      return node;
-    }
-
-    if (Date.now() > deadline) {
-      throw new Error(`Timed out waiting for ${language} highlighter`);
-    }
-
-    await new Promise((resolve) => setTimeout(resolve, 10));
-  }
+): ContainerNode {
+  return SyntaxHighlight(content, language, props);
 }
 
 describe("SyntaxHighlight", () => {
   test("renders plain text for unknown languages", () => {
-    const node = SyntaxHighlight("plain text", "definitely-not-real");
+    const node = render("plain text", "definitely-not-real");
 
     expect(node.type).toBe("vstack");
     expect(node.children).toHaveLength(1);
@@ -96,8 +83,8 @@ describe("SyntaxHighlight", () => {
     expect(hasStyledText(node)).toBe(false);
   });
 
-  test("eventually highlights javascript after lazy language load", async () => {
-    const node = await waitForHighlight("const value = 42", "javascript");
+  test("highlights javascript synchronously", () => {
+    const node = render("const value = 42", "javascript");
 
     expect(node.type).toBe("vstack");
     expect(node.children).toHaveLength(1);
@@ -110,7 +97,7 @@ describe("SyntaxHighlight", () => {
   });
 
   test("wraps plain fallback content by default", () => {
-    const node = SyntaxHighlight(
+    const node = render(
       "alpha beta gamma delta epsilon",
       "definitely-not-real",
     );
@@ -118,8 +105,8 @@ describe("SyntaxHighlight", () => {
     expect(measureContentHeight(node, { width: 10 })).toBeGreaterThan(1);
   });
 
-  test("wraps highlighted content by default", async () => {
-    const node = await waitForHighlight(
+  test("wraps highlighted content by default", () => {
+    const node = render(
       "const alpha beta gamma delta epsilon = 42",
       "javascript",
     );
@@ -127,71 +114,64 @@ describe("SyntaxHighlight", () => {
     expect(measureContentHeight(node, { width: 12 })).toBeGreaterThan(1);
   });
 
-  test("default ansi16 theme uses terminal defaults for base text", async () => {
-    const node = await waitForHighlight("let value = 42", "javascript");
+  test("default ansi16 theme uses terminal defaults for base text", () => {
+    const node = render("let value = 42", "javascript");
 
     expect(findText(node, "let").props.fgColor).toBe("color05");
     expect(findTextContaining(node, "value").props.fgColor).toBeUndefined();
     expect(findText(node, "42").props.fgColor).toBe("color03");
   });
 
-  test("custom theme object overrides default colors", async () => {
-    const node = await waitForHighlight(
-      'const message = "hello"',
-      "javascript",
-      {
-        theme: {
-          name: "syntax-highlight-test-theme",
-          type: "dark",
-          fg: "#e5e5e5",
-          bg: "#000000",
-          tokenColors: [
-            { settings: { foreground: "#e5e5e5" } },
-            {
-              scope: ["keyword", "storage"],
-              settings: { foreground: "#cd3131" },
-            },
-            { scope: "string", settings: { foreground: "#0dbc79" } },
-          ],
-        },
+  test("custom theme object overrides default colors", () => {
+    const node = render('const message = "hello"', "javascript", {
+      theme: {
+        name: "syntax-highlight-test-theme",
+        type: "dark",
+        fg: "#e5e5e5",
+        bg: "#000000",
+        tokenColors: [
+          { settings: { foreground: "#e5e5e5" } },
+          {
+            scope: ["keyword", "storage"],
+            settings: { foreground: "#cd3131" },
+          },
+          { scope: "string", settings: { foreground: "#0dbc79" } },
+        ],
       },
-    );
+    });
 
     expect(findText(node, "const").props.fgColor).toBe("color01");
     expect(findTextContaining(node, "hello").props.fgColor).toBe("color02");
   });
 
-  test("bundled shiki theme names load on demand", async () => {
-    const node = await waitForHighlight("const value = 42", "javascript", {
+  test("named theme presets are accepted", () => {
+    const node = render("const value = 42", "javascript", {
       theme: "dark-plus",
     });
 
     expect(findText(node, "const").props.fgColor).toBeDefined();
   });
 
-  test("keeps one rendered child per source line", async () => {
-    await waitForHighlight("const first = 1", "javascript");
-    const node = SyntaxHighlight(
-      "const first = 1\nconst second = 2",
-      "javascript",
-    );
+  test("keeps one rendered child per source line", () => {
+    render("const first = 1", "javascript");
+    const node = render("const first = 1\nconst second = 2", "javascript");
 
     expect(node.children).toHaveLength(2);
     expect(lineText(node.children[0]!)).toBe("const first = 1");
     expect(lineText(node.children[1]!)).toBe("const second = 2");
   });
 
-  test("updates append-only content without duplicating previous text", async () => {
-    await waitForHighlight('const message = "hel', "javascript");
-    const node = SyntaxHighlight('const message = "hello"', "javascript");
+  test("updates append-only content without duplicating previous text", () => {
+    render('const message = "hel', "javascript");
+    const node = render('const message = "hello"', "javascript");
 
     expect(node.children).toHaveLength(1);
     expect(lineText(node.children[0]!)).toBe('const message = "hello"');
   });
 
-  test("preserves grammar state across appended multiline comment", async () => {
-    await waitForHighlight("/* hello", "javascript");
-    const node = SyntaxHighlight("/* hello\nworld */", "javascript");
+  test("preserves highlighting across appended multiline comment", () => {
+    render("/* hello", "javascript");
+    const node = render("/* hello\nworld */", "javascript");
 
     expect(node.children).toHaveLength(2);
     expect(lineText(node.children[0]!)).toBe("/* hello");
@@ -203,9 +183,17 @@ describe("SyntaxHighlight", () => {
     expect(secondLine.props.fgColor).toBe(firstLine.props.fgColor);
   });
 
-  test("falls back to full rehighlight on non-append edits", async () => {
-    await waitForHighlight("const value = 42", "javascript");
-    const node = SyntaxHighlight("function value() {}", "javascript");
+  test("template substitutions reset back to base text style", () => {
+    const node = render("`hi ${name}`", "javascript");
+
+    expect(findText(node, "`hi").props.fgColor).toBe("color02");
+    expect(findText(node, " ").props.fgColor).toBe("color02");
+    expect(findTextContaining(node, "${name}").props.fgColor).toBeUndefined();
+  });
+
+  test("falls back to full rehighlight on non-append edits", () => {
+    render("const value = 42", "javascript");
+    const node = render("function value() {}", "javascript");
 
     expect(node.children).toHaveLength(1);
     expect(lineText(node.children[0]!)).toBe("function value() {}");

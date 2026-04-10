@@ -2,7 +2,7 @@
  * cel-tui: SyntaxHighlight demo
  *
  * Streams TypeScript code into the SyntaxHighlight component.
- * Shows lazy Shiki loading plus append-only incremental highlighting.
+ * Shows synchronous lowlight highlighting plus append-only incremental updates.
  *
  * Run: bun run examples/syntax-highlight.ts
  */
@@ -79,7 +79,7 @@ const THEME_OPTIONS: ReadonlyArray<{
   },
   {
     label: "custom sunset",
-    help: "Custom Shiki theme remapped onto cel ANSI slots.",
+    help: "Custom token theme remapped onto cel ANSI slots.",
     theme: CUSTOM_THEME,
   },
 ];

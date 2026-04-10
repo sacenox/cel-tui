@@ -34,8 +34,7 @@
   "dependencies": {
     "@cel-tui/types": "workspace:*",
     "@cel-tui/core": "workspace:*",
-    "shiki": "^4.0.2",
-    "shiki-stream": "^0.1.4",
+    "lowlight": "^3.3.0",
     "yoctomarkdown": "^0.1.0"
   },
   "peerDependencies": {
