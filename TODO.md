@@ -22,13 +22,13 @@ Remaining work, known bugs, and planned improvements.
 
 ## API Improvements
 
+- ❌ **Focus callbacks need reason metadata** — `onFocus`/`onBlur` currently expose only that focus changed, not why. Controlled-focus apps can't distinguish blur caused by `Escape` from blur caused by Tab traversal, mouse clicks, overlay changes, or other focus transitions, which forces awkward workarounds for behaviors like "Escape blurs first, second Escape triggers a global action".
+
 - ❌ **Define TextInput scroll semantics for cursor-follow and resize** — After the text layout refactor, the framework now has one canonical visual wrapping model, but the behavior contract around TextInput scrolling still needs to be specified. In particular: when a user has manually scrolled away from the cursor, what actions should re-enable automatic cursor-follow (typing, cursor movement, focus changes, programmatic value changes)? And when a TextInput changes height because of intrinsic growth/shrink or `maxHeight` clamping, should the existing scroll offset be preserved, clamped, or adjusted to keep the cursor/viewport anchored? Fix: write down the intended model in the spec and make implementation/tests match it.
 
 - ❌ **`repeat: "fill"` should claim flex space in HStack** — `Text(" ", { repeat: "fill" })` inside an HStack gets width 0 because its intrinsic width is 0 and no flex distributes remaining space. The workaround is `VStack({ flex: 1 }, [Text(" ", { repeat: "fill" })])`, which is non-obvious. Fix: either make `repeat: "fill"` imply flex behavior in the layout engine, or document the workaround prominently. The former is preferred.
 
 ## Not Yet Implemented
-
-- ❌ Bracketed paste mode support
 
 - ❌ **Markdown heading inline styling** — Headings (`#`, `##`, `###`) still strip inline formatting to plain text. Since headings are short and single-line, this is low priority. Paragraphs, list items, and blockquotes now render inline formatting via wrapping HStack.
 
