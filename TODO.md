@@ -32,6 +32,14 @@ Remaining work, known bugs, and planned improvements.
 
 - ❌ **Markdown heading inline styling** — Headings (`#`, `##`, `###`) still strip inline formatting to plain text. Since headings are short and single-line, this is low priority. Paragraphs, list items, and blockquotes now render inline formatting via wrapping HStack.
 
+## Syntax Highlighting
+
+- ❌ **Shell / terminal language highlighting needs a better backend** — `SyntaxHighlight` currently uses `lowlight` / `highlight.js`. Local checks in this repo show `bash`, `shell`, `shellsession`, and `zsh` are registered, but `fish` and `tmux` are not. Bash quality is also a known upstream weak spot: highlight.js issues call out heredocs, redirects, line continuations, and switch / prompt mis-highlighting, and maintainers explicitly describe bash as "a very simple grammar" that needs a champion. Research options:
+  1. **Stay on lowlight + register extra grammars/aliases** — lowest migration cost and keeps the current synchronous model, but highlight.js pushes niche language support to third-party grammars and a quick npm search did not turn up obvious maintained `fish` / `tmux` packages.
+  2. **Prototype Shiki backend** — TextMate / VS Code grammar ecosystem, documented `shellsession` and `ansi` support, and a JavaScript regex engine option that avoids WASM. Costs: async initialization, more dependency / bundle weight, and a new TextMate-scope-to-cel-style mapping layer.
+  3. **Prototype starry-night or tree-sitter backend** — starry-night gives GitHub-style TextMate coverage but is async + WASM-heavy; tree-sitter has active bash / fish / tmux / zsh grammars, but would require building our own highlight-query + theme-mapping pipeline.
+     Fix: hide highlighter behind an internal adapter, add fixture-based comparison tests for `bash`, `shellsession`, `zsh`, `fish`, `tmux`, and `ansi`, then prototype Shiki first and only switch after measuring startup cost, memory, and token quality against lowlight on those fixtures.
+
 ## Toolchain
 
 - 🔧 **Biome formatter clashes with Prettier on generic type arguments** — When a chained `.method<TypeArgs>(longString)` call exceeds `lineWidth`, biome's formatter breaks at the function args `(` while prettier breaks at the type args `<`. They never converge. Current config has biome formatter enabled (`indentStyle: "space"`), which means both formatters fight on this pattern. Fix: either disable biome's formatter (set `formatter.enabled: false` — `organizeImports` still works as an error under `assist`) and let prettier own all formatting, or drop prettier for TS files entirely. The mini-coder repo chose the former approach successfully.

@@ -1,7 +1,7 @@
 /**
  * cel-tui: SyntaxHighlight demo
  *
- * Streams TypeScript code into the SyntaxHighlight component.
+ * Streams TypeScript and Bash code into SyntaxHighlight.
  * Shows synchronous lowlight highlighting plus append-only incremental updates.
  *
  * Run: bun run examples/syntax-highlight.ts
@@ -12,12 +12,16 @@ import {
   Divider,
   Spacer,
   SyntaxHighlight,
+  VDivider,
   type SyntaxHighlightTheme,
 } from "@cel-tui/components";
 
 const LANGUAGE = "typescript";
+const BASH_LANGUAGE = "bash";
 const MIN_COLS = 52;
 const MIN_ROWS = 16;
+const STACKED_MIN_ROWS = 20;
+const SIDE_BY_SIDE_MIN_COLS = 100;
 const CHUNK_SIZE = 3;
 const TICK_MS = 18;
 
@@ -109,7 +113,28 @@ const FULL_CODE = [
   "Long ass line to see the wrapping behaviuour on the example.Long ass line to see the wrapping behaviuour on the example.Long ass line to see the wrapping behaviuour on the example.Long ass line to see the wrapping behaviuour on the example.Long ass line to see the wrapping behaviuour on the example.Long ass line to see the wrapping behaviuour on the example.",
 ].join("\n");
 
+const BASH_CODE = [
+  "#!/usr/bin/env bash",
+  "set -euo pipefail",
+  "",
+  'project_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)',
+  "",
+  "build() {",
+  "  local target=${1:-debug}",
+  '  echo "==> building ${target} from ${project_root}"',
+  "  bun run typecheck",
+  "  bun test",
+  "}",
+  "",
+  "for target in debug release; do",
+  '  if [[ "$target" == "release" ]]; then',
+  '    build "$target"',
+  "  fi",
+  "done",
+].join("\n");
+
 let content = "";
+let bashContent = "";
 let paused = false;
 let themeIndex = 0;
 let streamTimer: ReturnType<typeof setTimeout> | null = null;
@@ -128,7 +153,9 @@ function stopStreaming() {
 }
 
 function isDone(): boolean {
-  return content.length >= FULL_CODE.length;
+  return (
+    content.length >= FULL_CODE.length && bashContent.length >= BASH_CODE.length
+  );
 }
 
 function startStreaming() {
@@ -144,7 +171,17 @@ function streamNext() {
     return;
   }
 
-  content += FULL_CODE.slice(content.length, content.length + CHUNK_SIZE);
+  const nextContentLength = Math.min(
+    FULL_CODE.length,
+    content.length + CHUNK_SIZE,
+  );
+  const nextBashLength = Math.min(
+    BASH_CODE.length,
+    Math.round((nextContentLength / FULL_CODE.length) * BASH_CODE.length),
+  );
+
+  content = FULL_CODE.slice(0, nextContentLength);
+  bashContent = BASH_CODE.slice(0, nextBashLength);
   cel.render();
 
   if (isDone()) {
@@ -157,6 +194,7 @@ function streamNext() {
 
 function restart() {
   content = "";
+  bashContent = "";
   paused = false;
   startStreaming();
   cel.render();
@@ -175,14 +213,48 @@ function toggleTheme() {
   cel.render();
 }
 
+function codePane(
+  title: string,
+  status: string,
+  content: string,
+  language: string,
+  theme?: SyntaxHighlightTheme,
+) {
+  return VStack({ flex: 1 }, [
+    HStack(
+      {
+        height: 1,
+        padding: { x: 1 },
+        bgColor: "color08",
+      },
+      [
+        Text(title, { bold: true, fgColor: "color06" }),
+        Spacer(),
+        Text(status, { fgColor: "color15" }),
+      ],
+    ),
+    VStack(
+      {
+        flex: 1,
+        overflow: "scroll",
+        scrollbar: true,
+        padding: { x: 1 },
+      },
+      [SyntaxHighlight(content, language, { theme })],
+    ),
+  ]);
+}
+
 startStreaming();
 
 cel.init(new ProcessTerminal());
 cel.viewport(() => {
   const cols = process.stdout.columns || 80;
   const rows = process.stdout.rows || 24;
+  const useSideBySide = cols >= SIDE_BY_SIDE_MIN_COLS;
+  const minRows = useSideBySide ? MIN_ROWS : STACKED_MIN_ROWS;
 
-  if (cols < MIN_COLS || rows < MIN_ROWS) {
+  if (cols < MIN_COLS || rows < minRows) {
     return VStack(
       {
         height: "100%",
@@ -198,7 +270,7 @@ cel.viewport(() => {
         Text("│                               │", { fgColor: "color03" }),
         Text("│  Please resize to at least   │", { fgColor: "color03" }),
         Text(
-          `│  ${String(MIN_COLS).padStart(3)}×${String(MIN_ROWS).padStart(2)} characters.        │`,
+          `│  ${String(MIN_COLS).padStart(3)}×${String(minRows).padStart(2)} characters.        │`,
           { fgColor: "color03" },
         ),
         Text("│                               │", { fgColor: "color03" }),
@@ -211,6 +283,17 @@ cel.viewport(() => {
   const status = isDone() ? "done" : paused ? "paused" : "streaming";
   const statusColor = isDone() ? "color02" : paused ? "color03" : "color06";
   const theme = THEME_OPTIONS[themeIndex]!;
+  const panes = useSideBySide
+    ? HStack({ flex: 1 }, [
+        codePane("TypeScript", "streaming", content, LANGUAGE, theme.theme),
+        VDivider({ fgColor: "color08" }),
+        codePane("Bash", "streaming", bashContent, BASH_LANGUAGE, theme.theme),
+      ])
+    : VStack({ flex: 1 }, [
+        codePane("TypeScript", "streaming", content, LANGUAGE, theme.theme),
+        Divider({ fgColor: "color08" }),
+        codePane("Bash", "streaming", bashContent, BASH_LANGUAGE, theme.theme),
+      ]);
 
   return VStack(
     {
@@ -227,12 +310,15 @@ cel.viewport(() => {
         Text("SyntaxHighlight Demo", { bold: true, fgColor: "color06" }),
         Spacer(),
         Text(`theme: ${theme.label}`, { fgColor: "color03" }),
-        Text(LANGUAGE, { fgColor: "color08" }),
+        Text(`${LANGUAGE} + ${BASH_LANGUAGE}`, { fgColor: "color08" }),
       ]),
       Divider({ fgColor: "color08" }),
       HStack({ padding: { x: 1 }, gap: 2 }, [
         Text(`status: ${status}`, { fgColor: statusColor, bold: true }),
-        Text(`chars: ${content.length}/${FULL_CODE.length}`, {
+        Text(`ts chars: ${content.length}/${FULL_CODE.length}`, {
+          fgColor: "color08",
+        }),
+        Text(`bash chars: ${bashContent.length}/${BASH_CODE.length}`, {
           fgColor: "color08",
         }),
       ]),
@@ -243,15 +329,7 @@ cel.viewport(() => {
         }),
       ]),
       Divider({ fgColor: "color08" }),
-      VStack(
-        {
-          flex: 1,
-          overflow: "scroll",
-          scrollbar: true,
-          padding: { x: 1 },
-        },
-        [SyntaxHighlight(content, LANGUAGE, { theme: theme.theme })],
-      ),
+      panes,
       Divider({ fgColor: "color08" }),
       VStack({ padding: { x: 1 } }, [
         HStack({ gap: 1 }, [
