@@ -2,8 +2,9 @@
  * @module @cel-tui/core
  *
  * Core framework package. Provides the four primitives ({@link VStack},
- * {@link HStack}, {@link Text}, {@link TextInput}) and the framework
- * entrypoint ({@link cel}).
+ * {@link HStack}, {@link Text}, {@link TextInput}), the framework
+ * entrypoint ({@link cel}), and measurement helpers such as
+ * {@link measureContentHeight}.
  *
  * All types are re-exported from `@cel-tui/types`.
  *
@@ -28,24 +29,24 @@
 
 export type {
   Color,
-  ThemeValue,
-  Theme,
-  StyleProps,
-  SizeValue,
+  ContainerNode,
   ContainerProps,
-  TextProps,
+  Node,
+  SizeValue,
+  StyleProps,
+  TextInputNode,
   TextInputProps,
   TextNode,
-  TextInputNode,
-  ContainerNode,
-  Node,
+  TextProps,
+  Theme,
+  ThemeValue,
 } from "@cel-tui/types";
-
-export { VStack, HStack } from "./primitives/stacks.js";
+export { cel } from "./cel.js";
+export { type Cell, CellBuffer, EMPTY_CELL } from "./cell-buffer.js";
+export { defaultTheme, emitBuffer } from "./emitter.js";
+export { measureContentHeight } from "./layout.js";
+export { HStack, VStack } from "./primitives/stacks.js";
 export { Text } from "./primitives/text.js";
 export { TextInput } from "./primitives/text-input.js";
-export { cel } from "./cel.js";
-export { CellBuffer, EMPTY_CELL, type Cell } from "./cell-buffer.js";
-export { emitBuffer, defaultTheme } from "./emitter.js";
-export { visibleWidth, extractAnsiCode } from "./width.js";
-export { type Terminal, ProcessTerminal, MockTerminal } from "./terminal.js";
+export { MockTerminal, ProcessTerminal, type Terminal } from "./terminal.js";
+export { extractAnsiCode, visibleWidth } from "./width.js";

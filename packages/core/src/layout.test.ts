@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import { layout, type LayoutNode, type Rect } from "./layout.js";
-import { VStack, HStack } from "./primitives/stacks.js";
+import { measureContentHeight } from "./index.js";
+import { type LayoutNode, layout, type Rect } from "./layout.js";
+import { HStack, VStack } from "./primitives/stacks.js";
 import { Text } from "./primitives/text.js";
 import { TextInput } from "./primitives/text-input.js";
 
@@ -12,6 +13,15 @@ function rect(ln: LayoutNode): Rect {
 /** Helper to get child rects. */
 function childRects(ln: LayoutNode): Rect[] {
   return ln.children.map((c) => c.rect);
+}
+
+function item<T>(items: readonly T[], index: number): T {
+  const value = items[index];
+  expect(value).toBeDefined();
+  if (value === undefined) {
+    throw new Error(`Missing item at index ${index}`);
+  }
+  return value;
 }
 
 describe("layout", () => {
@@ -43,7 +53,7 @@ describe("layout", () => {
     test("Text height is 1 for single line", () => {
       const node = VStack({ width: 80, height: 24 }, [Text("hello")]);
       const result = layout(node, 80, 24);
-      expect(childRects(result)[0]!.height).toBe(1);
+      expect(item(childRects(result), 0).height).toBe(1);
     });
 
     test("Text height follows newlines", () => {
@@ -51,13 +61,13 @@ describe("layout", () => {
         Text("line1\nline2\nline3"),
       ]);
       const result = layout(node, 80, 24);
-      expect(childRects(result)[0]!.height).toBe(3);
+      expect(item(childRects(result), 0).height).toBe(3);
     });
 
     test("Text width fills parent in VStack", () => {
       const node = VStack({ width: 40, height: 10 }, [Text("hi")]);
       const result = layout(node, 80, 24);
-      expect(childRects(result)[0]!.width).toBe(40);
+      expect(item(childRects(result), 0).width).toBe(40);
     });
 
     test("VStack without height sizes to children", () => {
@@ -85,7 +95,7 @@ describe("layout", () => {
         Text("世界"), // 2 chars, each width 2 = 4 columns
       ]);
       const result = layout(node, 80, 24);
-      expect(childRects(result)[0]!.width).toBe(4);
+      expect(item(childRects(result), 0).width).toBe(4);
     });
 
     test("CJK text word-wrap height uses visible width", () => {
@@ -94,7 +104,7 @@ describe("layout", () => {
         Text("世界世界世界", { wrap: "word" }),
       ]);
       const result = layout(node, 80, 24);
-      expect(childRects(result)[0]!.height).toBe(3);
+      expect(item(childRects(result), 0).height).toBe(3);
     });
 
     test("Text word-wrap height follows visual word wrapping, not hard width wrapping", () => {
@@ -102,7 +112,7 @@ describe("layout", () => {
         Text("foo bar baz", { wrap: "word" }),
       ]);
       const result = layout(node, 80, 24);
-      expect(childRects(result)[0]!.height).toBe(3);
+      expect(item(childRects(result), 0).height).toBe(3);
     });
 
     test("TextInput intrinsic height follows visual word wrapping", () => {
@@ -110,7 +120,7 @@ describe("layout", () => {
         TextInput({ value: "foo bar baz", onChange: () => {} }),
       ]);
       const result = layout(node, 80, 24);
-      expect(childRects(result)[0]!.height).toBe(3);
+      expect(item(childRects(result), 0).height).toBe(3);
     });
 
     test("emoji text intrinsic width counts width 2", () => {
@@ -118,7 +128,7 @@ describe("layout", () => {
         Text("😀hi"), // emoji(2) + h(1) + i(1) = 4
       ]);
       const result = layout(node, 80, 24);
-      expect(childRects(result)[0]!.width).toBe(4);
+      expect(item(childRects(result), 0).width).toBe(4);
     });
 
     test("mixed ASCII and CJK intrinsic width", () => {
@@ -126,7 +136,7 @@ describe("layout", () => {
         Text("hi世界"), // h(1) + i(1) + 世(2) + 界(2) = 6
       ]);
       const result = layout(node, 80, 24);
-      expect(childRects(result)[0]!.width).toBe(6);
+      expect(item(childRects(result), 0).width).toBe(6);
     });
   });
 
@@ -188,7 +198,7 @@ describe("layout", () => {
         VStack({ width: "50%", height: 10 }, []),
       ]);
       const result = layout(node, 80, 24);
-      expect(childRects(result)[0]!.width).toBe(40);
+      expect(item(childRects(result), 0).width).toBe(40);
     });
 
     test("percentage height relative to parent", () => {
@@ -196,7 +206,7 @@ describe("layout", () => {
         VStack({ width: 80, height: "50%" }, []),
       ]);
       const result = layout(node, 80, 24);
-      expect(childRects(result)[0]!.height).toBe(12);
+      expect(item(childRects(result), 0).height).toBe(12);
     });
   });
 
@@ -222,7 +232,7 @@ describe("layout", () => {
         VStack({ flex: 1 }, []),
       ]);
       const result = layout(node, 80, 24);
-      expect(childRects(result)[0]!.width).toBeGreaterThanOrEqual(30);
+      expect(item(childRects(result), 0).width).toBeGreaterThanOrEqual(30);
     });
 
     test("maxHeight caps growth", () => {
@@ -231,7 +241,7 @@ describe("layout", () => {
         VStack({ flex: 1 }, []),
       ]);
       const result = layout(node, 80, 24);
-      expect(childRects(result)[0]!.height).toBeLessThanOrEqual(10);
+      expect(item(childRects(result), 0).height).toBeLessThanOrEqual(10);
     });
   });
 
@@ -309,9 +319,9 @@ describe("layout", () => {
       ]);
       const result = layout(node, 80, 24);
       const rects = childRects(result);
-      expect(rects[0]!.y).toBe(0);
-      expect(rects[1]!.y).toBe(5);
-      expect(rects[2]!.y).toBe(8);
+      expect(item(rects, 0).y).toBe(0);
+      expect(item(rects, 1).y).toBe(5);
+      expect(item(rects, 2).y).toBe(8);
     });
   });
 
@@ -324,9 +334,9 @@ describe("layout", () => {
       ]);
       const result = layout(node, 80, 24);
       const rects = childRects(result);
-      expect(rects[0]!.x).toBe(0);
-      expect(rects[1]!.x).toBe(20);
-      expect(rects[2]!.x).toBe(35);
+      expect(item(rects, 0).x).toBe(0);
+      expect(item(rects, 1).x).toBe(20);
+      expect(item(rects, 2).x).toBe(35);
     });
   });
 
@@ -341,10 +351,10 @@ describe("layout", () => {
       const result = layout(node, 80, 24);
       const rects = childRects(result);
       // HStack height = 1 (tallest child is a single-line Text)
-      expect(rects[0]!.height).toBe(1);
+      expect(item(rects, 0).height).toBe(1);
       // "below" Text starts right after
-      expect(rects[1]!.y).toBe(1);
-      expect(rects[1]!.height).toBe(1);
+      expect(item(rects, 1).y).toBe(1);
+      expect(item(rects, 1).height).toBe(1);
     });
 
     test("HStack intrinsic height with multi-line text child", () => {
@@ -356,7 +366,7 @@ describe("layout", () => {
       ]);
       const result = layout(node, 80, 24);
       // HStack height = max child height = 3
-      expect(childRects(result)[0]!.height).toBe(3);
+      expect(item(childRects(result), 0).height).toBe(3);
     });
 
     test("VStack inside HStack uses max child width, not sum of heights", () => {
@@ -372,7 +382,7 @@ describe("layout", () => {
       // VStack intrinsic width = max of children's widths on cross axis
       // Its children have no explicit width, so they'd fill available.
       // Let's just check that it doesn't sum heights as width.
-      expect(rects[0]!.width).not.toBe(8);
+      expect(item(rects, 0).width).not.toBe(8);
     });
 
     test("hello example pattern: VStack with HStack children stacks tightly", () => {
@@ -389,17 +399,17 @@ describe("layout", () => {
       const result = layout(node, 80, 24);
       const rects = childRects(result);
       // All children should be height 1
-      expect(rects[0]!.height).toBe(1); // Text
-      expect(rects[1]!.height).toBe(1); // Text("")
-      expect(rects[2]!.height).toBe(1); // HStack (was broken: summed widths)
-      expect(rects[3]!.height).toBe(1); // Text("")
-      expect(rects[4]!.height).toBe(1); // HStack
+      expect(item(rects, 0).height).toBe(1); // Text
+      expect(item(rects, 1).height).toBe(1); // Text("")
+      expect(item(rects, 2).height).toBe(1); // HStack (was broken: summed widths)
+      expect(item(rects, 3).height).toBe(1); // Text("")
+      expect(item(rects, 4).height).toBe(1); // HStack
       // Children stack sequentially with no gaps
-      expect(rects[0]!.y).toBe(0);
-      expect(rects[1]!.y).toBe(1);
-      expect(rects[2]!.y).toBe(2);
-      expect(rects[3]!.y).toBe(3);
-      expect(rects[4]!.y).toBe(4);
+      expect(item(rects, 0).y).toBe(0);
+      expect(item(rects, 1).y).toBe(1);
+      expect(item(rects, 2).y).toBe(2);
+      expect(item(rects, 3).y).toBe(3);
+      expect(item(rects, 4).y).toBe(4);
       // Total intrinsic height = 5
       expect(result.rect.height).toBe(5);
     });
@@ -413,8 +423,8 @@ describe("layout", () => {
       ]);
       const result = layout(node, 80, 24);
       const rects = childRects(result);
-      expect(rects[0]!.y).toBe(0);
-      expect(rects[1]!.y).toBe(3);
+      expect(item(rects, 0).y).toBe(0);
+      expect(item(rects, 1).y).toBe(3);
     });
 
     test("end pushes children to the end of the main axis", () => {
@@ -425,8 +435,8 @@ describe("layout", () => {
       const result = layout(node, 80, 24);
       const rects = childRects(result);
       // remaining = 24 - 6 = 18
-      expect(rects[0]!.y).toBe(18);
-      expect(rects[1]!.y).toBe(21);
+      expect(item(rects, 0).y).toBe(18);
+      expect(item(rects, 1).y).toBe(21);
     });
 
     test("center centers children on the main axis", () => {
@@ -437,8 +447,8 @@ describe("layout", () => {
       const result = layout(node, 80, 24);
       const rects = childRects(result);
       // remaining = 24 - 6 = 18, offset = 9
-      expect(rects[0]!.y).toBe(9);
-      expect(rects[1]!.y).toBe(12);
+      expect(item(rects, 0).y).toBe(9);
+      expect(item(rects, 1).y).toBe(12);
     });
 
     test("space-between distributes space between children", () => {
@@ -453,11 +463,11 @@ describe("layout", () => {
       const result = layout(node, 80, 24);
       const rects = childRects(result);
       // remaining = 24 - 9 = 15, gaps = 2, space per gap = 7.5 → 8, 7
-      expect(rects[0]!.y).toBe(0);
+      expect(item(rects, 0).y).toBe(0);
       // gap after first = floor(15/2) or largest-remainder?
       // 15 / 2 = 7.5 each → 8, 7 via largest remainder
-      expect(rects[1]!.y).toBe(3 + 8); // 11
-      expect(rects[2]!.y).toBe(3 + 8 + 3 + 7); // 21
+      expect(item(rects, 1).y).toBe(3 + 8); // 11
+      expect(item(rects, 2).y).toBe(3 + 8 + 3 + 7); // 21
     });
 
     test("space-between with single child acts like start", () => {
@@ -466,7 +476,29 @@ describe("layout", () => {
         [VStack({ height: 3 }, [])],
       );
       const result = layout(node, 80, 24);
-      expect(childRects(result)[0]!.y).toBe(0);
+      expect(item(childRects(result), 0).y).toBe(0);
+    });
+
+    test("space-between ignores main-axis gap in HStack", () => {
+      const node = HStack(
+        {
+          width: 25,
+          height: 1,
+          justifyContent: "space-between",
+          gap: 4,
+        },
+        [
+          VStack({ width: 6, height: 1 }, []),
+          VStack({ width: 6, height: 1 }, []),
+          VStack({ width: 6, height: 1 }, []),
+        ],
+      );
+      const result = layout(node, 25, 1);
+      const rects = childRects(result);
+
+      expect(rects[0]).toEqual({ x: 0, y: 0, width: 6, height: 1 });
+      expect(rects[1]).toEqual({ x: 10, y: 0, width: 6, height: 1 });
+      expect(rects[2]).toEqual({ x: 19, y: 0, width: 6, height: 1 });
     });
 
     test("center in HStack centers horizontally", () => {
@@ -477,8 +509,8 @@ describe("layout", () => {
       const result = layout(node, 80, 24);
       const rects = childRects(result);
       // remaining = 80 - 20 = 60, offset = 30
-      expect(rects[0]!.x).toBe(30);
-      expect(rects[1]!.x).toBe(40);
+      expect(item(rects, 0).x).toBe(30);
+      expect(item(rects, 1).x).toBe(40);
     });
 
     test("end in HStack pushes children right", () => {
@@ -486,7 +518,7 @@ describe("layout", () => {
         VStack({ width: 20, height: 24 }, []),
       ]);
       const result = layout(node, 80, 24);
-      expect(childRects(result)[0]!.x).toBe(60);
+      expect(item(childRects(result), 0).x).toBe(60);
     });
 
     test("justifyContent with padding", () => {
@@ -502,7 +534,7 @@ describe("layout", () => {
       const result = layout(node, 80, 24);
       // inner height = 24 - 4 = 20, remaining = 20 - 4 = 16, offset = 8
       // child y = padY + offset = 2 + 8 = 10
-      expect(childRects(result)[0]!.y).toBe(10);
+      expect(item(childRects(result), 0).y).toBe(10);
     });
 
     test("justifyContent with gap", () => {
@@ -513,8 +545,8 @@ describe("layout", () => {
       const result = layout(node, 80, 24);
       const rects = childRects(result);
       // total content = 3 + 2 + 3 = 8, remaining = 24 - 8 = 16
-      expect(rects[0]!.y).toBe(16);
-      expect(rects[1]!.y).toBe(21); // 16 + 3 + 2
+      expect(item(rects, 0).y).toBe(16);
+      expect(item(rects, 1).y).toBe(21); // 16 + 3 + 2
     });
   });
 
@@ -525,8 +557,8 @@ describe("layout", () => {
       ]);
       const result = layout(node, 80, 24);
       // cross axis = width, should fill parent
-      expect(childRects(result)[0]!.width).toBe(80);
-      expect(childRects(result)[0]!.x).toBe(0);
+      expect(item(childRects(result), 0).width).toBe(80);
+      expect(item(childRects(result), 0).x).toBe(0);
     });
 
     test("center centers children on cross axis in VStack", () => {
@@ -535,7 +567,7 @@ describe("layout", () => {
       ]);
       const result = layout(node, 80, 24);
       // cross remaining = 80 - 20 = 60, offset = 30
-      expect(childRects(result)[0]!.x).toBe(30);
+      expect(item(childRects(result), 0).x).toBe(30);
     });
 
     test("end aligns children to the end of cross axis", () => {
@@ -544,7 +576,7 @@ describe("layout", () => {
       ]);
       const result = layout(node, 80, 24);
       // cross remaining = 80 - 20 = 60
-      expect(childRects(result)[0]!.x).toBe(60);
+      expect(item(childRects(result), 0).x).toBe(60);
     });
 
     test("start aligns children to the start of cross axis", () => {
@@ -552,7 +584,7 @@ describe("layout", () => {
         VStack({ width: 20, height: 3 }, []),
       ]);
       const result = layout(node, 80, 24);
-      expect(childRects(result)[0]!.x).toBe(0);
+      expect(item(childRects(result), 0).x).toBe(0);
     });
 
     test("center in HStack centers vertically", () => {
@@ -561,7 +593,7 @@ describe("layout", () => {
       ]);
       const result = layout(node, 80, 24);
       // cross = height, remaining = 24 - 6 = 18, offset = 9
-      expect(childRects(result)[0]!.y).toBe(9);
+      expect(item(childRects(result), 0).y).toBe(9);
     });
 
     test("end in HStack pushes children to the bottom", () => {
@@ -569,7 +601,7 @@ describe("layout", () => {
         VStack({ width: 20, height: 6 }, []),
       ]);
       const result = layout(node, 80, 24);
-      expect(childRects(result)[0]!.y).toBe(18);
+      expect(item(childRects(result), 0).y).toBe(18);
     });
 
     test("alignItems with padding", () => {
@@ -585,7 +617,7 @@ describe("layout", () => {
       const result = layout(node, 80, 24);
       // inner width = 80 - 10 = 70, remaining = 70 - 20 = 50, offset = 25
       // child x = padX + offset = 5 + 25 = 30
-      expect(childRects(result)[0]!.x).toBe(30);
+      expect(item(childRects(result), 0).x).toBe(30);
     });
 
     test("alignItems affects each child independently", () => {
@@ -596,9 +628,9 @@ describe("layout", () => {
       const result = layout(node, 80, 24);
       const rects = childRects(result);
       // child 1: (80 - 20) / 2 = 30
-      expect(rects[0]!.x).toBe(30);
+      expect(item(rects, 0).x).toBe(30);
       // child 2: (80 - 40) / 2 = 20
-      expect(rects[1]!.x).toBe(20);
+      expect(item(rects, 1).x).toBe(20);
     });
 
     test("center uses intrinsic cross size for Text children", () => {
@@ -608,7 +640,7 @@ describe("layout", () => {
         Text("hello"),
       ]);
       const result = layout(node, 80, 24);
-      const r = childRects(result)[0]!;
+      const r = item(childRects(result), 0);
       // intrinsic width of "hello" = 5, cross = 80
       // offset = (80 - 5) / 2 = 37 (floored from 37.5)
       expect(r.x).toBe(37);
@@ -620,7 +652,7 @@ describe("layout", () => {
         HStack({ gap: 1 }, [Text("aa"), Text("bb")]),
       ]);
       const result = layout(node, 80, 24);
-      const r = childRects(result)[0]!;
+      const r = item(childRects(result), 0);
       // HStack intrinsic width = 2 + 1 + 2 = 5
       expect(r.width).toBe(5);
       expect(r.x).toBe(37);
@@ -631,7 +663,7 @@ describe("layout", () => {
         Text("hi"),
       ]);
       const result = layout(node, 80, 24);
-      const r = childRects(result)[0]!;
+      const r = item(childRects(result), 0);
       // intrinsic width of "hi" = 2
       expect(r.width).toBe(2);
       expect(r.x).toBe(78);
@@ -642,8 +674,8 @@ describe("layout", () => {
         Text("hi"),
       ]);
       const result = layout(node, 80, 24);
-      expect(childRects(result)[0]!.width).toBe(80);
-      expect(childRects(result)[0]!.x).toBe(0);
+      expect(item(childRects(result), 0).width).toBe(80);
+      expect(item(childRects(result), 0).x).toBe(0);
     });
 
     test("combined justifyContent center + alignItems center", () => {
@@ -657,7 +689,7 @@ describe("layout", () => {
         [VStack({ width: 20, height: 4 }, [])],
       );
       const result = layout(node, 80, 24);
-      const r = childRects(result)[0]!;
+      const r = item(childRects(result), 0);
       // main (y): (24 - 4) / 2 = 10
       expect(r.y).toBe(10);
       // cross (x): (80 - 20) / 2 = 30
@@ -676,12 +708,12 @@ describe("layout", () => {
       const result = layout(node, 80, 24);
       const rects = childRects(result);
       // All on same row (y=0), positioned left-to-right
-      expect(rects[0]!.y).toBe(0);
-      expect(rects[1]!.y).toBe(0);
-      expect(rects[2]!.y).toBe(0);
-      expect(rects[0]!.x).toBe(0);
-      expect(rects[1]!.x).toBe(30);
-      expect(rects[2]!.x).toBe(60);
+      expect(item(rects, 0).y).toBe(0);
+      expect(item(rects, 1).y).toBe(0);
+      expect(item(rects, 2).y).toBe(0);
+      expect(item(rects, 0).x).toBe(0);
+      expect(item(rects, 1).x).toBe(30);
+      expect(item(rects, 2).x).toBe(60);
     });
 
     test("wrap splits children into rows when they exceed width", () => {
@@ -789,7 +821,7 @@ describe("layout", () => {
       expect(rects[0]).toEqual({ x: 0, y: 0, width: 20, height: 3 });
       expect(rects[1]).toEqual({ x: 20, y: 0, width: 60, height: 3 });
       // Row 2: child wider than container
-      expect(rects[2]!.y).toBe(3);
+      expect(item(rects, 2).y).toBe(3);
     });
 
     test("multiple flex children in one row share space", () => {
@@ -838,10 +870,10 @@ describe("layout", () => {
       // But wait — when the second child has no explicit height, under stretch
       // it should fill the row height, which is determined by the tallest child.
       // The tallest in row 1 is 2, so stretched child gets 2.
-      expect(rects[0]!.height).toBe(2);
-      expect(rects[1]!.height).toBe(2);
+      expect(item(rects, 0).height).toBe(2);
+      expect(item(rects, 1).height).toBe(2);
       // Row 2
-      expect(rects[2]!.height).toBe(3);
+      expect(item(rects, 2).height).toBe(3);
     });
 
     test("alignItems center centers children vertically within row", () => {
@@ -931,10 +963,33 @@ describe("layout", () => {
       const rects = childRects(result);
       // All 4 fit: 20*4 = 80 — no wrapping needed
       // Remaining = 0 with space-between
-      expect(rects[0]!.x).toBe(0);
-      expect(rects[1]!.x).toBe(20);
-      expect(rects[2]!.x).toBe(40);
-      expect(rects[3]!.x).toBe(60);
+      expect(item(rects, 0).x).toBe(0);
+      expect(item(rects, 1).x).toBe(20);
+      expect(item(rects, 2).x).toBe(40);
+      expect(item(rects, 3).x).toBe(60);
+    });
+
+    test("wrapping HStack space-between ignores main-axis gap", () => {
+      const node = HStack(
+        {
+          width: 25,
+          height: 4,
+          flexWrap: "wrap",
+          justifyContent: "space-between",
+          gap: 4,
+        },
+        [
+          VStack({ width: 6, height: 1 }, []),
+          VStack({ width: 6, height: 1 }, []),
+          VStack({ width: 6, height: 1 }, []),
+        ],
+      );
+      const result = layout(node, 25, 4);
+      const rects = childRects(result);
+
+      expect(rects[0]).toEqual({ x: 0, y: 0, width: 6, height: 1 });
+      expect(rects[1]).toEqual({ x: 10, y: 0, width: 6, height: 1 });
+      expect(rects[2]).toEqual({ x: 19, y: 0, width: 6, height: 1 });
     });
 
     test("intrinsic height of wrapping HStack equals sum of row heights", () => {
@@ -949,9 +1004,9 @@ describe("layout", () => {
       const result = layout(node, 80, 24);
       const rects = childRects(result);
       // HStack: row1 height=3, row2 height=4, total = 7
-      expect(rects[0]!.height).toBe(7);
+      expect(item(rects, 0).height).toBe(7);
       // Text below starts at y=7
-      expect(rects[1]!.y).toBe(7);
+      expect(item(rects, 1).y).toBe(7);
     });
 
     test("intrinsic height with gap includes gaps between rows", () => {
@@ -965,8 +1020,8 @@ describe("layout", () => {
       const result = layout(node, 80, 24);
       const rects = childRects(result);
       // Two rows: 2 + gap(1) + 3 = 6
-      expect(rects[0]!.height).toBe(6);
-      expect(rects[1]!.y).toBe(6);
+      expect(item(rects, 0).height).toBe(6);
+      expect(item(rects, 1).y).toBe(6);
     });
 
     test("Text children wrap based on intrinsic width", () => {
@@ -981,12 +1036,12 @@ describe("layout", () => {
       // Row 1: "hello"(5) + "world"(5) = 10 ≤ 20 ✓
       //         + "this is long text"(17) = 27 > 20 ✗
       // Row 2: "this is long text"
-      expect(rects[0]!.y).toBe(0);
-      expect(rects[1]!.y).toBe(0);
-      expect(rects[2]!.y).toBe(1); // second row
-      expect(rects[0]!.x).toBe(0);
-      expect(rects[1]!.x).toBe(5);
-      expect(rects[2]!.x).toBe(0);
+      expect(item(rects, 0).y).toBe(0);
+      expect(item(rects, 1).y).toBe(0);
+      expect(item(rects, 2).y).toBe(1); // second row
+      expect(item(rects, 0).x).toBe(0);
+      expect(item(rects, 1).x).toBe(5);
+      expect(item(rects, 2).x).toBe(0);
     });
 
     test("single child wider than container gets its own row", () => {
@@ -1001,9 +1056,9 @@ describe("layout", () => {
       // child1 (20+50 > 40, starts new row)
       // Row 2: child1 (50 > 40, but it's the first item so it goes on this row)
       // Row 3: child2 (50+20 > 40, new row)
-      expect(rects[0]!.y).toBe(0);
-      expect(rects[1]!.y).toBe(3); // after row 1 (height 3)
-      expect(rects[2]!.y).toBe(7); // after row 2 (height 4)
+      expect(item(rects, 0).y).toBe(0);
+      expect(item(rects, 1).y).toBe(3); // after row 1 (height 3)
+      expect(item(rects, 2).y).toBe(7); // after row 2 (height 4)
     });
 
     test("empty HStack with flexWrap produces no children", () => {
@@ -1023,7 +1078,7 @@ describe("layout", () => {
 
     test("flexWrap on VStack is ignored (treated as nowrap)", () => {
       // flexWrap is only meaningful on HStack per the spec
-      const node = VStack({ width: 80, height: 10, flexWrap: "wrap" as any }, [
+      const node = VStack({ width: 80, height: 10, flexWrap: "wrap" }, [
         VStack({ height: 4 }, []),
         VStack({ height: 4 }, []),
         VStack({ height: 4 }, []),
@@ -1031,9 +1086,9 @@ describe("layout", () => {
       const result = layout(node, 80, 10);
       const rects = childRects(result);
       // Normal VStack behavior — children stack vertically, overflow
-      expect(rects[0]!.y).toBe(0);
-      expect(rects[1]!.y).toBe(4);
-      expect(rects[2]!.y).toBe(8);
+      expect(item(rects, 0).y).toBe(0);
+      expect(item(rects, 1).y).toBe(4);
+      expect(item(rects, 2).y).toBe(8);
     });
 
     test("nested wrapping HStack inside VStack", () => {
@@ -1050,34 +1105,34 @@ describe("layout", () => {
       const rects = childRects(result);
 
       // Title at y=0, height=1
-      expect(rects[0]!.y).toBe(0);
-      expect(rects[0]!.height).toBe(1);
+      expect(item(rects, 0).y).toBe(0);
+      expect(item(rects, 0).height).toBe(1);
 
       // HStack at y=1
       // Row 1: 25 + 1 + 25 = 51 ≤ 60, + 1 + 25 = 77 > 60
       // Row 2: 25
       // HStack height = 2 + 1 + 2 = 5
-      expect(rects[1]!.y).toBe(1);
-      expect(rects[1]!.height).toBe(5);
+      expect(item(rects, 1).y).toBe(1);
+      expect(item(rects, 1).height).toBe(5);
 
       // Footer at y=6
-      expect(rects[2]!.y).toBe(6);
+      expect(item(rects, 2).y).toBe(6);
 
       // Verify HStack's children
-      const hstackChildren = result.children[1]!.children;
-      expect(hstackChildren[0]!.rect).toEqual({
+      const hstackChildren = item(result.children, 1).children;
+      expect(item(hstackChildren, 0).rect).toEqual({
         x: 0,
         y: 1,
         width: 25,
         height: 2,
       });
-      expect(hstackChildren[1]!.rect).toEqual({
+      expect(item(hstackChildren, 1).rect).toEqual({
         x: 26,
         y: 1,
         width: 25,
         height: 2,
       });
-      expect(hstackChildren[2]!.rect).toEqual({
+      expect(item(hstackChildren, 2).rect).toEqual({
         x: 0,
         y: 4,
         width: 25,
@@ -1099,10 +1154,10 @@ describe("layout", () => {
       //   Remaining = 80 - 0 (no fixed) = 80, shared between 2 flex → 40 each
       //   Both ≥ 30 ✓
       // Row 2: child2 → gets full 80
-      expect(rects[0]!.width).toBe(40);
-      expect(rects[1]!.width).toBe(40);
-      expect(rects[2]!.y).toBe(3);
-      expect(rects[2]!.width).toBe(80);
+      expect(item(rects, 0).width).toBe(40);
+      expect(item(rects, 1).width).toBe(40);
+      expect(item(rects, 2).y).toBe(3);
+      expect(item(rects, 2).width).toBe(80);
     });
   });
 
@@ -1125,20 +1180,20 @@ describe("layout", () => {
       expect(rects[1]).toEqual({ x: 20, y: 0, width: 60, height: 24 });
 
       // Main area children
-      const mainChildren = result.children[1]!.children;
-      expect(mainChildren[0]!.rect).toEqual({
+      const mainChildren = item(result.children, 1).children;
+      expect(item(mainChildren, 0).rect).toEqual({
         x: 20,
         y: 0,
         width: 60,
         height: 1,
       });
-      expect(mainChildren[1]!.rect).toEqual({
+      expect(item(mainChildren, 1).rect).toEqual({
         x: 20,
         y: 1,
         width: 60,
         height: 22,
       });
-      expect(mainChildren[2]!.rect).toEqual({
+      expect(item(mainChildren, 2).rect).toEqual({
         x: 20,
         y: 23,
         width: 60,
@@ -1164,7 +1219,7 @@ describe("layout", () => {
       ]);
       const result = layout(node, 80, 24);
       // Intrinsic height of VStack containing "hi" is 1, but minHeight is 5
-      expect(childRects(result)[0]!.height).toBe(5);
+      expect(item(childRects(result), 0).height).toBe(5);
     });
 
     test("maxWidth on child in VStack is respected", () => {
@@ -1172,7 +1227,7 @@ describe("layout", () => {
         HStack({ flex: 1, maxWidth: 20 }, [Text("x")]),
       ]);
       const result = layout(node, 80, 24);
-      expect(childRects(result)[0]!.width).toBe(20);
+      expect(item(childRects(result), 0).width).toBe(20);
     });
 
     test("TextInput maxHeight in HStack creates autogrowing input", () => {
@@ -1190,8 +1245,8 @@ describe("layout", () => {
         Text("after"),
       ]);
       const r1 = layout(node1, 80, 24);
-      expect(r1.children[0]!.rect.height).toBe(1);
-      expect(r1.children[0]!.children[0]!.rect.height).toBe(1);
+      expect(item(r1.children, 0).rect.height).toBe(1);
+      expect(item(item(r1.children, 0).children, 0).rect.height).toBe(1);
 
       // Multi-line value → grows to content height
       const node2 = VStack({ width: 80, height: 24 }, [
@@ -1206,8 +1261,8 @@ describe("layout", () => {
         Text("after"),
       ]);
       const r2 = layout(node2, 80, 24);
-      expect(r2.children[0]!.rect.height).toBe(3);
-      expect(r2.children[0]!.children[0]!.rect.height).toBe(3);
+      expect(item(r2.children, 0).rect.height).toBe(3);
+      expect(item(item(r2.children, 0).children, 0).rect.height).toBe(3);
 
       // Many lines → capped at maxHeight
       const node3 = VStack({ width: 80, height: 24 }, [
@@ -1222,8 +1277,8 @@ describe("layout", () => {
         Text("after"),
       ]);
       const r3 = layout(node3, 80, 24);
-      expect(r3.children[0]!.rect.height).toBe(5);
-      expect(r3.children[0]!.children[0]!.rect.height).toBe(5);
+      expect(item(r3.children, 0).rect.height).toBe(5);
+      expect(item(item(r3.children, 0).children, 0).rect.height).toBe(5);
     });
 
     test("cross-axis constraints in intrinsic container sizing", () => {
@@ -1242,9 +1297,94 @@ describe("layout", () => {
       ]);
       const result = layout(node, 80, 24);
       // HStack should be 3 tall (capped by TextInput's maxHeight)
-      expect(result.children[0]!.rect.height).toBe(3);
+      expect(item(result.children, 0).rect.height).toBe(3);
       // Text "after" should be right after it
-      expect(result.children[1]!.rect.y).toBe(3);
+      expect(item(result.children, 1).rect.y).toBe(3);
+    });
+  });
+
+  describe("measureContentHeight", () => {
+    test("wrapped Text returns the visual line count for the provided width", () => {
+      // Arrange
+      const node = Text("foo bar baz", { wrap: "word" });
+
+      // Act
+      const height = measureContentHeight(node, { width: 6 });
+
+      // Assert
+      expect(height).toBe(3);
+    });
+
+    test("padded VStack accounts for its own padding when measuring children", () => {
+      // Arrange
+      const node = VStack({ padding: { x: 1, y: 1 }, gap: 1 }, [
+        Text("foo bar", { wrap: "word" }),
+        Text("baz"),
+      ]);
+
+      // Act
+      const height = measureContentHeight(node, { width: 8 });
+
+      // Assert
+      expect(height).toBe(6);
+    });
+
+    test("wrapping HStack returns the sum of row heights plus row gaps", () => {
+      // Arrange
+      const node = HStack({ flexWrap: "wrap", gap: 1 }, [
+        VStack({ width: 5, height: 2 }, []),
+        VStack({ width: 5, height: 3 }, []),
+        VStack({ width: 5, height: 4 }, []),
+      ]);
+
+      // Act
+      const height = measureContentHeight(node, { width: 11 });
+
+      // Assert
+      expect(height).toBe(8);
+    });
+
+    test("TextInput returns wrapped content height including its own padding", () => {
+      // Arrange
+      const node = TextInput({
+        padding: { x: 1, y: 1 },
+        value: "foo bar baz",
+        onChange: () => {},
+      });
+
+      // Act
+      const height = measureContentHeight(node, { width: 8 });
+
+      // Assert
+      expect(height).toBe(5);
+    });
+
+    test("explicit root height does not limit the measured content height", () => {
+      // Arrange
+      const node = VStack({ height: 1 }, [
+        Text("line 1"),
+        Text("line 2"),
+        Text("line 3"),
+      ]);
+
+      // Act
+      const height = measureContentHeight(node, { width: 10 });
+
+      // Assert
+      expect(height).toBe(3);
+    });
+
+    test("caller-provided width overrides the measured root width prop", () => {
+      // Arrange
+      const node = VStack({ width: 10 }, [
+        Text("foo bar baz", { wrap: "word" }),
+      ]);
+
+      // Act
+      const height = measureContentHeight(node, { width: 100 });
+
+      // Assert
+      expect(height).toBe(1);
     });
   });
 });

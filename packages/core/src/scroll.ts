@@ -1,3 +1,4 @@
+import type { ContainerProps } from "@cel-tui/types";
 import type { LayoutNode } from "./layout.js";
 import { layoutText } from "./text-layout.js";
 
@@ -5,8 +6,11 @@ function isVerticalScrollTarget(target: LayoutNode): boolean {
   return target.node.type === "vstack" || target.node.type === "textinput";
 }
 
-function getScrollTargetProps(target: LayoutNode): Record<string, any> {
-  return target.node.props as Record<string, any>;
+function getScrollTargetProps(target: LayoutNode): ContainerProps {
+  if (target.node.type === "text") {
+    throw new Error("Text nodes cannot be scroll targets");
+  }
+  return target.node.props;
 }
 
 function getScrollViewportMainAxisSize(target: LayoutNode): number {
@@ -26,7 +30,7 @@ function getScrollViewportMainAxisSize(target: LayoutNode): number {
  */
 export function getScrollStep(target: LayoutNode): number {
   const rawStep = getScrollTargetProps(target).scrollStep;
-  if (Number.isFinite(rawStep) && rawStep > 0) {
+  if (typeof rawStep === "number" && Number.isFinite(rawStep) && rawStep > 0) {
     return Math.max(1, Math.floor(rawStep));
   }
 
@@ -55,9 +59,9 @@ export function getMaxScrollOffset(target: LayoutNode): number {
   }
 
   const isVertical = target.node.type === "vstack";
-  const props = target.node.type !== "text" ? target.node.props : null;
-  const padX = (props as any)?.padding?.x ?? 0;
-  const padY = (props as any)?.padding?.y ?? 0;
+  const props = getScrollTargetProps(target);
+  const padX = props.padding?.x ?? 0;
+  const padY = props.padding?.y ?? 0;
 
   if (isVertical) {
     let contentHeight = 0;

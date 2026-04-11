@@ -13,6 +13,18 @@ function pointInRect(x: number, y: number, rect: Rect): boolean {
   );
 }
 
+function requiredAt<T>(
+  items: readonly T[],
+  index: number,
+  description: string,
+): T {
+  const item = items[index];
+  if (item === undefined) {
+    throw new Error(`Missing ${description} at index ${index}`);
+  }
+  return item;
+}
+
 /**
  * Callback to resolve the current scroll offset for a scrollable container.
  * Used to adjust hit coordinates when testing children of scrolled containers.
@@ -21,8 +33,7 @@ type ScrollOffsetResolver = (ln: LayoutNode) => number;
 
 /** Default resolver: reads scrollOffset from props, defaults to 0. */
 function defaultScrollResolver(ln: LayoutNode): number {
-  const props = getProps(ln);
-  return (props as any)?.scrollOffset ?? 0;
+  return getProps(ln)?.scrollOffset ?? 0;
 }
 
 /**
@@ -82,7 +93,7 @@ export function hitTest(
     const testX = x + adjustX;
     const testY = y + adjustY;
     for (let i = current.children.length - 1; i >= 0; i--) {
-      const child = current.children[i]!;
+      const child = requiredAt(current.children, i, "layout child");
       if (pointInRect(testX, testY, child.rect)) {
         path.push(child);
         current = child;
@@ -114,9 +125,10 @@ export function findClickHandler(
   path: LayoutNode[],
 ): { layoutNode: LayoutNode; handler: () => void } | null {
   for (let i = path.length - 1; i >= 0; i--) {
-    const props = getProps(path[i]!);
+    const layoutNode = requiredAt(path, i, "hit path node");
+    const props = getProps(layoutNode);
     if (props?.onClick) {
-      return { layoutNode: path[i]!, handler: props.onClick };
+      return { layoutNode, handler: props.onClick };
     }
   }
   return null;
@@ -131,10 +143,11 @@ export function findClickHandler(
  */
 export function findScrollTarget(path: LayoutNode[]): LayoutNode | null {
   for (let i = path.length - 1; i >= 0; i--) {
-    const node = path[i]!.node;
-    if (node.type === "textinput") return path[i]!;
-    const props = getProps(path[i]!);
-    if (props?.overflow === "scroll") return path[i]!;
+    const layoutNode = requiredAt(path, i, "hit path node");
+    const node = layoutNode.node;
+    if (node.type === "textinput") return layoutNode;
+    const props = getProps(layoutNode);
+    if (props?.overflow === "scroll") return layoutNode;
   }
   return null;
 }
@@ -146,17 +159,19 @@ export function findScrollTarget(path: LayoutNode[]): LayoutNode | null {
  * @param path - Path from root to current node.
  * @returns Array of handlers ordered from deepest to root.
  */
-export function collectKeyPressHandlers(
-  path: LayoutNode[],
-): { layoutNode: LayoutNode; handler: (key: string) => boolean | void }[] {
+export function collectKeyPressHandlers(path: LayoutNode[]): {
+  layoutNode: LayoutNode;
+  handler: NonNullable<ContainerProps["onKeyPress"]>;
+}[] {
   const handlers: {
     layoutNode: LayoutNode;
-    handler: (key: string) => boolean | void;
+    handler: NonNullable<ContainerProps["onKeyPress"]>;
   }[] = [];
   for (let i = path.length - 1; i >= 0; i--) {
-    const props = getProps(path[i]!);
+    const layoutNode = requiredAt(path, i, "hit path node");
+    const props = getProps(layoutNode);
     if (props?.onKeyPress) {
-      handlers.push({ layoutNode: path[i]!, handler: props.onKeyPress });
+      handlers.push({ layoutNode, handler: props.onKeyPress });
     }
   }
   return handlers;

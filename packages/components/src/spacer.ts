@@ -1,5 +1,5 @@
-import type { ContainerNode } from "@cel-tui/types";
 import { VStack } from "@cel-tui/core";
+import type { ContainerNode } from "@cel-tui/types";
 
 /**
  * Flexible spacer that fills available space along the parent's main axis.

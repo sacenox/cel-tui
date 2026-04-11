@@ -1,15 +1,33 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { cel } from "./cel.js";
-import { MockTerminal } from "./terminal.js";
 import { VStack } from "./primitives/stacks.js";
 import { Text } from "./primitives/text.js";
 import { TextInput } from "./primitives/text-input.js";
+import { MockTerminal } from "./terminal.js";
 import { kittyEncode } from "./test-helpers.js";
 
 const ENTER = kittyEncode("enter");
 const BACKSPACE = kittyEncode("backspace");
+const CTRL_A = kittyEncode("ctrl+a");
+const CTRL_E = kittyEncode("ctrl+e");
+const CTRL_LEFT = kittyEncode("ctrl+left");
+const CTRL_RIGHT = kittyEncode("ctrl+right");
 const CTRL_S = kittyEncode("ctrl+s");
+const CTRL_W = kittyEncode("ctrl+w");
+const ALT_B = kittyEncode("alt+b");
+const ALT_D = kittyEncode("alt+d");
+const ALT_F = kittyEncode("alt+f");
+const UP = kittyEncode("up");
+const DOWN = kittyEncode("down");
 const LEFT = kittyEncode("left");
+const LEGACY_CTRL_R = "\x12";
+const LEGACY_ALT_X = "\x1bx";
+const BRACKETED_PASTE_START = "\x1b[200~";
+const BRACKETED_PASTE_END = "\x1b[201~";
+
+function bracketedPaste(text: string): string {
+  return `${BRACKETED_PASTE_START}${text}${BRACKETED_PASTE_END}`;
+}
 
 describe("TextInput integration", () => {
   let term: MockTerminal;
@@ -26,6 +44,15 @@ describe("TextInput integration", () => {
 
   async function waitForRender(): Promise<void> {
     await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+
+  function currentBuffer() {
+    const buf = cel._getBuffer();
+    expect(buf).not.toBeNull();
+    if (buf === null) {
+      throw new Error("Expected a rendered buffer");
+    }
+    return buf;
   }
 
   test("renders value text", async () => {
@@ -75,6 +102,190 @@ describe("TextInput integration", () => {
     expect(value).toBe("hi!");
   });
 
+  test("batched printable input inserts all characters in order", async () => {
+    const term = setup(20, 3);
+    let value = "hi";
+    cel.viewport(() =>
+      VStack({}, [
+        TextInput({
+          value,
+          focused: true,
+          onChange: (v) => {
+            value = v;
+          },
+        }),
+      ]),
+    );
+    await waitForRender();
+
+    term.sendInput("ab");
+    await waitForRender();
+
+    expect(value).toBe("hiab");
+  });
+
+  test("bracketed paste in focused TextInput inserts full payload literally and skips onKeyPress", async () => {
+    const term = setup(20, 3);
+    let value = "hi";
+    let onChangeCalls = 0;
+    const keys: string[] = [];
+
+    cel.viewport(() =>
+      VStack({}, [
+        TextInput({
+          value,
+          focused: true,
+          onChange: (v) => {
+            value = v;
+            onChangeCalls++;
+          },
+          onKeyPress: (key) => {
+            keys.push(key);
+          },
+        }),
+      ]),
+    );
+    await waitForRender();
+
+    term.sendInput(bracketedPaste("!\n\tok"));
+    await waitForRender();
+
+    expect(value).toBe("hi!\n\tok");
+    expect(onChangeCalls).toBe(1);
+    expect(keys).toEqual([]);
+  });
+
+  test("bracketed paste split across stdin chunks waits for end marker and fires one onChange", async () => {
+    const term = setup(20, 3);
+    let value = "";
+    let onChangeCalls = 0;
+
+    cel.viewport(() =>
+      VStack({}, [
+        TextInput({
+          value,
+          focused: true,
+          onChange: (v) => {
+            value = v;
+            onChangeCalls++;
+          },
+        }),
+      ]),
+    );
+    await waitForRender();
+
+    term.sendInput(`${BRACKETED_PASTE_START}hel`);
+    await waitForRender();
+    expect(value).toBe("");
+    expect(onChangeCalls).toBe(0);
+
+    term.sendInput("lo\nwo");
+    await waitForRender();
+    expect(value).toBe("");
+    expect(onChangeCalls).toBe(0);
+
+    term.sendInput(`rld${BRACKETED_PASTE_END}`);
+    await waitForRender();
+
+    expect(value).toBe("hello\nworld");
+    expect(onChangeCalls).toBe(1);
+  });
+
+  test("bracketed paste start marker can be split across stdin chunks", async () => {
+    const term = setup(20, 3);
+    let value = "";
+    let onChangeCalls = 0;
+
+    cel.viewport(() =>
+      VStack({}, [
+        TextInput({
+          value,
+          focused: true,
+          onChange: (v) => {
+            value = v;
+            onChangeCalls++;
+          },
+        }),
+      ]),
+    );
+    await waitForRender();
+
+    term.sendInput("\x1b[20");
+    await waitForRender();
+    expect(value).toBe("");
+    expect(onChangeCalls).toBe(0);
+
+    term.sendInput("0~hi");
+    await waitForRender();
+    expect(value).toBe("");
+    expect(onChangeCalls).toBe(0);
+
+    term.sendInput(BRACKETED_PASTE_END);
+    await waitForRender();
+
+    expect(value).toBe("hi");
+    expect(onChangeCalls).toBe(1);
+  });
+
+  test("bracketed paste with no focused TextInput is ignored and does not bubble as keys", async () => {
+    const term = setup(20, 3);
+    let value = "";
+    const receivedKeys: string[] = [];
+
+    cel.viewport(() =>
+      VStack(
+        {
+          onKeyPress: (key) => {
+            receivedKeys.push(key);
+          },
+        },
+        [
+          TextInput({
+            value,
+            focused: false,
+            onChange: (v) => {
+              value = v;
+            },
+          }),
+        ],
+      ),
+    );
+    await waitForRender();
+
+    term.sendInput(bracketedPaste("abc\n\tdef"));
+    await waitForRender();
+
+    expect(value).toBe("");
+    expect(receivedKeys).toEqual([]);
+  });
+
+  test("onKeyPress receives normalized keys while TextInput inserts original text", async () => {
+    const term = setup(20, 3);
+    let keyReceived = "";
+    let value = "";
+    cel.viewport(() =>
+      VStack({}, [
+        TextInput({
+          value,
+          focused: true,
+          onChange: (v) => {
+            value = v;
+          },
+          onKeyPress: (key) => {
+            keyReceived = key;
+          },
+        }),
+      ]),
+    );
+    await waitForRender();
+
+    term.sendInput("A");
+    await waitForRender();
+
+    expect(keyReceived).toBe("a");
+    expect(value).toBe("A");
+  });
+
   test("backspace deletes character", async () => {
     const term = setup(20, 3);
     let value = "abc";
@@ -96,6 +307,221 @@ describe("TextInput integration", () => {
     await waitForRender();
 
     expect(value).toBe("ab");
+  });
+
+  test("ctrl+a and ctrl+e move to the start and end of the value", async () => {
+    const term = setup(20, 3);
+    let value = "hello";
+    const onChange = (v: string) => {
+      value = v;
+    };
+    cel.viewport(() =>
+      VStack({}, [
+        TextInput({
+          value,
+          focused: true,
+          onChange,
+        }),
+      ]),
+    );
+    await waitForRender();
+
+    term.sendInput(CTRL_A);
+    await waitForRender();
+    term.sendInput("X");
+    await waitForRender();
+
+    expect(value).toBe("Xhello");
+
+    term.sendInput(CTRL_E);
+    await waitForRender();
+    term.sendInput("!");
+    await waitForRender();
+
+    expect(value).toBe("Xhello!");
+  });
+
+  test("alt+b and alt+f move by whitespace-delimited words", async () => {
+    const term = setup(20, 3);
+    let value = "hello brave world";
+    const onChange = (v: string) => {
+      value = v;
+    };
+    cel.viewport(() =>
+      VStack({}, [
+        TextInput({
+          value,
+          focused: true,
+          onChange,
+        }),
+      ]),
+    );
+    await waitForRender();
+
+    term.sendInput(ALT_B);
+    await waitForRender();
+    term.sendInput("!");
+    await waitForRender();
+
+    expect(value).toBe("hello brave !world");
+
+    term.sendInput(CTRL_A);
+    await waitForRender();
+    term.sendInput(ALT_F);
+    await waitForRender();
+    term.sendInput("?");
+    await waitForRender();
+
+    expect(value).toBe("hello? brave !world");
+  });
+
+  test("ctrl+left and ctrl+right move by whitespace-delimited words", async () => {
+    const term = setup(20, 3);
+    let value = "hello brave world";
+    const onChange = (v: string) => {
+      value = v;
+    };
+    cel.viewport(() =>
+      VStack({}, [
+        TextInput({
+          value,
+          focused: true,
+          onChange,
+        }),
+      ]),
+    );
+    await waitForRender();
+
+    term.sendInput(CTRL_LEFT);
+    await waitForRender();
+    term.sendInput("!");
+    await waitForRender();
+
+    expect(value).toBe("hello brave !world");
+
+    term.sendInput(CTRL_A);
+    await waitForRender();
+    term.sendInput(CTRL_RIGHT);
+    await waitForRender();
+    term.sendInput("?");
+    await waitForRender();
+
+    expect(value).toBe("hello? brave !world");
+  });
+
+  test("ctrl+w and alt+d delete by whitespace-delimited words", async () => {
+    const term = setup(20, 3);
+    let value = "hello brave world";
+    const onChange = (v: string) => {
+      value = v;
+    };
+    cel.viewport(() =>
+      VStack({}, [
+        TextInput({
+          value,
+          focused: true,
+          onChange,
+        }),
+      ]),
+    );
+    await waitForRender();
+
+    term.sendInput(CTRL_W);
+    await waitForRender();
+
+    expect(value).toBe("hello brave ");
+
+    term.sendInput(CTRL_A);
+    await waitForRender();
+    term.sendInput(ALT_D);
+    await waitForRender();
+
+    expect(value).toBe(" brave ");
+  });
+
+  test("up follows visual wrapped lines in TextInput", async () => {
+    const term = setup(20, 3);
+    let value = "foo bar baz";
+    const onChange = (v: string) => {
+      value = v;
+    };
+    cel.viewport(() =>
+      VStack({}, [
+        TextInput({
+          width: 6,
+          value,
+          focused: true,
+          onChange,
+        }),
+      ]),
+    );
+    await waitForRender();
+
+    term.sendInput(UP);
+    await waitForRender();
+    term.sendInput("!");
+    await waitForRender();
+
+    expect(value).toBe("foo bar! baz");
+  });
+
+  test("down follows visual wrapped lines in TextInput", async () => {
+    const term = setup(20, 3);
+    let value = "foo bar baz";
+    const onChange = (v: string) => {
+      value = v;
+    };
+    cel.viewport(() =>
+      VStack({}, [
+        TextInput({
+          width: 6,
+          value,
+          focused: true,
+          onChange,
+        }),
+      ]),
+    );
+    await waitForRender();
+
+    term.sendInput(CTRL_A);
+    await waitForRender();
+    term.sendInput(DOWN);
+    await waitForRender();
+    term.sendInput("?");
+    await waitForRender();
+
+    expect(value).toBe("foo ?bar baz");
+  });
+
+  test("TextInput consumes editing modifier shortcuts instead of bubbling them", async () => {
+    const term = setup(20, 3);
+    let parentKey = "";
+    let value = "hello brave world";
+    cel.viewport(() =>
+      VStack(
+        {
+          onKeyPress: (key) => {
+            parentKey = key;
+          },
+        },
+        [
+          TextInput({
+            value,
+            focused: true,
+            onChange: (v) => {
+              value = v;
+            },
+          }),
+        ],
+      ),
+    );
+    await waitForRender();
+
+    term.sendInput(CTRL_W);
+    await waitForRender();
+
+    expect(value).toBe("hello brave ");
+    expect(parentKey).toBe("");
   });
 
   test("enter inserts newline by default", async () => {
@@ -341,6 +767,68 @@ describe("TextInput integration", () => {
     expect(value).toBe("text"); // Value unchanged
   });
 
+  test("legacy ctrl+letter from tmux bubbles to ancestor without editing", async () => {
+    const term = setup(20, 3);
+    let parentKey = "";
+    let value = "text";
+    cel.viewport(() =>
+      VStack(
+        {
+          onKeyPress: (key) => {
+            parentKey = key;
+          },
+        },
+        [
+          TextInput({
+            value,
+            focused: true,
+            onChange: (v) => {
+              value = v;
+            },
+          }),
+        ],
+      ),
+    );
+    await waitForRender();
+
+    term.sendInput(LEGACY_CTRL_R);
+    await waitForRender();
+
+    expect(parentKey).toBe("ctrl+r");
+    expect(value).toBe("text");
+  });
+
+  test("ESC-prefixed Alt combos bubble to ancestor without editing", async () => {
+    const term = setup(20, 3);
+    let parentKey = "";
+    let value = "text";
+    cel.viewport(() =>
+      VStack(
+        {
+          onKeyPress: (key) => {
+            parentKey = key;
+          },
+        },
+        [
+          TextInput({
+            value,
+            focused: true,
+            onChange: (v) => {
+              value = v;
+            },
+          }),
+        ],
+      ),
+    );
+    await waitForRender();
+
+    term.sendInput(LEGACY_ALT_X);
+    await waitForRender();
+
+    expect(parentKey).toBe("alt+x");
+    expect(value).toBe("text");
+  });
+
   test("cursor position persists across re-renders", async () => {
     const term = setup(20, 3);
     let value = "abcdef";
@@ -430,7 +918,7 @@ describe("TextInput integration", () => {
 
     // The buffer should show the cursor line (line4 area)
     // not the top lines. Check that the scroll adjusted.
-    const buf = cel._getBuffer()!;
+    const buf = currentBuffer();
     // The cursor should be visible somewhere in the viewport.
     // With 4 lines and 3-row viewport, scroll should be at least 1.
     // Row 2 (bottom of viewport) should show content from line3 or line4 area.
@@ -500,7 +988,7 @@ describe("TextInput integration", () => {
     );
     await waitForRender();
 
-    const buf = cel._getBuffer()!;
+    const buf = currentBuffer();
     // With padding x=2, content starts at col 2. With padding y=1, content at row 1.
     // Content should be at (2, 1) not (0, 0)
     expect(buf.get(0, 0).char).toBe(" "); // padding
@@ -543,7 +1031,7 @@ describe("TextInput integration", () => {
     expect(value).toBe("a");
 
     // Verify the text is actually visible in the buffer
-    const buf = cel._getBuffer()!;
+    const buf = currentBuffer();
     let found = false;
     for (let x = 0; x < 30; x++) {
       if (buf.get(x, 0).char === "a") {
@@ -573,7 +1061,7 @@ describe("TextInput integration", () => {
     );
     await waitForRender();
 
-    const buf = cel._getBuffer()!;
+    const buf = currentBuffer();
     // TextInput should have height 3 (1 content + 2 padding)
     // "after" should start at row 3
     let afterRow = "";

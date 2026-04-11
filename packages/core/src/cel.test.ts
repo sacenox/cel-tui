@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { cel } from "./cel.js";
-import { MockTerminal } from "./terminal.js";
+import { HStack, VStack } from "./primitives/stacks.js";
 import { Text } from "./primitives/text.js";
 import { TextInput } from "./primitives/text-input.js";
-import { VStack, HStack } from "./primitives/stacks.js";
+import { MockTerminal } from "./terminal.js";
 import { kittyEncode } from "./test-helpers.js";
 
 // Kitty protocol byte sequences for commonly used keys
@@ -12,6 +12,22 @@ const ENTER = kittyEncode("enter");
 const ESCAPE = kittyEncode("escape");
 const SHIFT_TAB = kittyEncode("shift+tab");
 const CTRL_S = kittyEncode("ctrl+s");
+const LEGACY_CTRL_R = "\x12";
+// biome-ignore lint/complexity/useRegexLiterals: using RegExp here avoids control-character regex diagnostics.
+const TITLE_SEQUENCE_RE = new RegExp(
+  String.raw`\x1b\][02];([^\x07\x1b]*)(?:\x07|\x1b\\)`,
+  "g",
+);
+
+function extractTitlePayloads(output: string): string[] {
+  return Array.from(output.matchAll(TITLE_SEQUENCE_RE), (match) => {
+    const payload = match[1];
+    if (payload === undefined) {
+      throw new Error("Missing terminal title payload");
+    }
+    return payload;
+  });
+}
 
 describe("cel end-to-end", () => {
   let term: MockTerminal;
@@ -29,6 +45,15 @@ describe("cel end-to-end", () => {
   async function waitForRender(): Promise<void> {
     // process.nextTick batching — wait for it to fire
     await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+
+  function currentBuffer() {
+    const buf = cel._getBuffer();
+    expect(buf).not.toBeNull();
+    if (buf === null) {
+      throw new Error("Expected a rendered buffer");
+    }
+    return buf;
   }
 
   test("renders a single Text node", async () => {
@@ -137,6 +162,43 @@ describe("cel end-to-end", () => {
     expect(term.output).toContain("\x1b[?2026l");
   });
 
+  describe("terminal title", () => {
+    test("setTitle writes a terminal title OSC sequence with the requested text", () => {
+      const term = setup();
+
+      cel.setTitle("cel-tui demo");
+
+      expect(extractTitlePayloads(term.output)).toEqual(["cel-tui demo"]);
+    });
+
+    test("setTitle strips control characters from the title text", () => {
+      const term = setup();
+
+      cel.setTitle("ab\x00c\nd\te\x1bf");
+
+      expect(extractTitlePayloads(term.output)).toEqual(["abcdef"]);
+    });
+
+    test("setTitle can be called multiple times and writes each title update", () => {
+      const term = setup();
+
+      cel.setTitle("first");
+      cel.setTitle("second");
+
+      expect(extractTitlePayloads(term.output)).toEqual(["first", "second"]);
+    });
+
+    test("stop does not emit a title restore sequence", () => {
+      const term = setup();
+      cel.setTitle("session");
+      term.clearOutput();
+
+      cel.stop();
+
+      expect(extractTitlePayloads(term.output)).toEqual([]);
+    });
+  });
+
   describe("input handling", () => {
     test("onClick fires on mouse click", async () => {
       const term = setup(20, 5);
@@ -184,6 +246,29 @@ describe("cel end-to-end", () => {
       await waitForRender();
 
       expect(receivedKey).toBe("ctrl+s");
+    });
+
+    test("batched keyboard events are all processed in order", async () => {
+      const term = setup(20, 5);
+      const receivedKeys: string[] = [];
+      cel.viewport(() =>
+        VStack(
+          {
+            width: 20,
+            height: 5,
+            onKeyPress: (key) => {
+              receivedKeys.push(key);
+            },
+          },
+          [Text("hello")],
+        ),
+      );
+      await waitForRender();
+
+      term.sendInput(`${LEGACY_CTRL_R}${CTRL_S}`);
+      await waitForRender();
+
+      expect(receivedKeys).toEqual(["ctrl+r", "ctrl+s"]);
     });
 
     test("onScroll fires on mouse wheel using the adaptive default step", async () => {
@@ -338,14 +423,14 @@ describe("cel end-to-end", () => {
       await waitForRender();
 
       // Before scroll, line 1 should be visible at row 0
-      const buf1 = cel._getBuffer()!;
+      const buf1 = currentBuffer();
       expect(buf1.get(0, 0).char).toBe("l"); // "line 1"
 
       term.sendInput("\x1b[<65;4;3M");
       await waitForRender();
 
       // After scrolling by the adaptive step (4), line 5 should now be at row 0
-      const buf2 = cel._getBuffer()!;
+      const buf2 = currentBuffer();
       let row0 = "";
       for (let x = 0; x < 6; x++) row0 += buf2.get(x, 0).char;
       expect(row0).toBe("line 5");
@@ -373,7 +458,7 @@ describe("cel end-to-end", () => {
       }
 
       // Row 0 should show item 3 (offset=2), row 2 should show item 5
-      const buf = cel._getBuffer()!;
+      const buf = currentBuffer();
       let row0 = "";
       for (let x = 0; x < 6; x++) row0 += buf.get(x, 0).char;
       expect(row0).toBe("item 3");
@@ -689,14 +774,14 @@ describe("cel end-to-end", () => {
             width: 20,
             height: 5,
             onKeyPress: (key) => {
-              received.push("root:" + key);
+              received.push(`root:${key}`);
             },
           },
           [
             VStack(
               {
                 onKeyPress: (key) => {
-                  received.push("mid:" + key);
+                  received.push(`mid:${key}`);
                   // void return = consumed
                 },
               },
@@ -732,14 +817,14 @@ describe("cel end-to-end", () => {
             width: 20,
             height: 5,
             onKeyPress: (key) => {
-              received.push("root:" + key);
+              received.push(`root:${key}`);
             },
           },
           [
             VStack(
               {
                 onKeyPress: (key) => {
-                  received.push("mid:" + key);
+                  received.push(`mid:${key}`);
                   return false; // not consumed — keep bubbling
                 },
               },
@@ -775,14 +860,14 @@ describe("cel end-to-end", () => {
             width: 20,
             height: 5,
             onKeyPress: (key) => {
-              received.push("root:" + key);
+              received.push(`root:${key}`);
             },
           },
           [
             VStack(
               {
                 onKeyPress: (key) => {
-                  received.push("mid:" + key);
+                  received.push(`mid:${key}`);
                   // Consume "a" but pass through everything else
                   if (key === "a") return; // consumed
                   return false; // not consumed
@@ -823,7 +908,7 @@ describe("cel end-to-end", () => {
             width: 20,
             height: 5,
             onKeyPress: (key) => {
-              received.push("root:" + key);
+              received.push(`root:${key}`);
               return false;
             },
           },
@@ -831,7 +916,7 @@ describe("cel end-to-end", () => {
             VStack(
               {
                 onKeyPress: (key) => {
-                  received.push("mid:" + key);
+                  received.push(`mid:${key}`);
                   return false;
                 },
               },
@@ -854,6 +939,87 @@ describe("cel end-to-end", () => {
       await waitForRender();
 
       expect(received).toEqual(["mid:x", "root:x"]);
+    });
+
+    test("ancestor onKeyPress can consume Escape before blur", async () => {
+      const term = setup(20, 5);
+      const received: string[] = [];
+      let btnFocused = true;
+      let blurred = false;
+
+      cel.viewport(() =>
+        VStack(
+          {
+            width: 20,
+            height: 5,
+            onKeyPress: (key) => {
+              received.push(key);
+            },
+          },
+          [
+            HStack(
+              {
+                onClick: () => {},
+                focused: btnFocused,
+                onBlur: () => {
+                  blurred = true;
+                  btnFocused = false;
+                },
+              },
+              [Text("Btn")],
+            ),
+          ],
+        ),
+      );
+      await waitForRender();
+
+      term.sendInput(ESCAPE);
+      await waitForRender();
+
+      expect(received).toEqual(["escape"]);
+      expect(blurred).toBe(false);
+      expect(btnFocused).toBe(true);
+    });
+
+    test("Escape blurs after bubbling when ancestor handlers return false", async () => {
+      const term = setup(20, 5);
+      const received: string[] = [];
+      let btnFocused = true;
+      let blurred = false;
+
+      cel.viewport(() =>
+        VStack(
+          {
+            width: 20,
+            height: 5,
+            onKeyPress: (key) => {
+              received.push(key);
+              return false;
+            },
+          },
+          [
+            HStack(
+              {
+                onClick: () => {},
+                focused: btnFocused,
+                onBlur: () => {
+                  blurred = true;
+                  btnFocused = false;
+                },
+              },
+              [Text("Btn")],
+            ),
+          ],
+        ),
+      );
+      await waitForRender();
+
+      term.sendInput(ESCAPE);
+      await waitForRender();
+
+      expect(received).toEqual(["escape"]);
+      expect(blurred).toBe(true);
+      expect(btnFocused).toBe(false);
     });
 
     test("key reaches root onKeyPress when no intermediate handlers", async () => {
@@ -920,6 +1086,51 @@ describe("cel end-to-end", () => {
       expect(parentKey).toBe("ctrl+s");
     });
 
+    test("TextInput onKeyPress returning false prevents Escape blur", async () => {
+      const term = setup(20, 5);
+      let parentKey = "";
+      let inputKey = "";
+      let inputValue = "hello";
+      let inputFocused = true;
+
+      cel.viewport(() =>
+        VStack(
+          {
+            width: 20,
+            height: 5,
+            onKeyPress: (key) => {
+              parentKey = key;
+            },
+          },
+          [
+            TextInput({
+              value: inputValue,
+              onChange: (v) => {
+                inputValue = v;
+              },
+              focused: inputFocused,
+              onBlur: () => {
+                inputFocused = false;
+              },
+              onKeyPress: (key) => {
+                inputKey = key;
+                if (key === "escape") return false;
+              },
+            }),
+          ],
+        ),
+      );
+      await waitForRender();
+
+      term.sendInput(ESCAPE);
+      await waitForRender();
+
+      expect(inputKey).toBe("escape");
+      expect(parentKey).toBe("");
+      expect(inputFocused).toBe(true);
+      expect(inputValue).toBe("hello");
+    });
+
     test("unfocused state routes key to root handler", async () => {
       const term = setup(20, 5);
       let rootKey = "";
@@ -941,6 +1152,30 @@ describe("cel end-to-end", () => {
       term.sendInput("z");
       await waitForRender();
       expect(rootKey).toBe("z");
+    });
+
+    test("unfocused key does not leak through a topmost layer without a root handler", async () => {
+      const term = setup(20, 5);
+      let baseLayerKey = "";
+
+      cel.viewport(() => [
+        VStack(
+          {
+            width: 20,
+            height: 5,
+            onKeyPress: (key) => {
+              baseLayerKey = key;
+            },
+          },
+          [Text("base")],
+        ),
+        VStack({ width: 20, height: 5 }, [Text("overlay")]),
+      ]);
+      await waitForRender();
+
+      term.sendInput("z");
+      await waitForRender();
+      expect(baseLayerKey).toBe("");
     });
   });
 
@@ -1287,7 +1522,7 @@ describe("cel end-to-end", () => {
       await waitForRender();
 
       // Initially line1 should be visible
-      const buf1 = cel._getBuffer()!;
+      const buf1 = currentBuffer();
       let row0 = "";
       for (let x = 0; x < 5; x++) row0 += buf1.get(x, 0).char;
       expect(row0).toBe("line1");
@@ -1296,7 +1531,7 @@ describe("cel end-to-end", () => {
       term.sendInput("\x1b[<65;6;2M");
       await waitForRender();
 
-      const buf2 = cel._getBuffer()!;
+      const buf2 = currentBuffer();
       let row0After = "";
       for (let x = 0; x < 5; x++) row0After += buf2.get(x, 0).char;
       expect(row0After).toBe("line5");
@@ -1325,7 +1560,7 @@ describe("cel end-to-end", () => {
       await waitForRender();
 
       // line1 should still be at row 0
-      const buf = cel._getBuffer()!;
+      const buf = currentBuffer();
       let row0 = "";
       for (let x = 0; x < 5; x++) row0 += buf.get(x, 0).char;
       expect(row0).toBe("line1");
@@ -1370,7 +1605,7 @@ describe("cel end-to-end", () => {
       expect(outerScrolled).toBe(false);
 
       // Verify TextInput scrolled by the adaptive step (4)
-      const buf = cel._getBuffer()!;
+      const buf = currentBuffer();
       let row0 = "";
       for (let x = 0; x < 5; x++) row0 += buf.get(x, 0).char;
       expect(row0).toBe("line5");
@@ -1765,6 +2000,71 @@ describe("cel end-to-end", () => {
       await waitForRender();
       expect(clicks).toEqual(["btn"]);
     });
+
+    test("controlled TextInput blur from re-render preserves Tab continuity", async () => {
+      const term = setup(40, 5);
+      let value = "";
+      let inputFocused = false;
+      let buttonFocused = false;
+
+      cel.viewport(() =>
+        VStack({ width: 40, height: 5 }, [
+          TextInput({
+            value,
+            onChange: (v) => {
+              value = v;
+              cel.render();
+            },
+            focused: inputFocused,
+            onFocus: () => {
+              inputFocused = true;
+              buttonFocused = false;
+              cel.render();
+            },
+            onBlur: () => {
+              inputFocused = false;
+              cel.render();
+            },
+            onKeyPress: (key) => {
+              if (key === "enter") {
+                inputFocused = false;
+                cel.render();
+                return false;
+              }
+            },
+          }),
+          HStack(
+            {
+              onClick: () => {},
+              focused: buttonFocused,
+              onFocus: () => {
+                buttonFocused = true;
+                inputFocused = false;
+                cel.render();
+              },
+              onBlur: () => {
+                buttonFocused = false;
+                cel.render();
+              },
+            },
+            [Text("Button")],
+          ),
+        ]),
+      );
+      await waitForRender();
+
+      term.sendInput(TAB);
+      await waitForRender();
+      expect(inputFocused).toBe(true);
+
+      term.sendInput(ENTER);
+      await waitForRender();
+      expect(inputFocused).toBe(false);
+
+      term.sendInput(TAB);
+      await waitForRender();
+      expect(buttonFocused).toBe(true);
+    });
   });
 
   describe("focusStyle rendering", () => {
@@ -1786,7 +2086,7 @@ describe("cel end-to-end", () => {
       await waitForRender();
 
       // Before focus — normal bgColor
-      let buf = cel._getBuffer()!;
+      let buf = currentBuffer();
       expect(buf.get(0, 0).bgColor).toBe("color00");
 
       // Tab to focus
@@ -1794,7 +2094,7 @@ describe("cel end-to-end", () => {
       await waitForRender();
 
       // After focus — focusStyle bgColor
-      buf = cel._getBuffer()!;
+      buf = currentBuffer();
       expect(buf.get(0, 0).bgColor).toBe("color06");
     });
 
@@ -1826,14 +2126,14 @@ describe("cel end-to-end", () => {
       // Tab to first
       term.sendInput(TAB);
       await waitForRender();
-      let buf = cel._getBuffer()!;
+      let buf = currentBuffer();
       expect(buf.get(0, 0).bgColor).toBe("color06");
       expect(buf.get(0, 1).bgColor).toBe("color00");
 
       // Tab to second — first loses focusStyle, second gains it
       term.sendInput(TAB);
       await waitForRender();
-      buf = cel._getBuffer()!;
+      buf = currentBuffer();
       expect(buf.get(0, 0).bgColor).toBe("color00");
       expect(buf.get(0, 1).bgColor).toBe("color03");
     });
@@ -1856,7 +2156,7 @@ describe("cel end-to-end", () => {
       await waitForRender();
 
       // Before focus — Text inherits white
-      let buf = cel._getBuffer()!;
+      let buf = currentBuffer();
       expect(buf.get(0, 0).fgColor).toBe("color07");
 
       // Tab to focus
@@ -1864,7 +2164,7 @@ describe("cel end-to-end", () => {
       await waitForRender();
 
       // After focus — Text inherits black from focusStyle
-      buf = cel._getBuffer()!;
+      buf = currentBuffer();
       expect(buf.get(0, 0).fgColor).toBe("color00");
     });
 
@@ -1891,7 +2191,7 @@ describe("cel end-to-end", () => {
       await waitForRender();
 
       // Controlled focused=true — focusStyle applies
-      let buf = cel._getBuffer()!;
+      let buf = currentBuffer();
       expect(buf.get(0, 0).bgColor).toBe("color06");
 
       // Escape to blur
@@ -1899,7 +2199,7 @@ describe("cel end-to-end", () => {
       await waitForRender();
 
       // focused=false — normal style
-      buf = cel._getBuffer()!;
+      buf = currentBuffer();
       expect(buf.get(0, 0).bgColor).toBe("color00");
     });
   });

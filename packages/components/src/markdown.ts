@@ -1,6 +1,6 @@
+import { HStack, Text, VStack } from "@cel-tui/core";
 import type { Color, Node, StyleProps } from "@cel-tui/types";
-import { VStack, HStack, Text } from "@cel-tui/core";
-import { tokenize, type BlockToken, type InlineSpan } from "yoctomarkdown";
+import { type InlineSpan, tokenize } from "yoctomarkdown";
 import { Divider } from "./divider.js";
 
 // Re-export token types so consumers don't need a direct yoctomarkdown dep
@@ -41,7 +41,7 @@ export interface MarkdownTheme {
   italic?: StyleProps;
   /** Style for `inline code` text. */
   inlineCode?: StyleProps;
-  /** Style for [link](url) text. */
+  /** Style for `[link](url)` inline text. */
   link?: StyleProps;
 }
 

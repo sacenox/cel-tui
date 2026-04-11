@@ -9,6 +9,7 @@
  */
 import { cel, VStack, HStack, Text, ProcessTerminal } from "@cel-tui/core";
 import { Divider, Spacer } from "@cel-tui/components";
+import { warningBox } from "./warning-box";
 
 const MIN_COLS = 30;
 const MIN_ROWS = 8;
@@ -64,17 +65,14 @@ cel.viewport(() => {
         },
       },
       [
-        Text("┌─────────────────────────┐", { fgColor: "color03" }),
-        Text("│  Terminal too small :(  │", { fgColor: "color03" }),
-        Text("│                         │", { fgColor: "color03" }),
-        Text("│  Please resize to at    │", { fgColor: "color03" }),
-        Text(
-          `│  least ${String(MIN_COLS).padStart(3)}×${String(MIN_ROWS).padStart(2)} chars.   │`,
-          { fgColor: "color03" },
-        ),
-        Text("│                         │", { fgColor: "color03" }),
-        Text("│  Ctrl+Q to quit         │", { fgColor: "color03" }),
-        Text("└─────────────────────────┘", { fgColor: "color03" }),
+        ...warningBox([
+          "  Terminal too small :(",
+          "",
+          "  Please resize to at",
+          `  least ${String(MIN_COLS).padStart(3)}×${String(MIN_ROWS).padStart(2)} chars.`,
+          "",
+          "  Ctrl+Q to quit",
+        ]),
       ],
     );
   }

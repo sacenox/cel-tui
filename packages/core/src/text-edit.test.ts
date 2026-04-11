@@ -1,10 +1,13 @@
 import { describe, expect, test } from "bun:test";
 import {
-  insertChar,
   deleteBackward,
   deleteForward,
-  moveCursor,
+  deleteWordBackward,
+  deleteWordForward,
   type EditState,
+  insertChar,
+  moveCursor,
+  moveCursorByWord,
 } from "./text-edit.js";
 
 function state(value: string, cursor: number): EditState {
@@ -66,7 +69,7 @@ describe("text editing", () => {
     test("deletes entire emoji (multi-codepoint)", () => {
       // 👨‍👩‍👧 is a ZWJ family emoji (multiple codepoints, one grapheme)
       const emoji = "👨\u200D👩\u200D👧";
-      const val = "a" + emoji + "b";
+      const val = `a${emoji}b`;
       const cursorAfterEmoji = 1 + emoji.length;
       const result = deleteBackward(state(val, cursorAfterEmoji));
       expect(result.value).toBe("ab");
@@ -95,7 +98,7 @@ describe("text editing", () => {
 
     test("deletes entire emoji forward", () => {
       const emoji = "😀";
-      const val = "a" + emoji + "b";
+      const val = `a${emoji}b`;
       const result = deleteForward(state(val, 1));
       expect(result.value).toBe("ab");
       expect(result.cursor).toBe(1);
@@ -103,10 +106,75 @@ describe("text editing", () => {
 
     test("deletes ZWJ sequence forward", () => {
       const emoji = "👨\u200D👩\u200D👧";
-      const val = "x" + emoji + "y";
+      const val = `x${emoji}y`;
       const result = deleteForward(state(val, 1));
       expect(result.value).toBe("xy");
       expect(result.cursor).toBe(1);
+    });
+  });
+
+  describe("deleteWordBackward", () => {
+    test("deletes previous word", () => {
+      const result = deleteWordBackward(state("hello brave world", 17));
+      expect(result.value).toBe("hello brave ");
+      expect(result.cursor).toBe(12);
+    });
+
+    test("deletes previous word and preceding spaces as one chunk", () => {
+      const result = deleteWordBackward(state("hello   world", 8));
+      expect(result.value).toBe("world");
+      expect(result.cursor).toBe(0);
+    });
+
+    test("deletes an emoji word without splitting the grapheme", () => {
+      const result = deleteWordBackward(state("go 😀 now", 5));
+      expect(result.value).toBe("go  now");
+      expect(result.cursor).toBe(3);
+    });
+  });
+
+  describe("deleteWordForward", () => {
+    test("deletes next word without trimming following whitespace", () => {
+      const result = deleteWordForward(state("hello brave world", 6));
+      expect(result.value).toBe("hello  world");
+      expect(result.cursor).toBe(6);
+    });
+
+    test("deletes next word and leading spaces as one chunk", () => {
+      const result = deleteWordForward(state("hello   world", 5));
+      expect(result.value).toBe("hello");
+      expect(result.cursor).toBe(5);
+    });
+
+    test("deletes an emoji word without splitting the grapheme", () => {
+      const result = deleteWordForward(state("😀 test", 0));
+      expect(result.value).toBe(" test");
+      expect(result.cursor).toBe(0);
+    });
+  });
+
+  describe("moveCursorByWord", () => {
+    test("backward moves to the start of the previous word", () => {
+      const result = moveCursorByWord(
+        state("hello brave world", 17),
+        "backward",
+      );
+      expect(result.cursor).toBe(12);
+    });
+
+    test("backward skips trailing whitespace before the previous word", () => {
+      const result = moveCursorByWord(state("hello   ", 8), "backward");
+      expect(result.cursor).toBe(0);
+    });
+
+    test("forward moves to the end of the next word", () => {
+      const result = moveCursorByWord(state("hello brave world", 0), "forward");
+      expect(result.cursor).toBe(5);
+    });
+
+    test("forward skips leading whitespace before the next word", () => {
+      const result = moveCursorByWord(state("   hello", 0), "forward");
+      expect(result.cursor).toBe(8);
     });
   });
 
@@ -133,7 +201,7 @@ describe("text editing", () => {
 
     test("left skips over multi-codepoint emoji", () => {
       const emoji = "\ud83d\ude00"; // 😀 is 2 UTF-16 code units
-      const val = "a" + emoji + "b";
+      const val = `a${emoji}b`;
       const cursorAfterEmoji = 1 + emoji.length;
       const result = moveCursor(state(val, cursorAfterEmoji), "left");
       expect(result.cursor).toBe(1); // before the emoji
@@ -141,14 +209,14 @@ describe("text editing", () => {
 
     test("right skips over multi-codepoint emoji", () => {
       const emoji = "\ud83d\ude00";
-      const val = "a" + emoji + "b";
+      const val = `a${emoji}b`;
       const result = moveCursor(state(val, 1), "right");
       expect(result.cursor).toBe(1 + emoji.length); // after the emoji
     });
 
     test("left skips over ZWJ sequence", () => {
       const emoji = "\ud83d\udc68\u200D\ud83d\udc69\u200D\ud83d\udc67";
-      const val = "x" + emoji;
+      const val = `x${emoji}`;
       const result = moveCursor(state(val, val.length), "left");
       expect(result.cursor).toBe(1); // before the ZWJ sequence
     });
@@ -161,6 +229,21 @@ describe("text editing", () => {
     test("end moves to end", () => {
       const result = moveCursor(state("hello", 2), "end");
       expect(result.cursor).toBe(5);
+    });
+
+    test("up follows visual wrapped lines", () => {
+      const result = moveCursor(state("foo bar baz", 11), "up", 6);
+      expect(result.cursor).toBe(7);
+    });
+
+    test("down follows visual wrapped lines", () => {
+      const result = moveCursor(state("foo bar baz", 0), "down", 6);
+      expect(result.cursor).toBe(4);
+    });
+
+    test("down clamps to the end of a shorter wrapped line", () => {
+      const result = moveCursor(state("foo bar baz", 7), "down", 6);
+      expect(result.cursor).toBe(11);
     });
 
     test("up moves to previous line", () => {

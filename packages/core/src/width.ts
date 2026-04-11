@@ -20,7 +20,11 @@ export function extractAnsiCode(
   // CSI: ESC [ ... <terminal byte>
   if (next === "[") {
     let j = pos + 2;
-    while (j < str.length && !/[A-Za-z]/.test(str[j]!)) j++;
+    while (j < str.length) {
+      const char = str[j];
+      if (char === undefined || /[A-Za-z]/.test(char)) break;
+      j++;
+    }
     if (j < str.length)
       return { code: str.substring(pos, j + 1), length: j + 1 - pos };
     return null;
@@ -64,7 +68,8 @@ const leadingNonPrintingRegex =
 const rgiEmojiRegex = /^\p{RGI_Emoji}$/v;
 
 function couldBeEmoji(segment: string): boolean {
-  const cp = segment.codePointAt(0)!;
+  const cp = segment.codePointAt(0);
+  if (cp === undefined) return false;
   return (
     (cp >= 0x1f000 && cp <= 0x1fbff) ||
     (cp >= 0x2300 && cp <= 0x23ff) ||
@@ -94,8 +99,8 @@ function graphemeWidth(segment: string): number {
 
   if (segment.length > 1) {
     for (const char of segment.slice(1)) {
-      const c = char.codePointAt(0)!;
-      if (c >= 0xff00 && c <= 0xffef) {
+      const c = char.codePointAt(0);
+      if (c !== undefined && c >= 0xff00 && c <= 0xffef) {
         width += eastAsianWidth(c);
       }
     }

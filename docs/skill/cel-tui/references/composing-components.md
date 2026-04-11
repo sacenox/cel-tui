@@ -27,7 +27,7 @@ cel.viewport(() =>
 );
 ```
 
-This is the pattern used by `Button`, `Divider`, and `Spacer`. Prefer it whenever possible — it's simple, testable, and composable.
+This is the pattern used by `Button`, `Divider`, `Spacer`, `VDivider`, `Markdown`, and `SyntaxHighlight` — stateless functions that derive output from current inputs. Prefer it whenever possible — it's simple, testable, and composable.
 
 ## Stateful components (factory pattern)
 

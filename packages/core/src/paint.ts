@@ -1,6 +1,5 @@
 import type { Color, StyleProps, TextInputProps } from "@cel-tui/types";
-import type { Cell } from "./cell-buffer.js";
-import { CellBuffer } from "./cell-buffer.js";
+import type { Cell, CellBuffer } from "./cell-buffer.js";
 import type { LayoutNode, Rect } from "./layout.js";
 import { getMaxScrollOffset } from "./scroll.js";
 import { layoutText } from "./text-layout.js";
@@ -233,23 +232,30 @@ function paintScrollbar(
 ): void {
   const { rect, children } = ln;
   const isVertical = ln.node.type === "vstack";
+  const props =
+    ln.node.type === "vstack" || ln.node.type === "hstack"
+      ? ln.node.props
+      : null;
+  if (!props) return;
 
   if (isVertical) {
-    // Compute total content height from children
+    // Compute total scrollable height from children plus bottom padding.
+    // Child positions already include top padding, so add only the trailing pad.
     let contentHeight = 0;
     for (const child of children) {
       const childBottom = child.rect.y + child.rect.height - rect.y;
       if (childBottom > contentHeight) contentHeight = childBottom;
     }
+    const scrollHeight = contentHeight + (props.padding?.y ?? 0);
     const viewportH = rect.height;
-    if (contentHeight <= viewportH) return; // no scrollbar needed
+    if (scrollHeight <= viewportH) return; // no scrollbar needed
 
     // Thumb size and position
     const thumbSize = Math.max(
       1,
-      Math.round((viewportH / contentHeight) * viewportH),
+      Math.round((viewportH / scrollHeight) * viewportH),
     );
-    const maxOffset = contentHeight - viewportH;
+    const maxOffset = scrollHeight - viewportH;
     const thumbPos =
       maxOffset > 0
         ? Math.round((scrollOffset / maxOffset) * (viewportH - thumbSize))
@@ -277,14 +283,15 @@ function paintScrollbar(
       const childRight = child.rect.x + child.rect.width - rect.x;
       if (childRight > contentWidth) contentWidth = childRight;
     }
+    const scrollWidth = contentWidth + (props.padding?.x ?? 0);
     const viewportW = rect.width;
-    if (contentWidth <= viewportW) return;
+    if (scrollWidth <= viewportW) return;
 
     const thumbSize = Math.max(
       1,
-      Math.round((viewportW / contentWidth) * viewportW),
+      Math.round((viewportW / scrollWidth) * viewportW),
     );
-    const maxOffset = contentWidth - viewportW;
+    const maxOffset = scrollWidth - viewportW;
     const thumbPos =
       maxOffset > 0
         ? Math.round((scrollOffset / maxOffset) * (viewportW - thumbSize))
@@ -414,8 +421,11 @@ function paintText(
 
   // Paint lines, clipped to rect (grapheme-aware)
   for (let row = 0; row < textLayout.lineCount && row < h; row++) {
-    const line = textLayout.lines[row]!.text;
-    paintLineGraphemes(line, x, y + row, w, clipRect, props, buf);
+    const line = textLayout.lines[row];
+    if (!line) {
+      break;
+    }
+    paintLineGraphemes(line.text, x, y + row, w, clipRect, props, buf);
   }
 }
 
@@ -494,8 +504,11 @@ function paintTextInput(
   for (let row = 0; row < ch; row++) {
     const lineIdx = scrollOffset + row;
     if (lineIdx >= textLayout.lineCount) break;
-    const line = textLayout.lines[lineIdx]!.text;
-    paintLineGraphemes(line, cx, cy + row, cw, clipRect, props, buf);
+    const line = textLayout.lines[lineIdx];
+    if (!line) {
+      break;
+    }
+    paintLineGraphemes(line.text, cx, cy + row, cw, clipRect, props, buf);
   }
 
   // Paint cursor if focused — invert colors at cursor position so it's
@@ -535,8 +548,6 @@ function paintTextInput(
 }
 
 // --- Framework-managed state ---
-
-import type { ContainerProps } from "@cel-tui/types";
 
 /**
  * TextInput state is keyed on the `onChange` function reference, which is

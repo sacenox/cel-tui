@@ -1,11 +1,12 @@
+import { cel, HStack, Text, VStack } from "@cel-tui/core";
 import type {
   Color,
   ContainerNode,
+  ContainerProps,
   Node,
   SizeValue,
   StyleProps,
 } from "@cel-tui/types";
-import { cel, VStack, HStack, Text } from "@cel-tui/core";
 
 /**
  * An item in the select list.
@@ -32,6 +33,8 @@ export type SelectItem =
     };
 
 /** Configuration for the {@link Select} component. */
+type SelectKeyPressHandler = NonNullable<ContainerProps["onKeyPress"]>;
+
 export interface SelectProps {
   /** Items to choose from. */
   items: SelectItem[];
@@ -65,9 +68,9 @@ export interface SelectProps {
    * Called on key events that bubble up to the Select.
    * Return `false` to keep bubbling to ancestors.
    *
-   * @param key - The key string.
+   * @param key - The normalized semantic key string.
    */
-  onKeyPress?: (key: string) => boolean | void;
+  onKeyPress?: SelectKeyPressHandler;
   /** Fixed width in cells or percentage. */
   width?: SizeValue;
   /** Fixed height in cells or percentage. */
@@ -245,7 +248,7 @@ export function Select(props: SelectProps): SelectInstance {
   // delegate to the user's handler for component-level interception.
   // If the user's handler also returns false, the framework continues
   // bubbling to ancestors automatically.
-  function composedKeyPress(key: string): boolean | void {
+  function composedKeyPress(key: string): ReturnType<SelectKeyPressHandler> {
     const result = handleKey(key);
     if (result === false && userKeyPress) {
       return userKeyPress(key);
@@ -261,7 +264,7 @@ export function Select(props: SelectProps): SelectInstance {
     return prefixFilter(normalizeItems(rawItems), query);
   }
 
-  function handleKey(key: string): boolean | void {
+  function handleKey(key: string): ReturnType<SelectKeyPressHandler> {
     switch (key) {
       case "enter": {
         const filtered = getFiltered();
@@ -345,7 +348,10 @@ export function Select(props: SelectProps): SelectInstance {
       children.push(HStack({}, [Text("  no matches", { fgColor: "color08" })]));
     } else {
       for (let i = 0; i < visible.length; i++) {
-        const item = visible[i]!;
+        const item = visible[i];
+        if (item === undefined) {
+          continue;
+        }
         const globalIndex = scrollOffset + i;
         const isHighlighted = globalIndex === highlightIndex;
 

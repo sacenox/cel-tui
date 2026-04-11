@@ -94,7 +94,12 @@ export class CellBuffer {
     if (x < 0 || x >= this._width || y < 0 || y >= this._height) {
       return EMPTY_CELL;
     }
-    return this.cells[y * this._width + x]!;
+
+    const cell = this.cells[y * this._width + x];
+    if (cell === undefined) {
+      throw new Error(`Missing cell at (${x}, ${y})`);
+    }
+    return cell;
   }
 
   /**
@@ -159,7 +164,7 @@ export class CellBuffer {
     const copyH = Math.min(this._height, height);
     for (let y = 0; y < copyH; y++) {
       for (let x = 0; x < copyW; x++) {
-        newCells[y * width + x] = this.cells[y * this._width + x]!;
+        newCells[y * width + x] = this.get(x, y);
       }
     }
     this.cells = newCells;

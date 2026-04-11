@@ -1,13 +1,22 @@
-import { describe, it, expect } from "bun:test";
+import { describe, expect, it } from "bun:test";
+import type { NormalizedItem } from "./select.js";
 import {
+  adjustScroll,
+  moveDown,
+  moveUp,
   normalizeItems,
   prefixFilter,
-  moveUp,
-  moveDown,
-  adjustScroll,
   Select,
 } from "./select.js";
-import type { NormalizedItem } from "./select.js";
+
+function item<T>(items: readonly T[], index: number): T {
+  const value = items[index];
+  expect(value).toBeDefined();
+  if (value === undefined) {
+    throw new Error(`Missing item at index ${index}`);
+  }
+  return value;
+}
 
 describe("normalizeItems", () => {
   it("normalizes string items", () => {
@@ -152,7 +161,7 @@ describe("Select", () => {
     // Search line + 5 visible items + overflow indicator = 7
     expect(node.children.length).toBe(7);
     // Last child should contain overflow text
-    const lastChild = node.children[6]!;
+    const lastChild = item(node.children, 6);
     expect(lastChild.type).toBe("hstack");
     if (lastChild.type === "hstack") {
       const text = lastChild.children[0];

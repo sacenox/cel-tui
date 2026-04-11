@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { parseKey, normalizeKey, isEditingKey } from "./keys.js";
+import { isEditingKey, normalizeKey, parseKey } from "./keys.js";
 import { kittyEncode } from "./test-helpers.js";
 
 // ── kittyEncode helper sanity checks ────────────────────────────────────────
@@ -114,6 +114,21 @@ describe("parseKey", () => {
 
     test("backspace", () => {
       expect(parseKey("\x7f")).toBe("backspace");
+    });
+  });
+
+  describe("legacy compatibility encodings", () => {
+    test("recoverable ASCII control bytes normalize to ctrl+letter", () => {
+      expect(parseKey("\x01")).toBe("ctrl+a");
+      expect(parseKey("\x08")).toBe("ctrl+h");
+      expect(parseKey("\x12")).toBe("ctrl+r");
+      expect(parseKey("\x1a")).toBe("ctrl+z");
+    });
+
+    test("ESC-prefixed Alt combinations normalize to alt+<key>", () => {
+      expect(parseKey("\x1bx")).toBe("alt+x");
+      expect(parseKey("\x1bX")).toBe("alt+x");
+      expect(parseKey("\x1b+")).toBe("alt+plus");
     });
   });
 
@@ -290,9 +305,22 @@ describe("isEditingKey", () => {
     expect(isEditingKey("shift+enter")).toBe(true);
   });
 
-  test("modifier combos are NOT editing keys", () => {
+  test("TextInput modifier editing shortcuts are editing keys", () => {
+    expect(isEditingKey("ctrl+a")).toBe(true);
+    expect(isEditingKey("ctrl+e")).toBe(true);
+    expect(isEditingKey("alt+b")).toBe(true);
+    expect(isEditingKey("alt+f")).toBe(true);
+    expect(isEditingKey("ctrl+left")).toBe(true);
+    expect(isEditingKey("ctrl+right")).toBe(true);
+    expect(isEditingKey("ctrl+w")).toBe(true);
+    expect(isEditingKey("alt+d")).toBe(true);
+  });
+
+  test("other modifier combos are NOT editing keys", () => {
     expect(isEditingKey("ctrl+s")).toBe(false);
+    expect(isEditingKey("ctrl+r")).toBe(false);
     expect(isEditingKey("alt+x")).toBe(false);
+    expect(isEditingKey("alt+plus")).toBe(false);
     expect(isEditingKey("ctrl+shift+n")).toBe(false);
     expect(isEditingKey("shift+tab")).toBe(false);
   });

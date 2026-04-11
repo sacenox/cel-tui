@@ -1,32 +1,40 @@
-import type { Node, Theme } from "@cel-tui/types";
+import type {
+  Node,
+  TextInputNode,
+  TextInputProps,
+  Theme,
+} from "@cel-tui/types";
 import { CellBuffer } from "./cell-buffer.js";
-import { emitBuffer, emitDiff, defaultTheme } from "./emitter.js";
+import { defaultTheme, emitBuffer, emitDiff } from "./emitter.js";
 import {
-  hitTest,
+  collectFocusable,
+  collectKeyPressHandlers,
   findClickHandler,
   findScrollTarget,
-  collectKeyPressHandlers,
-  collectFocusable,
+  hitTest,
 } from "./hit-test.js";
-import { parseKey, isEditingKey } from "./keys.js";
-import { layout, type LayoutNode } from "./layout.js";
+import { decodeKeyEvents, isEditingKey, type KeyInput } from "./keys.js";
+import { type LayoutNode, layout } from "./layout.js";
 import {
-  paint,
   getTextInputCursor,
-  setTextInputCursor,
-  getTextInputScroll,
-  setTextInputScroll,
   getTextInputCursorScreenPos,
+  getTextInputScroll,
+  paint,
+  setTextInputCursor,
+  setTextInputScroll,
 } from "./paint.js";
+import { getMaxScrollOffset, getScrollStep } from "./scroll.js";
+import type { Terminal } from "./terminal.js";
 import {
-  insertChar,
   deleteBackward,
   deleteForward,
-  moveCursor,
+  deleteWordBackward,
+  deleteWordForward,
   type EditState,
+  insertChar,
+  moveCursor,
+  moveCursorByWord,
 } from "./text-edit.js";
-import type { Terminal } from "./terminal.js";
-import { getMaxScrollOffset, getScrollStep } from "./scroll.js";
 
 type RenderFn = () => Node | Node[];
 
@@ -71,6 +79,18 @@ let stampedScrollNodes: { node: Node; key: string }[] = [];
 /** The cursor state currently expected on the terminal. */
 let lastTerminalCursor: TerminalCursorState | null = { visible: false };
 
+function requiredAt<T>(
+  items: readonly T[],
+  index: number,
+  description: string,
+): T {
+  const item = items[index];
+  if (item === undefined) {
+    throw new Error(`Missing ${description} at index ${index}`);
+  }
+  return item;
+}
+
 function doRender(): void {
   renderScheduled = false;
   if (!renderFn || !terminal) return;
@@ -102,6 +122,8 @@ function doRender(): void {
     const layoutTree = layout(layer, width, height);
     currentLayouts.push(layoutTree);
   }
+
+  syncLastFocusedIndex();
 
   // Stamp uncontrolled focus and scroll before painting
   stampUncontrolledFocus();
@@ -158,7 +180,9 @@ function getDesiredTerminalCursor(): TerminalCursorState {
 function findFocusedTextInputLayout(): LayoutNode | null {
   // Check controlled focus: scan all layers for TextInput with focused: true
   for (let i = currentLayouts.length - 1; i >= 0; i--) {
-    const found = findFocusedTIInTree(currentLayouts[i]!);
+    const found = findFocusedTIInTree(
+      requiredAt(currentLayouts, i, "layout root"),
+    );
     if (found) return found;
   }
   // Check uncontrolled focus
@@ -167,7 +191,11 @@ function findFocusedTextInputLayout(): LayoutNode | null {
     if (topLayer) {
       const focusables = collectFocusable(topLayer);
       if (frameworkFocusIndex < focusables.length) {
-        const target = focusables[frameworkFocusIndex]!;
+        const target = requiredAt(
+          focusables,
+          frameworkFocusIndex,
+          "focusable node",
+        );
         if (target.node.type === "textinput") return target;
       }
     }
@@ -184,10 +212,53 @@ function findFocusedTIInTree(ln: LayoutNode): LayoutNode | null {
   return null;
 }
 
+function syncLastFocusedIndex(): void {
+  const topLayer = currentLayouts[currentLayouts.length - 1];
+  if (!topLayer) return;
+
+  const focusables = collectFocusable(topLayer);
+  if (focusables.length === 0) return;
+
+  const controlled = findFocusedInTree(topLayer);
+  if (controlled) {
+    let idx = focusables.indexOf(controlled);
+    if (idx === -1) {
+      idx = focusables.findIndex(
+        (focusable) => focusable.node === controlled.node,
+      );
+    }
+    if (idx !== -1) {
+      lastFocusedIndex = idx;
+    }
+    return;
+  }
+
+  if (frameworkFocusIndex >= 0 && frameworkFocusIndex < focusables.length) {
+    lastFocusedIndex = frameworkFocusIndex;
+  }
+}
+
 // --- Input handling ---
 
-// Regex for a single SGR mouse event (non-anchored, for scanning batched input)
-const SGR_MOUSE_RE = /\x1b\[<(\d+);(\d+);(\d+)([Mm])/g;
+const BRACKETED_PASTE_START = "\x1b[200~";
+const BRACKETED_PASTE_END = "\x1b[201~";
+
+// Regex for a single SGR mouse event, anchored to the current parse position.
+// biome-ignore lint/complexity/useRegexLiterals: using RegExp here avoids control-character regex diagnostics.
+const SGR_MOUSE_RE = new RegExp(String.raw`^\x1b\[<(\d+);(\d+);(\d+)([Mm])`);
+// biome-ignore lint/complexity/useRegexLiterals: using RegExp here avoids control-character regex diagnostics.
+const TERMINAL_TITLE_CONTROL_CHARS_RE = new RegExp(
+  String.raw`[\x00-\x1f\x7f-\x9f]`,
+  "g",
+);
+
+// Trailing keyboard data that ended with an incomplete CSI sequence.
+let pendingKeyData = "";
+
+// Bracketed paste state across stdin chunks.
+let inBracketedPaste = false;
+let bracketedPasteData = "";
+let bracketedPasteSuffix = "";
 
 // Tracks accumulated scroll offsets during a batch of mouse events.
 // Controlled scroll reads scrollOffset from props, which doesn't update until
@@ -195,25 +266,142 @@ const SGR_MOUSE_RE = /\x1b\[<(\d+);(\d+);(\d+)([Mm])/g;
 // need to remember the offset we already dispatched via onScroll.
 let batchScrollOffsets: Map<object, number> | null = null;
 
+// Tracks the focused TextInput's latest edit state during a batched keyboard
+// chunk. The layout tree does not re-render until the next tick, so subsequent
+// keys in the same chunk must see the updated value/cursor immediately.
+let batchTextInputEdits: Map<TextInputProps, EditState> | null = null;
+
+function sanitizeTerminalTitle(title: string): string {
+  return title.replace(TERMINAL_TITLE_CONTROL_CHARS_RE, "");
+}
+
 function handleInput(data: string): void {
-  // Terminals may batch multiple mouse events into one data chunk.
-  // Scan for all SGR mouse sequences and handle each one.
-  SGR_MOUSE_RE.lastIndex = 0;
-  let match = SGR_MOUSE_RE.exec(data);
-  if (match) {
-    batchScrollOffsets = new Map();
-    while (match) {
-      const mouse = parseSgrMatch(match);
-      if (mouse) handleMouseEvent(mouse);
-      match = SGR_MOUSE_RE.exec(data);
+  batchTextInputEdits = new Map();
+
+  try {
+    let remaining = data;
+
+    if (inBracketedPaste) {
+      remaining = consumeBracketedPasteData(remaining);
+      if (remaining.length === 0) return;
     }
+
+    let chunk = pendingKeyData + remaining;
+    pendingKeyData = "";
+
+    let keyChunkStart = 0;
+    let index = 0;
+
+    while (index < chunk.length) {
+      if (chunk.startsWith(BRACKETED_PASTE_START, index)) {
+        handleKeyChunk(chunk.slice(keyChunkStart, index));
+
+        index += BRACKETED_PASTE_START.length;
+        keyChunkStart = index;
+        inBracketedPaste = true;
+
+        const afterPaste = consumeBracketedPasteData(chunk.slice(index));
+        if (afterPaste.length === 0) return;
+
+        chunk = afterPaste;
+        index = 0;
+        keyChunkStart = 0;
+        continue;
+      }
+
+      const mouse = readSgrMouseEvent(chunk, index);
+      if (mouse) {
+        handleKeyChunk(chunk.slice(keyChunkStart, index));
+
+        if (batchScrollOffsets === null) {
+          batchScrollOffsets = new Map();
+        }
+        if (mouse.event) handleMouseEvent(mouse.event);
+
+        index = mouse.nextIndex;
+        keyChunkStart = index;
+        continue;
+      }
+
+      index++;
+    }
+
+    const { complete, pending } = splitIncompleteCsiSuffix(
+      chunk.slice(keyChunkStart),
+    );
+    handleKeyChunk(complete);
+    pendingKeyData = pending;
+  } finally {
     batchScrollOffsets = null;
-    return;
+    batchTextInputEdits = null;
+  }
+}
+
+function handleKeyChunk(data: string): void {
+  if (data.length === 0) return;
+  for (const key of decodeKeyEvents(data)) {
+    handleKeyEvent(key);
+  }
+}
+
+function consumeBracketedPasteData(data: string): string {
+  const chunk = bracketedPasteSuffix + data;
+  bracketedPasteSuffix = "";
+
+  const endIndex = chunk.indexOf(BRACKETED_PASTE_END);
+  if (endIndex === -1) {
+    const { complete, pending } = splitTrailingMarkerPrefix(
+      chunk,
+      BRACKETED_PASTE_END,
+    );
+    bracketedPasteData += complete;
+    bracketedPasteSuffix = pending;
+    return "";
   }
 
-  // Keyboard input
-  const key = parseKey(data);
-  handleKeyEvent(key, data);
+  bracketedPasteData += chunk.slice(0, endIndex);
+  const pastedText = bracketedPasteData;
+
+  inBracketedPaste = false;
+  bracketedPasteData = "";
+  bracketedPasteSuffix = "";
+  handleBracketedPaste(pastedText);
+
+  return chunk.slice(endIndex + BRACKETED_PASTE_END.length);
+}
+
+function splitTrailingMarkerPrefix(
+  data: string,
+  marker: string,
+): { complete: string; pending: string } {
+  const maxPrefixLength = Math.min(data.length, marker.length - 1);
+  for (let length = maxPrefixLength; length > 0; length--) {
+    if (data.endsWith(marker.slice(0, length))) {
+      return {
+        complete: data.slice(0, data.length - length),
+        pending: data.slice(data.length - length),
+      };
+    }
+  }
+  return { complete: data, pending: "" };
+}
+
+function splitIncompleteCsiSuffix(data: string): {
+  complete: string;
+  pending: string;
+} {
+  const csiStart = data.lastIndexOf("\x1b[");
+  if (csiStart === -1) return { complete: data, pending: "" };
+
+  const suffix = data.slice(csiStart);
+  for (let i = 2; i < suffix.length; i++) {
+    const code = suffix.charCodeAt(i);
+    if (code >= 0x40 && code <= 0x7e) {
+      return { complete: data, pending: "" };
+    }
+  }
+
+  return { complete: data.slice(0, csiStart), pending: suffix };
 }
 
 interface MouseEvent {
@@ -222,14 +410,33 @@ interface MouseEvent {
   y: number;
 }
 
+function readSgrMouseEvent(
+  data: string,
+  index: number,
+): { event: MouseEvent | null; nextIndex: number } | null {
+  const match = SGR_MOUSE_RE.exec(data.slice(index));
+  if (!match) return null;
+  return {
+    event: parseSgrMatch(match),
+    nextIndex: index + match[0].length,
+  };
+}
+
 /**
  * Parse a single SGR mouse event from a RegExp match.
  * Returns a MouseEvent for scroll and click events, null for unhandled buttons.
  */
 function parseSgrMatch(match: RegExpExecArray): MouseEvent | null {
-  const cb = parseInt(match[1]!, 10);
-  const x = parseInt(match[2]!, 10) - 1; // 1-indexed → 0-indexed
-  const y = parseInt(match[3]!, 10) - 1;
+  const cbMatch = match[1];
+  const xMatch = match[2];
+  const yMatch = match[3];
+  if (cbMatch === undefined || xMatch === undefined || yMatch === undefined) {
+    throw new Error("Incomplete SGR mouse match");
+  }
+
+  const cb = parseInt(cbMatch, 10);
+  const x = parseInt(xMatch, 10) - 1; // 1-indexed → 0-indexed
+  const y = parseInt(yMatch, 10) - 1;
   const isRelease = match[4] === "m";
 
   // Scroll up (cb=64) / scroll down (cb=65)
@@ -261,7 +468,9 @@ function isControlledFocus(ln: LayoutNode): boolean {
 function findFocusedElement(): LayoutNode | null {
   // Controlled: scan tree for focused: true
   for (let i = currentLayouts.length - 1; i >= 0; i--) {
-    const found = findFocusedInTree(currentLayouts[i]!);
+    const found = findFocusedInTree(
+      requiredAt(currentLayouts, i, "layout root"),
+    );
     if (found) return found;
   }
   // Uncontrolled: check framework-tracked index
@@ -270,7 +479,7 @@ function findFocusedElement(): LayoutNode | null {
     if (topLayer) {
       const focusables = collectFocusable(topLayer);
       if (frameworkFocusIndex < focusables.length) {
-        return focusables[frameworkFocusIndex]!;
+        return requiredAt(focusables, frameworkFocusIndex, "focusable node");
       }
     }
     // Index out of bounds (tree changed) — clear
@@ -291,7 +500,7 @@ function stampUncontrolledFocus(): void {
 
   // Don't stamp if a controlled element owns focus
   for (let i = currentLayouts.length - 1; i >= 0; i--) {
-    if (findFocusedInTree(currentLayouts[i]!)) {
+    if (findFocusedInTree(requiredAt(currentLayouts, i, "layout root"))) {
       frameworkFocusIndex = -1;
       return;
     }
@@ -304,14 +513,14 @@ function stampUncontrolledFocus(): void {
     frameworkFocusIndex = -1;
     return;
   }
-  const target = focusables[frameworkFocusIndex]!;
+  const target = requiredAt(focusables, frameworkFocusIndex, "focusable node");
   const node = target.node;
   if (
     node.type === "textinput" ||
     node.type === "vstack" ||
     node.type === "hstack"
   ) {
-    (node.props as any).focused = true;
+    node.props.focused = true;
     stampedNode = target;
   }
 }
@@ -329,7 +538,7 @@ function unstampUncontrolledFocus(): void {
     node.type === "vstack" ||
     node.type === "hstack"
   ) {
-    delete (node.props as any).focused;
+    delete node.props.focused;
   }
   stampedNode = null;
 }
@@ -341,7 +550,10 @@ function unstampUncontrolledFocus(): void {
 function computeTreePath(root: LayoutNode, target: LayoutNode): string | null {
   if (root === target) return "";
   for (let i = 0; i < root.children.length; i++) {
-    const sub = computeTreePath(root.children[i]!, target);
+    const sub = computeTreePath(
+      requiredAt(root.children, i, "layout child"),
+      target,
+    );
     if (sub !== null) return sub === "" ? String(i) : `${i}/${sub}`;
   }
   return null;
@@ -352,7 +564,10 @@ function computeTreePath(root: LayoutNode, target: LayoutNode): string | null {
  */
 function getScrollPathKey(target: LayoutNode): string | null {
   for (let i = 0; i < currentLayouts.length; i++) {
-    const path = computeTreePath(currentLayouts[i]!, target);
+    const path = computeTreePath(
+      requiredAt(currentLayouts, i, "layout root"),
+      target,
+    );
     if (path !== null) return `L${i}:${path}`;
   }
   return null;
@@ -366,7 +581,7 @@ function stampUncontrolledScroll(): void {
   stampedScrollNodes = [];
   if (uncontrolledScrollOffsets.size === 0) return;
   for (let i = 0; i < currentLayouts.length; i++) {
-    walkAndStampScroll(currentLayouts[i]!, `L${i}:`);
+    walkAndStampScroll(requiredAt(currentLayouts, i, "layout root"), `L${i}:`);
   }
 }
 
@@ -380,7 +595,7 @@ function walkAndStampScroll(ln: LayoutNode, pathKey: string): void {
     ) {
       const offset = uncontrolledScrollOffsets.get(pathKey);
       if (offset !== undefined && offset !== 0) {
-        (node.props as any).scrollOffset = offset;
+        node.props.scrollOffset = offset;
         stampedScrollNodes.push({ node, key: pathKey });
       }
     }
@@ -390,14 +605,14 @@ function walkAndStampScroll(ln: LayoutNode, pathKey: string): void {
     const childKey = pathKey.endsWith(":")
       ? `${pathKey}${i}`
       : `${pathKey}/${i}`;
-    walkAndStampScroll(ln.children[i]!, childKey);
+    walkAndStampScroll(requiredAt(ln.children, i, "layout child"), childKey);
   }
 }
 
 function unstampUncontrolledScroll(): void {
   for (const { node } of stampedScrollNodes) {
     if (node.type === "vstack" || node.type === "hstack") {
-      delete (node.props as any).scrollOffset;
+      delete node.props.scrollOffset;
     }
   }
   stampedScrollNodes = [];
@@ -467,8 +682,7 @@ function resolveScrollOffset(ln: import("./layout.js").LayoutNode): number {
   const node = ln.node;
   if (node.type === "text") return 0;
   const props = node.props;
-  if ((props as any).scrollOffset !== undefined)
-    return (props as any).scrollOffset;
+  if (props.scrollOffset !== undefined) return props.scrollOffset;
   // Check uncontrolled map
   const pathKey = getScrollPathKey(ln);
   if (pathKey !== null) {
@@ -480,7 +694,7 @@ function resolveScrollOffset(ln: import("./layout.js").LayoutNode): number {
 function handleMouseEvent(event: MouseEvent): void {
   // Hit test on topmost layer first
   for (let i = currentLayouts.length - 1; i >= 0; i--) {
-    const layoutRoot = currentLayouts[i]!;
+    const layoutRoot = requiredAt(currentLayouts, i, "layout root");
     const path = hitTest(layoutRoot, event.x, event.y, resolveScrollOffset);
     if (path.length === 0) continue;
 
@@ -513,9 +727,12 @@ function handleMouseEvent(event: MouseEvent): void {
           const clamped = Math.max(0, Math.min(maxOffset, current + delta));
           setTextInputScroll(tiProps, clamped);
           cel.render();
-        } else {
-          const props = target.node.type !== "text" ? target.node.props : null;
-          if (props && (props as any).overflow === "scroll") {
+        } else if (
+          target.node.type === "vstack" ||
+          target.node.type === "hstack"
+        ) {
+          const props = target.node.props;
+          if (props.overflow === "scroll") {
             if (props.onScroll) {
               // Controlled scroll: notify app.
               // Use batch accumulator if available (multiple events in one chunk),
@@ -524,9 +741,7 @@ function handleMouseEvent(event: MouseEvent): void {
               // applying the delta — otherwise Infinity + (-1) = Infinity
               // and scrolling up never unsticks.
               const rawBase =
-                batchScrollOffsets?.get(props) ??
-                (props as any).scrollOffset ??
-                0;
+                batchScrollOffsets?.get(props) ?? props.scrollOffset ?? 0;
               const baseOffset = Math.min(rawBase, maxOffset);
               const newOffset = Math.max(
                 0,
@@ -560,19 +775,65 @@ function handleMouseEvent(event: MouseEvent): void {
  */
 function findClickFocusTarget(path: LayoutNode[]): LayoutNode | null {
   for (let i = path.length - 1; i >= 0; i--) {
-    const node = path[i]!.node;
-    if (node.type === "textinput") return path[i]!;
+    const layoutNode = requiredAt(path, i, "hit path node");
+    const node = layoutNode.node;
+    if (node.type === "textinput") return layoutNode;
     if (node.type === "vstack" || node.type === "hstack") {
       const isFocusable =
         node.props.focusable === true ||
         (node.props.onClick != null && node.props.focusable !== false);
-      if (isFocusable) return path[i]!;
+      if (isFocusable) return layoutNode;
     }
   }
   return null;
 }
 
-function handleKeyEvent(key: string, rawData?: string): void {
+function getTextInputEditState(props: TextInputProps): EditState {
+  const batched = batchTextInputEdits?.get(props);
+  if (batched) return batched;
+  return {
+    value: props.value,
+    cursor: getTextInputCursor(props),
+  };
+}
+
+function commitTextInputEdit(
+  props: TextInputProps,
+  previousState: EditState,
+  nextState: EditState,
+): void {
+  batchTextInputEdits?.set(props, nextState);
+  setTextInputCursor(props, nextState.cursor);
+  if (nextState.value !== previousState.value) {
+    props.onChange(nextState.value);
+  }
+  cel.render();
+}
+
+function handleBracketedPaste(text: string): void {
+  if (text.length === 0) return;
+
+  const focusedInput = findFocusedTextInput();
+  if (!focusedInput) return;
+
+  const props = focusedInput.node.props as TextInputProps;
+  const editState = getTextInputEditState(props);
+  const nextState = insertChar(editState, text);
+  commitTextInputEdit(props, editState, nextState);
+}
+
+function blurFocusedElement(): boolean {
+  const current = findFocusedElement();
+  if (!current) return false;
+
+  changeFocus(null);
+  cel.render();
+  return true;
+}
+
+function handleKeyEvent(event: KeyInput): void {
+  const { key, text } = event;
+
   // --- Focus traversal keys ---
 
   // Tab / Shift+Tab: cycle through focusable elements
@@ -616,20 +877,10 @@ function handleKeyEvent(key: string, rawData?: string): void {
             : (currentIdx - 1 + focusables.length) % focusables.length;
       }
 
-      changeFocus(focusables[nextIdx]!);
+      changeFocus(requiredAt(focusables, nextIdx, "focusable node"));
       cel.render();
       return;
     } // end: not a focused TextInput
-  }
-
-  // Escape: unfocus current element
-  if (key === "escape") {
-    const current = findFocusedElement();
-    if (current) {
-      changeFocus(null);
-      cel.render();
-      return;
-    }
   }
 
   // Enter: activate focused clickable container
@@ -646,12 +897,10 @@ function handleKeyEvent(key: string, rawData?: string): void {
   }
 
   // --- TextInput key routing ---
-  // Find the focused TextInput (if any) to route editing keys
   const focusedInput = findFocusedTextInput();
 
   if (focusedInput) {
-    const props = focusedInput.node
-      .props as import("@cel-tui/types").TextInputProps;
+    const props = focusedInput.node.props as TextInputProps;
 
     // onKeyPress fires before editing — return false prevents the default action
     if (props.onKeyPress) {
@@ -662,12 +911,12 @@ function handleKeyEvent(key: string, rawData?: string): void {
       }
     }
 
-    // Editing keys are consumed by TextInput
-    if (isEditingKey(key)) {
-      const cursor = getTextInputCursor(props);
-      const editState: EditState = { value: props.value, cursor };
-      let newState: EditState | null = null;
+    let newState: EditState | null = null;
+    const editState = getTextInputEditState(props);
 
+    if (text !== undefined) {
+      newState = insertChar(editState, text);
+    } else if (isEditingKey(key)) {
       switch (key) {
         case "backspace":
           newState = deleteBackward(editState);
@@ -675,26 +924,43 @@ function handleKeyEvent(key: string, rawData?: string): void {
         case "delete":
           newState = deleteForward(editState);
           break;
+        case "ctrl+w":
+          newState = deleteWordBackward(editState);
+          break;
+        case "alt+d":
+          newState = deleteWordForward(editState);
+          break;
         case "left":
         case "right":
         case "up":
         case "down":
         case "home":
         case "end":
+        case "ctrl+a":
+        case "ctrl+e":
           {
             const tiPadX =
-              (focusedInput.node as import("@cel-tui/types").TextInputNode)
-                .props.padding?.x ?? 0;
+              (focusedInput.node as TextInputNode).props.padding?.x ?? 0;
             const contentWidth = Math.max(
               0,
               focusedInput.rect.width - tiPadX * 2,
             );
+            const direction =
+              key === "ctrl+a" ? "home" : key === "ctrl+e" ? "end" : key;
             newState = moveCursor(
               editState,
-              key as "left" | "right" | "up" | "down" | "home" | "end",
+              direction as "left" | "right" | "up" | "down" | "home" | "end",
               contentWidth,
             );
           }
+          break;
+        case "alt+b":
+        case "ctrl+left":
+          newState = moveCursorByWord(editState, "backward");
+          break;
+        case "alt+f":
+        case "ctrl+right":
+          newState = moveCursorByWord(editState, "forward");
           break;
         case "enter":
         case "shift+enter":
@@ -709,24 +975,12 @@ function handleKeyEvent(key: string, rawData?: string): void {
         case "plus":
           newState = insertChar(editState, "+");
           break;
-        default:
-          // Single printable character — use raw data to preserve case
-          if (key.length === 1 && rawData && rawData.length === 1) {
-            newState = insertChar(editState, rawData);
-          } else if (key.length === 1) {
-            newState = insertChar(editState, key);
-          }
-          break;
       }
+    }
 
-      if (newState && newState !== editState) {
-        setTextInputCursor(props, newState.cursor);
-        if (newState.value !== editState.value) {
-          props.onChange(newState.value);
-        }
-        cel.render();
-        return;
-      }
+    if (newState && newState !== editState) {
+      commitTextInputEdit(props, editState, newState);
+      return;
     }
   }
 
@@ -734,7 +988,10 @@ function handleKeyEvent(key: string, rawData?: string): void {
   const focused = findFocusedElement();
   if (focused) {
     for (let i = currentLayouts.length - 1; i >= 0; i--) {
-      const path = findPathTo(currentLayouts[i]!, focused);
+      const path = findPathTo(
+        requiredAt(currentLayouts, i, "layout root"),
+        focused,
+      );
       if (path) {
         let handlers = collectKeyPressHandlers(path);
         // If a TextInput's onKeyPress was already called in the pre-editing
@@ -742,7 +999,7 @@ function handleKeyEvent(key: string, rawData?: string): void {
         if (
           focusedInput &&
           handlers.length > 0 &&
-          handlers[0]!.layoutNode === focusedInput
+          requiredAt(handlers, 0, "key handler").layoutNode === focusedInput
         ) {
           handlers = handlers.slice(1);
         }
@@ -758,28 +1015,45 @@ function handleKeyEvent(key: string, rawData?: string): void {
           }
           // Always return — the key was offered to every handler in the
           // focused element's path (including root). Even if all returned
-          // false, we don't retry via the unfocused fallback path.
-          if (consumed) cel.render();
+          // false, we don't retry via the top-layer fallback path.
+          if (consumed) {
+            cel.render();
+            return;
+          }
+          if (key === "escape" && blurFocusedElement()) return;
           return;
         }
       }
     }
   }
 
-  // No focused element — try root onKeyPress on topmost layer
-  for (let i = currentLayouts.length - 1; i >= 0; i--) {
-    const layoutRoot = currentLayouts[i]!;
-    const path = [layoutRoot];
-    const handlers = collectKeyPressHandlers(path);
-    if (handlers.length > 0) {
-      for (const h of handlers) {
-        const result = h.handler(key);
-        if (result !== false) break;
+  // Fallback: offer the key to the topmost layer's root when it was not
+  // already handled on the focused path.
+  const topLayer = currentLayouts[currentLayouts.length - 1];
+  if (!topLayer) {
+    if (key === "escape") blurFocusedElement();
+    return;
+  }
+
+  const handlers = collectKeyPressHandlers([topLayer]);
+  if (handlers.length > 0) {
+    let consumed = false;
+    for (const h of handlers) {
+      const result = h.handler(key);
+      if (result !== false) {
+        consumed = true;
+        break;
       }
+    }
+    if (consumed) {
       cel.render();
       return;
     }
   }
+
+  if (key === "escape" && blurFocusedElement()) return;
+  if (handlers.length === 0) return;
+  cel.render();
 }
 
 /**
@@ -844,8 +1118,8 @@ export const cel = {
    * Initialize the framework with a terminal implementation.
    * Must be called before {@link cel.viewport}.
    *
-   * Enables the Kitty keyboard protocol (level 1) via the terminal,
-   * enters raw mode, and starts mouse tracking.
+   * Enables the Kitty keyboard protocol (level 1) and bracketed paste mode via
+   * the terminal, enters raw mode, and starts mouse tracking.
    *
    * @param term - Terminal to render to (ProcessTerminal or MockTerminal).
    * @param options - Optional configuration.
@@ -882,10 +1156,22 @@ export const cel = {
   },
 
   /**
+   * Set the terminal window or tab title.
+   *
+   * This is an imperative side effect, not part of the render tree.
+   * Control characters are stripped from the title before writing the
+   * terminal sequence. Best effort only — some hosts may ignore it.
+   */
+  setTitle(title: string): void {
+    if (!terminal) return;
+    terminal.write(`\x1b]2;${sanitizeTerminalTitle(title)}\x1b\\`);
+  },
+
+  /**
    * Stop the framework and restore terminal state.
    *
-   * Pops the Kitty keyboard protocol mode, disables mouse tracking,
-   * and restores the terminal to its previous state.
+   * Pops the Kitty keyboard protocol mode, disables bracketed paste and mouse
+   * tracking, and restores the terminal to its previous state.
    */
   stop(): void {
     terminal?.stop();
@@ -900,6 +1186,10 @@ export const cel = {
     stampedNode = null;
     uncontrolledScrollOffsets.clear();
     stampedScrollNodes = [];
+    pendingKeyData = "";
+    inBracketedPaste = false;
+    bracketedPasteData = "";
+    bracketedPasteSuffix = "";
     lastTerminalCursor = { visible: false };
     activeTheme = defaultTheme;
   },

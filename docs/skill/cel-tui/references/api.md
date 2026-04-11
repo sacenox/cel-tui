@@ -1,5 +1,20 @@
 # cel-tui API Reference
 
+## Framework lifecycle
+
+```ts
+cel.init(new ProcessTerminal(), { theme?: Theme });
+cel.viewport(() => tree); // or () => [layer1, layer2]
+cel.render();
+cel.setTitle("My App");
+cel.stop();
+```
+
+- `cel.viewport` sets the render function and triggers the first render.
+- `cel.render()` requests a batched re-render after external state changes.
+- `cel.setTitle(title)` writes a best-effort terminal title request. Control characters are stripped from `title`, and `cel.stop()` does not restore the previous title automatically.
+- `cel.stop()` restores terminal state (raw mode, keyboard protocol, mouse tracking, alternate screen).
+
 ## Container Props
 
 All props accepted by `VStack` and `HStack`:
@@ -33,9 +48,31 @@ All props accepted by `VStack` and `HStack`:
   focused,                // boolean (controlled — omit for uncontrolled)
   onFocus,                // () => void
   onBlur,                 // () => void
-  onKeyPress,             // (key: string) => boolean | void — return false to keep bubbling
+  onKeyPress,             // (key: string) => boolean | void — normalized semantic key string; return false to keep bubbling
 }
 ```
+
+## Measurement Helpers
+
+```ts
+measureContentHeight(node, { width }); // number
+```
+
+- Measures a node tree's **intrinsic content height** at the provided wrapping width.
+- This is a content-measurement helper, not a viewport/clipping helper.
+- The provided `width` is authoritative — use the actual width the subtree wraps at.
+- Main use case: prepend-style scrollback, where older content is inserted above the current viewport and the app needs to preserve the viewport anchor.
+
+```ts
+const addedHeight = measureContentHeight(
+  VStack({}, olderMessages.map(renderMessage)),
+  { width: historyContentWidth },
+);
+
+scrollOffset += addedHeight;
+```
+
+Measure the content subtree you are adding. If a wrapper's visible height is controlled by `height`, `flex`, or percentage sizing, measure the content inside that wrapper instead. For padded content, pass the outer width when measuring the padded container itself, or the inner content width when measuring its children directly.
 
 ## Scroll
 
@@ -88,7 +125,7 @@ Colors: 16 numbered palette slots — `"color00"` through `"color15"`. Mapped to
 TextInput({
   value, // string (controlled)
   onChange, // (value: string) => void
-  onKeyPress, // (key: string) => boolean | void — return false to prevent default editing action
+  onKeyPress, // (key: string) => boolean | void — normalized semantic key string; return false to prevent default editing action
   placeholder, // Text() node shown when empty
   // + all container props (sizing, styling, focus, scrollStep, etc.)
 });
@@ -109,6 +146,8 @@ TextInput({
   },
 });
 ```
+
+When focused, TextInput consumes insertable text plus editing/navigation keys, including readline-style shortcuts: `ctrl+a` / `ctrl+e`, `alt+b` / `alt+f`, `ctrl+left` / `ctrl+right`, `ctrl+w`, and `alt+d`. Word movement and deletion are whitespace-delimited, and `up` / `down` navigate visual wrapped lines. Other modifier combos and non-insertable control keys bubble. Key strings are semantic identifiers for handlers, not necessarily the exact inserted text — uppercase `A` normalizes to key `"a"` while still inserting `"A"`.
 
 ## Sizing Strategies
 
@@ -131,10 +170,20 @@ TextInput accepts container sizing props (`flex`, `width`, `height`, `padding`, 
 
 All lowercase, modifiers joined by `+`: `"ctrl+s"`, `"ctrl+shift+n"`, `"escape"`, `"enter"`, `"alt+up"`, `"f1"`. Framework normalizes modifier order.
 
+cel-tui is **Kitty-first** and works well in `tmux` with `set -s extended-keys on`. Recoverable legacy forms normalize to the same key strings, but historically collapsed collisions (`ctrl+i` vs `tab`, `ctrl+m` vs `enter`, `ctrl+[` vs `escape`) remain limited by what the host terminal or multiplexer reports.
+
 ## Pre-made Components
 
 ```ts
-import { Spacer, Divider, Button, Select } from "@cel-tui/components";
+import {
+  Spacer,
+  Divider,
+  Button,
+  Select,
+  VDivider,
+  Markdown,
+  SyntaxHighlight,
+} from "@cel-tui/components";
 
 Spacer(); // VStack({ flex: 1 }, [])
 Divider(); // Text("─", { repeat: "fill" })
@@ -243,6 +292,27 @@ Markdown(content, {
 ```
 
 Streaming works naturally — append chunks and call `cel.render()`. Unclosed blocks are handled gracefully.
+
+### SyntaxHighlight (rendered code)
+
+Returns a `VStack` — place it directly in a container's children:
+
+```ts
+import { SyntaxHighlight } from "@cel-tui/components";
+
+VStack({ flex: 1, overflow: "scroll", padding: { x: 1 } }, [
+  SyntaxHighlight(code, "typescript"),
+]);
+
+SyntaxHighlight(code, "javascript", { theme: "dark-plus" });
+```
+
+- Signature: `SyntaxHighlight(content, language, props?)`
+- `language` accepts registered lextide language ids and aliases
+- `props.theme` accepts the built-in presets (`"default"`, `"dark-plus"`) or a best-effort token theme registration object
+- Uses a terminal-friendly ANSI 16 fallback theme by default
+- Highlighting is synchronous at the component boundary; unsupported languages render plain text
+- Append-only updates reuse lextide stream state, while non-append edits reset and replay the full snippet
 
 ## Theme
 

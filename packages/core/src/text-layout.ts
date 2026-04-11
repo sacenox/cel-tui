@@ -18,6 +18,7 @@ export interface TextLayoutResult {
   lines: VisualLine[];
   lineCount: number;
   offsetToPosition(offset: number): VisualPosition;
+  positionToOffset(line: number, col: number): number;
 }
 
 interface GraphemeInfo {
@@ -36,6 +37,18 @@ interface VisualLineData {
 interface Range {
   start: number;
   end: number;
+}
+
+function requiredAt<T>(
+  items: readonly T[],
+  index: number,
+  description: string,
+): T {
+  const item = items[index];
+  if (item === undefined) {
+    throw new Error(`Missing ${description} at index ${index}`);
+  }
+  return item;
 }
 
 export function layoutText(
@@ -77,6 +90,9 @@ export function layoutText(
     lineCount: lines.length,
     offsetToPosition(offset: number): VisualPosition {
       return offsetToPosition(lines, clamp(offset, 0, value.length));
+    },
+    positionToOffset(line: number, col: number): number {
+      return positionToOffset(lines, line, col);
     },
   };
 }
@@ -129,7 +145,12 @@ function wrapGraphemes(
 
   const prefixWidths = [0];
   for (const grapheme of graphemes) {
-    prefixWidths.push(prefixWidths[prefixWidths.length - 1]! + grapheme.width);
+    const previousWidth = requiredAt(
+      prefixWidths,
+      prefixWidths.length - 1,
+      "prefix width",
+    );
+    prefixWidths.push(previousWidth + grapheme.width);
   }
 
   const ranges: Array<[number, number]> = [];
@@ -140,10 +161,12 @@ function wrapGraphemes(
     let lastBreak = -1;
 
     while (lineEnd < graphemes.length) {
-      const nextWidth = prefixWidths[lineEnd + 1]! - prefixWidths[lineStart]!;
+      const nextWidth =
+        requiredAt(prefixWidths, lineEnd + 1, "prefix width") -
+        requiredAt(prefixWidths, lineStart, "prefix width");
       if (nextWidth > width) break;
       lineEnd++;
-      if (graphemes[lineEnd - 1]!.isWhitespace) {
+      if (requiredAt(graphemes, lineEnd - 1, "grapheme").isWhitespace) {
         lastBreak = lineEnd;
       }
     }
@@ -203,8 +226,12 @@ function makeVisualLine(
   }
 
   const lineGraphemes = graphemes.slice(startIndex, endIndex);
-  const startOffset = lineGraphemes[0]!.startOffset;
-  const endOffset = lineGraphemes[lineGraphemes.length - 1]!.endOffset;
+  const startOffset = requiredAt(lineGraphemes, 0, "line grapheme").startOffset;
+  const endOffset = requiredAt(
+    lineGraphemes,
+    lineGraphemes.length - 1,
+    "line grapheme",
+  ).endOffset;
 
   return {
     line: {
@@ -222,13 +249,13 @@ function offsetToPosition(
   offset: number,
 ): VisualPosition {
   for (let i = 1; i < lines.length; i++) {
-    if (offset === lines[i]!.line.startOffset) {
+    if (offset === requiredAt(lines, i, "visual line").line.startOffset) {
       return { line: i, col: 0 };
     }
   }
 
   for (let i = 0; i < lines.length; i++) {
-    const entry = lines[i]!;
+    const entry = requiredAt(lines, i, "visual line");
     const { line, graphemes } = entry;
     if (offset < line.startOffset || offset > line.endOffset) continue;
 
@@ -241,8 +268,38 @@ function offsetToPosition(
     return { line: i, col };
   }
 
-  const last = lines[lines.length - 1]!;
+  const last = requiredAt(lines, lines.length - 1, "visual line");
   return { line: lines.length - 1, col: last.line.width };
+}
+
+function positionToOffset(
+  lines: VisualLineData[],
+  line: number,
+  col: number,
+): number {
+  const lineIndex = clamp(line, 0, lines.length - 1);
+  const entry = requiredAt(lines, lineIndex, "visual line");
+  const targetCol = Math.max(0, col);
+
+  if (targetCol === 0 || entry.graphemes.length === 0) {
+    return entry.line.startOffset;
+  }
+
+  let currentCol = 0;
+  for (const grapheme of entry.graphemes) {
+    const nextCol = currentCol + grapheme.width;
+    if (targetCol < nextCol) {
+      return targetCol - currentCol < nextCol - targetCol
+        ? grapheme.startOffset
+        : grapheme.endOffset;
+    }
+    if (targetCol === nextCol) {
+      return grapheme.endOffset;
+    }
+    currentCol = nextCol;
+  }
+
+  return entry.line.endOffset;
 }
 
 function clamp(value: number, min: number, max: number): number {

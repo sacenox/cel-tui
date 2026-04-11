@@ -97,6 +97,9 @@ export type SizeValue = number | `${number}%`;
  * child nodes use the nearest ancestor's values unless they set their own.
  * Container `bgColor` fills the container rect before painting children.
  */
+// biome-ignore lint/suspicious/noConfusingVoidType: public callback contract intentionally accepts void-returning handlers.
+export type KeyPressHandler = (key: string) => boolean | void;
+
 export interface ContainerProps extends StyleProps {
   /**
    * Fixed width in cells, or percentage of parent width.
@@ -258,7 +261,7 @@ export interface ContainerProps extends StyleProps {
   /**
    * Called on key events that bubble up to this container.
    * Keys are first handled by the focused element; unconsumed keys
-   * (e.g., modifier combos like `"ctrl+s"`) bubble up through ancestors.
+   * (e.g., non-editing shortcuts like `"ctrl+s"`) bubble up through ancestors.
    * The root container's `onKeyPress` acts as the global key handler.
    *
    * Return `false` to indicate the key was **not consumed** — it will
@@ -269,15 +272,17 @@ export interface ContainerProps extends StyleProps {
    *
    * Key format: all lowercase, modifiers joined by `+` in canonical
    * order `ctrl+alt+shift+<key>` (e.g., `"ctrl+s"`, `"alt+up"`, `"escape"`).
+   * The key string is a **semantic identifier**, not necessarily the exact
+   * inserted text — for example, uppercase `A` is reported as key `"a"`.
    *
-   * @param key - Normalized key string.
+   * @param key - Normalized semantic key string.
    * @returns `false` to keep bubbling, anything else to consume.
    */
-  onKeyPress?: (key: string) => boolean | void;
+  onKeyPress?: KeyPressHandler;
 }
 
 /**
- * Props for the {@link Text} primitive.
+ * Props for the `Text` primitive.
  *
  * Text is a styled leaf node with no children and no sizing props —
  * the parent container controls the box. Height is intrinsic, computed
@@ -305,20 +310,28 @@ export interface TextProps extends StyleProps {
 }
 
 /**
- * Props for the {@link TextInput} primitive.
+ * Props for the `TextInput` primitive.
  *
  * TextInput is a multi-line editable text container. It accepts container
- * sizing props but has no children — its content is the {@link value} prop.
+ * sizing props but has no children — its content is the `value` prop.
  * Scroll is always framework-managed (follows cursor and responds to mouse wheel).
  * Word-wrap is always on.
+ *
+ * When focused, TextInput consumes insertable text plus editing/navigation
+ * keys (arrows, backspace, delete, Enter, Tab), along with a small set of
+ * readline-style shortcuts: `ctrl+a` / `ctrl+e`, `alt+b` / `alt+f`,
+ * `ctrl+left` / `ctrl+right`, `ctrl+w`, and `alt+d`. Word movement and
+ * deletion use whitespace-delimited boundaries, and `up` / `down` follow
+ * visual wrapped lines. Other modifier combos and non-insertable control
+ * keys bubble to ancestor {@link onKeyPress} handlers.
  */
 export interface TextInputProps extends ContainerProps {
   /** Current text content. Controlled — the app owns this value. */
   value: string;
 
   /**
-   * Called when the user edits text. Update {@link value} with the new
-   * string and call `cel.render()` to reflect the change.
+   * Called when the user edits text. Update the controlled `value` prop
+   * with the new string and call `cel.render()` to reflect the change.
    *
    * @param value - The new text content.
    */
@@ -330,13 +343,17 @@ export interface TextInputProps extends ContainerProps {
    * (no character insertion, no cursor movement, no deletion).
    * Any other return (or no return) lets the default action proceed.
    *
+   * Receives the normalized **semantic** key string, not necessarily the
+   * exact inserted text. For example, typing uppercase `A` reports key
+   * `"a"` here while still inserting `"A"` into the input.
+   *
    * @example
    * // Enter submits instead of inserting a newline
    * onKeyPress: (key) => {
    *   if (key === "enter") { handleSend(); return false; }
    * }
    */
-  onKeyPress?: (key: string) => boolean | void;
+  onKeyPress?: KeyPressHandler;
 
   /**
    * A {@link TextNode} displayed when {@link value} is empty.
@@ -351,7 +368,7 @@ export interface TextInputProps extends ContainerProps {
 /**
  * A text leaf node in the UI tree.
  *
- * Created by the {@link Text} function. Has no children — the parent
+ * Created by the `Text` function. Has no children — the parent
  * container controls the box, and height is intrinsic (computed from
  * content and wrapping).
  */
@@ -366,7 +383,7 @@ export interface TextNode {
 /**
  * An editable text container node in the UI tree.
  *
- * Created by the {@link TextInput} function. Accepts container sizing
+ * Created by the `TextInput` function. Accepts container sizing
  * props but has no children — its content is the `value` prop.
  */
 export interface TextInputNode {
@@ -378,7 +395,7 @@ export interface TextInputNode {
 /**
  * A layout container node in the UI tree.
  *
- * Created by {@link VStack} (vertical) or {@link HStack} (horizontal).
+ * Created by `VStack` (vertical) or `HStack` (horizontal).
  * Contains an ordered list of child nodes.
  */
 export interface ContainerNode {

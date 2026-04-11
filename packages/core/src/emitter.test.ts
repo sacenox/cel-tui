@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { Theme } from "@cel-tui/types";
-import { CellBuffer, type Cell } from "./cell-buffer.js";
+import { type Cell, CellBuffer } from "./cell-buffer.js";
 import { defaultTheme, emitBuffer, emitDiff } from "./emitter.js";
 
 function cell(char: string, overrides: Partial<Cell> = {}): Cell {
@@ -259,6 +259,7 @@ describe("emitDiff", () => {
     // Should position once and emit ABC together
     expect(output).toContain("ABC");
     // Only one cursor positioning for this run
+    // biome-ignore lint/suspicious/noControlCharactersInRegex: matching terminal escape sequences requires ESC bytes.
     const cursorMoves = output.match(/\x1b\[\d+;\d+H/g) || [];
     expect(cursorMoves.length).toBe(1);
   });
