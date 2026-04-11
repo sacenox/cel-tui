@@ -336,6 +336,14 @@ bun run typecheck && bun test && bun run check && bun run format
 - `get-east-asian-width` is a real dependency of `@cel-tui/core` (installs for consumers)
 - `typescript` is a peer dependency (consumers bring their own)
 
+## Non-interactive Commands
+
+Avoid commands that open an interactive editor or prompt from the agent shell. They can hang the tool.
+
+- Always pass messages explicitly for git commands that might invoke `$EDITOR`.
+- Use `git commit -m "..."` and `git tag -a <tag> -m "..."`.
+- Do not run bare `git tag <tag>` during release work.
+
 ## Destructive Actions
 
 **Never use `git checkout` or `git restore` on files you have modified.** A single `git checkout <file>` will silently discard all uncommitted changes in that file — including unrelated work. If you need to revert a specific edit, use `edit` to undo just that change. If you must use git to undo something, `git stash` first so the work can be recovered.
