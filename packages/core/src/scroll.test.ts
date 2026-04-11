@@ -5,6 +5,15 @@ import { Text } from "./primitives/text.js";
 import { TextInput } from "./primitives/text-input.js";
 import { getMaxScrollOffset, getScrollStep } from "./scroll.js";
 
+function item<T>(items: readonly T[], index: number): T {
+  const value = items[index];
+  expect(value).toBeDefined();
+  if (value === undefined) {
+    throw new Error(`Missing item at index ${index}`);
+  }
+  return value;
+}
+
 describe("scroll", () => {
   test("TextInput max scroll offset uses visual wrapping and padding", () => {
     const root = layout(
@@ -21,7 +30,7 @@ describe("scroll", () => {
       4,
     );
 
-    expect(getMaxScrollOffset(root.children[0]!)).toBe(1);
+    expect(getMaxScrollOffset(item(root.children, 0))).toBe(1);
   });
 
   test("scrollable VStack max scroll offset matches content overflow", () => {
@@ -84,6 +93,6 @@ describe("scroll", () => {
     );
 
     expect(getScrollStep(scrollable)).toBe(6);
-    expect(getScrollStep(textInputRoot.children[0]!)).toBe(5);
+    expect(getScrollStep(item(textInputRoot.children, 0))).toBe(5);
   });
 });

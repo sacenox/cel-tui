@@ -97,6 +97,9 @@ export type SizeValue = number | `${number}%`;
  * child nodes use the nearest ancestor's values unless they set their own.
  * Container `bgColor` fills the container rect before painting children.
  */
+// biome-ignore lint/suspicious/noConfusingVoidType: public callback contract intentionally accepts void-returning handlers.
+export type KeyPressHandler = (key: string) => boolean | void;
+
 export interface ContainerProps extends StyleProps {
   /**
    * Fixed width in cells, or percentage of parent width.
@@ -275,7 +278,7 @@ export interface ContainerProps extends StyleProps {
    * @param key - Normalized semantic key string.
    * @returns `false` to keep bubbling, anything else to consume.
    */
-  onKeyPress?: (key: string) => boolean | void;
+  onKeyPress?: KeyPressHandler;
 }
 
 /**
@@ -350,7 +353,7 @@ export interface TextInputProps extends ContainerProps {
    *   if (key === "enter") { handleSend(); return false; }
    * }
    */
-  onKeyPress?: (key: string) => boolean | void;
+  onKeyPress?: KeyPressHandler;
 
   /**
    * A {@link TextNode} displayed when {@link value} is empty.

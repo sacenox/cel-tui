@@ -25,7 +25,10 @@
  */
 export function kittyEncode(key: string): string {
   const parts = key.toLowerCase().split("+");
-  const base = parts[parts.length - 1]!;
+  const base = parts.at(-1);
+  if (!base) {
+    throw new Error("kittyEncode: empty key");
+  }
   const mods = parts.slice(0, -1);
 
   let modBits = 0;
@@ -43,7 +46,10 @@ export function kittyEncode(key: string): string {
   };
 
   if (base in csiUKeys) {
-    const cp = csiUKeys[base]!;
+    const cp = csiUKeys[base];
+    if (cp === undefined) {
+      throw new Error(`kittyEncode: missing CSI-u mapping for ${base}`);
+    }
     if (modParam > 0) return `\x1b[${cp};${modParam}u`;
     return `\x1b[${cp}u`;
   }
@@ -59,7 +65,10 @@ export function kittyEncode(key: string): string {
   };
 
   if (base in letterKeys) {
-    const letter = letterKeys[base]!;
+    const letter = letterKeys[base];
+    if (letter === undefined) {
+      throw new Error(`kittyEncode: missing CSI-letter mapping for ${base}`);
+    }
     if (modParam > 0) return `\x1b[1;${modParam}${letter}`;
     return `\x1b[${letter}`;
   }
@@ -72,7 +81,10 @@ export function kittyEncode(key: string): string {
   };
 
   if (base in tildeKeys) {
-    const num = tildeKeys[base]!;
+    const num = tildeKeys[base];
+    if (num === undefined) {
+      throw new Error(`kittyEncode: missing CSI-tilde mapping for ${base}`);
+    }
     if (modParam > 0) return `\x1b[${num};${modParam}~`;
     return `\x1b[${num}~`;
   }
@@ -94,7 +106,10 @@ export function kittyEncode(key: string): string {
   };
 
   if (base in fnKeys) {
-    const num = fnKeys[base]!;
+    const num = fnKeys[base];
+    if (num === undefined) {
+      throw new Error(`kittyEncode: missing function-key mapping for ${base}`);
+    }
     if (modParam > 0) return `\x1b[${num};${modParam}~`;
     return `\x1b[${num}~`;
   }
@@ -106,7 +121,11 @@ export function kittyEncode(key: string): string {
   };
 
   if (base in namedPrintable) {
-    const [cp, raw] = namedPrintable[base]!;
+    const named = namedPrintable[base];
+    if (named === undefined) {
+      throw new Error(`kittyEncode: missing printable mapping for ${base}`);
+    }
+    const [cp, raw] = named;
     if (modParam > 0) return `\x1b[${cp};${modParam}u`;
     return raw; // Unmodified → raw byte (not ambiguous)
   }

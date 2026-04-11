@@ -1,5 +1,5 @@
-import type { Color, ContainerNode, Node, StyleProps } from "@cel-tui/types";
 import { HStack, Text, VStack } from "@cel-tui/core";
+import type { Color, ContainerNode, Node, StyleProps } from "@cel-tui/types";
 import {
   all,
   createLowlight,
@@ -129,6 +129,18 @@ type HighlightNode = ElementContent;
 const rgbCache = new Map<string, readonly [number, number, number]>();
 const colorSlotCache = new Map<string, Color>();
 const statesByKey = new Map<string, SyntaxHighlightState[]>();
+
+function requiredAt<T>(
+  items: readonly T[],
+  index: number,
+  description: string,
+): T {
+  const item = items[index];
+  if (item === undefined) {
+    throw new Error(`Missing ${description} at index ${index}`);
+  }
+  return item;
+}
 
 const DEFAULT_CATEGORY_STYLES: Readonly<Record<TokenCategory, StyleProps>> = {
   addition: { fgColor: "color02" },
@@ -307,7 +319,7 @@ function colorToSlot(color: string | undefined): Color | undefined {
   }
 
   const rgb = parseHex(normalized);
-  let best = ANSI_SLOT_HEX[0]![0];
+  let best = requiredAt(ANSI_SLOT_HEX, 0, "ANSI color slot")[0];
   let bestDistance = Number.POSITIVE_INFINITY;
 
   for (const [slot, hex] of ANSI_SLOT_HEX) {
@@ -490,7 +502,7 @@ function findState(
   const states = getStates(key);
 
   for (let i = states.length - 1; i >= 0; i--) {
-    const state = states[i]!;
+    const state = requiredAt(states, i, "syntax highlight state");
     if (state.lastContent === content) {
       return state;
     }
@@ -500,7 +512,7 @@ function findState(
   let bestLength = -1;
 
   for (let i = states.length - 1; i >= 0; i--) {
-    const state = states[i]!;
+    const state = requiredAt(states, i, "syntax highlight state");
     if (!content.startsWith(state.lastContent)) {
       continue;
     }
@@ -606,7 +618,11 @@ function pushText(
   const pieces = content.split("\n");
 
   for (let i = 0; i < pieces.length; i++) {
-    pushRun(lines[lines.length - 1]!, pieces[i]!, style);
+    pushRun(
+      requiredAt(lines, lines.length - 1, "highlight line"),
+      requiredAt(pieces, i, "text piece"),
+      style,
+    );
     if (i < pieces.length - 1) {
       lines.push([]);
     }

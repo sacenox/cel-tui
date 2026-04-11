@@ -106,7 +106,7 @@ function decodeModifiers(param: number): string {
   if (bits & 4) parts.push("ctrl");
   if (bits & 2) parts.push("alt");
   if (bits & 1) parts.push("shift");
-  return parts.length > 0 ? parts.join("+") + "+" : "";
+  return parts.length > 0 ? `${parts.join("+")}+` : "";
 }
 
 /** Build a key string from a modifier prefix and base key name. */
@@ -125,6 +125,13 @@ const CSI_LETTER_RE = /^(?:1;(\d+))?([A-H])$/;
 /** Match CSI tilde format: ESC [ <number> ; <modifiers> ~ */
 const CSI_TILDE_RE = /^(\d+)(?:;(\d+))?~$/;
 
+function parseDecimal(value: string | undefined, description: string): number {
+  if (value === undefined) {
+    throw new Error(`Missing ${description}`);
+  }
+  return parseInt(value, 10);
+}
+
 function parseCsiSequence(seq: string): KeyInput {
   // Legacy Shift+Tab (CSI Z) — sent by tmux and some terminals
   if (seq === "Z") return { key: "shift+tab" };
@@ -132,8 +139,8 @@ function parseCsiSequence(seq: string): KeyInput {
   // CSI u format: codepoint [; modifiers] u
   let match = CSI_U_RE.exec(seq);
   if (match) {
-    const codepoint = parseInt(match[1]!, 10);
-    const modParam = match[2] ? parseInt(match[2]!, 10) : 0;
+    const codepoint = parseDecimal(match[1], "CSI-u codepoint");
+    const modParam = match[2] ? parseDecimal(match[2], "CSI-u modifier") : 0;
 
     const name = CODEPOINT_NAMES[codepoint];
     if (name) {
@@ -151,8 +158,13 @@ function parseCsiSequence(seq: string): KeyInput {
   // CSI letter format: [1 ; modifiers] <letter>
   match = CSI_LETTER_RE.exec(seq);
   if (match) {
-    const modParam = match[1] ? parseInt(match[1]!, 10) : 0;
-    const letter = match[2]!;
+    const modParam = match[1]
+      ? parseDecimal(match[1], "CSI-letter modifier")
+      : 0;
+    const letter = match[2];
+    if (letter === undefined) {
+      throw new Error("Missing CSI-letter key");
+    }
     const name = LETTER_NAMES[letter];
     if (name) return { key: withModifiers(modParam, name) };
   }
@@ -160,8 +172,10 @@ function parseCsiSequence(seq: string): KeyInput {
   // CSI tilde format: number [; modifiers] ~
   match = CSI_TILDE_RE.exec(seq);
   if (match) {
-    const num = parseInt(match[1]!, 10);
-    const modParam = match[2] ? parseInt(match[2]!, 10) : 0;
+    const num = parseDecimal(match[1], "CSI-tilde code");
+    const modParam = match[2]
+      ? parseDecimal(match[2], "CSI-tilde modifier")
+      : 0;
     const name = TILDE_NAMES[num];
     if (name) return { key: withModifiers(modParam, name) };
   }
@@ -240,7 +254,10 @@ export function decodeKeyEvents(data: string): KeyInput[] {
       continue;
     }
 
-    const char = data[index]!;
+    const char = data[index];
+    if (char === undefined) {
+      break;
+    }
     if (char === "\x1b") {
       const next = readCodePoint(data, index + 1);
       if (next && next.value !== "[") {
@@ -291,7 +308,10 @@ export function normalizeKey(key: string): string {
   const parts = key.toLowerCase().split("+");
   if (parts.length <= 1) return key.toLowerCase();
 
-  const base = parts[parts.length - 1]!;
+  const base = parts.at(-1);
+  if (!base) {
+    return key.toLowerCase();
+  }
   const mods = parts.slice(0, -1);
 
   const ordered: string[] = [];

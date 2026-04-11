@@ -1,6 +1,5 @@
 import type { Color, StyleProps, TextInputProps } from "@cel-tui/types";
-import type { Cell } from "./cell-buffer.js";
-import { CellBuffer } from "./cell-buffer.js";
+import type { Cell, CellBuffer } from "./cell-buffer.js";
 import type { LayoutNode, Rect } from "./layout.js";
 import { getMaxScrollOffset } from "./scroll.js";
 import { layoutText } from "./text-layout.js";
@@ -414,8 +413,11 @@ function paintText(
 
   // Paint lines, clipped to rect (grapheme-aware)
   for (let row = 0; row < textLayout.lineCount && row < h; row++) {
-    const line = textLayout.lines[row]!.text;
-    paintLineGraphemes(line, x, y + row, w, clipRect, props, buf);
+    const line = textLayout.lines[row];
+    if (!line) {
+      break;
+    }
+    paintLineGraphemes(line.text, x, y + row, w, clipRect, props, buf);
   }
 }
 
@@ -494,8 +496,11 @@ function paintTextInput(
   for (let row = 0; row < ch; row++) {
     const lineIdx = scrollOffset + row;
     if (lineIdx >= textLayout.lineCount) break;
-    const line = textLayout.lines[lineIdx]!.text;
-    paintLineGraphemes(line, cx, cy + row, cw, clipRect, props, buf);
+    const line = textLayout.lines[lineIdx];
+    if (!line) {
+      break;
+    }
+    paintLineGraphemes(line.text, cx, cy + row, cw, clipRect, props, buf);
   }
 
   // Paint cursor if focused — invert colors at cursor position so it's
@@ -535,8 +540,6 @@ function paintTextInput(
 }
 
 // --- Framework-managed state ---
-
-import type { ContainerProps } from "@cel-tui/types";
 
 /**
  * TextInput state is keyed on the `onChange` function reference, which is

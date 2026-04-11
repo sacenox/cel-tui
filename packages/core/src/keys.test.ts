@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { parseKey, normalizeKey, isEditingKey } from "./keys.js";
+import { isEditingKey, normalizeKey, parseKey } from "./keys.js";
 import { kittyEncode } from "./test-helpers.js";
 
 // ── kittyEncode helper sanity checks ────────────────────────────────────────

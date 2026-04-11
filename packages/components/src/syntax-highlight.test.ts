@@ -16,6 +16,15 @@ function asText(node: Node): TextNode {
   return node as TextNode;
 }
 
+function item<T>(items: readonly T[], index: number): T {
+  const value = items[index];
+  expect(value).toBeDefined();
+  if (value === undefined) {
+    throw new Error(`Missing item at index ${index}`);
+  }
+  return value;
+}
+
 function lineText(line: Node): string {
   const container = asContainer(line);
   return container.children.map((child) => asText(child).content).join("");
@@ -23,7 +32,7 @@ function lineText(line: Node): string {
 
 function firstText(line: Node): TextNode {
   const container = asContainer(line);
-  return asText(container.children[0]!);
+  return asText(item(container.children, 0));
 }
 
 function textNodes(node: ContainerNode): TextNode[] {
@@ -79,7 +88,7 @@ describe("SyntaxHighlight", () => {
 
     expect(node.type).toBe("vstack");
     expect(node.children).toHaveLength(1);
-    expect(lineText(node.children[0]!)).toBe("plain text");
+    expect(lineText(item(node.children, 0))).toBe("plain text");
     expect(hasStyledText(node)).toBe(false);
   });
 
@@ -89,8 +98,8 @@ describe("SyntaxHighlight", () => {
     expect(node.type).toBe("vstack");
     expect(node.children).toHaveLength(1);
 
-    const firstLine = asContainer(node.children[0]!);
-    const firstToken = asText(firstLine.children[0]!);
+    const firstLine = asContainer(item(node.children, 0));
+    const firstToken = asText(item(firstLine.children, 0));
     expect(firstLine.props.flexWrap).toBe("wrap");
     expect(firstToken.content).toBe("const");
     expect(firstToken.props.fgColor).toBeDefined();
@@ -165,8 +174,8 @@ describe("SyntaxHighlight", () => {
     const node = render("const first = 1\nconst second = 2", "javascript");
 
     expect(node.children).toHaveLength(2);
-    expect(lineText(node.children[0]!)).toBe("const first = 1");
-    expect(lineText(node.children[1]!)).toBe("const second = 2");
+    expect(lineText(item(node.children, 0))).toBe("const first = 1");
+    expect(lineText(item(node.children, 1))).toBe("const second = 2");
   });
 
   test("updates append-only content without duplicating previous text", () => {
@@ -174,7 +183,7 @@ describe("SyntaxHighlight", () => {
     const node = render('const message = "hello"', "javascript");
 
     expect(node.children).toHaveLength(1);
-    expect(lineText(node.children[0]!)).toBe('const message = "hello"');
+    expect(lineText(item(node.children, 0))).toBe('const message = "hello"');
   });
 
   test("preserves highlighting across appended multiline comment", () => {
@@ -182,21 +191,24 @@ describe("SyntaxHighlight", () => {
     const node = render("/* hello\nworld */", "javascript");
 
     expect(node.children).toHaveLength(2);
-    expect(lineText(node.children[0]!)).toBe("/* hello");
-    expect(lineText(node.children[1]!)).toBe("world */");
+    expect(lineText(item(node.children, 0))).toBe("/* hello");
+    expect(lineText(item(node.children, 1))).toBe("world */");
 
-    const firstLine = firstText(node.children[0]!);
-    const secondLine = firstText(node.children[1]!);
+    const firstLine = firstText(item(node.children, 0));
+    const secondLine = firstText(item(node.children, 1));
     expect(firstLine.props.fgColor).toBeDefined();
     expect(secondLine.props.fgColor).toBe(firstLine.props.fgColor);
   });
 
   test("template substitutions reset back to base text style", () => {
-    const node = render("`hi ${name}`", "javascript");
+    const interpolation = `${"$"}{name}`;
+    const node = render(`\`hi ${interpolation}\``, "javascript");
 
     expect(findText(node, "`hi").props.fgColor).toBe("color02");
     expect(findText(node, " ").props.fgColor).toBe("color02");
-    expect(findTextContaining(node, "${name}").props.fgColor).toBeUndefined();
+    expect(
+      findTextContaining(node, interpolation).props.fgColor,
+    ).toBeUndefined();
   });
 
   test("falls back to full rehighlight on non-append edits", () => {
@@ -204,8 +216,8 @@ describe("SyntaxHighlight", () => {
     const node = render("function value() {}", "javascript");
 
     expect(node.children).toHaveLength(1);
-    expect(lineText(node.children[0]!)).toBe("function value() {}");
-    expect(firstText(node.children[0]!).content).toBe("function");
-    expect(firstText(node.children[0]!).props.fgColor).toBeDefined();
+    expect(lineText(item(node.children, 0))).toBe("function value() {}");
+    expect(firstText(item(node.children, 0)).content).toBe("function");
+    expect(firstText(item(node.children, 0)).props.fgColor).toBeDefined();
   });
 });

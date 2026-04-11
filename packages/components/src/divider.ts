@@ -1,5 +1,5 @@
-import type { Color, TextNode } from "@cel-tui/types";
 import { Text } from "@cel-tui/core";
+import type { Color, TextNode } from "@cel-tui/types";
 
 /** Props for the {@link Divider} component. */
 export interface DividerProps {

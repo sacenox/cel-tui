@@ -1,6 +1,5 @@
 import type { Color, Theme, ThemeValue } from "@cel-tui/types";
-import type { Cell } from "./cell-buffer.js";
-import { CellBuffer, EMPTY_CELL } from "./cell-buffer.js";
+import type { Cell, CellBuffer } from "./cell-buffer.js";
 
 // --- Default ANSI 16 theme ---
 

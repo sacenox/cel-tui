@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { cel } from "./cel.js";
-import { MockTerminal } from "./terminal.js";
-import { VStack, HStack } from "./primitives/stacks.js";
+import { HStack, VStack } from "./primitives/stacks.js";
 import { Text } from "./primitives/text.js";
+import { MockTerminal } from "./terminal.js";
 
 describe("layer compositing", () => {
   let term: MockTerminal;
@@ -21,6 +21,15 @@ describe("layer compositing", () => {
     await new Promise((resolve) => setTimeout(resolve, 10));
   }
 
+  function currentBuffer() {
+    const buf = cel._getBuffer();
+    expect(buf).not.toBeNull();
+    if (buf === null) {
+      throw new Error("Expected a rendered buffer");
+    }
+    return buf;
+  }
+
   test("single layer renders normally", async () => {
     const term = setup(20, 3);
     cel.viewport(() => VStack({}, [Text("Hello")]));
@@ -29,7 +38,7 @@ describe("layer compositing", () => {
   });
 
   test("second layer paints over first", async () => {
-    const term = setup(20, 3);
+    setup(20, 3);
     cel.viewport(() => [
       VStack({}, [Text("AAAAAAAAAA")]),
       VStack({}, [Text("BB")]),
@@ -37,14 +46,14 @@ describe("layer compositing", () => {
     await waitForRender();
 
     // "BB" should overwrite the first two A's, rest of A's visible
-    const buf = cel._getBuffer()!;
+    const buf = currentBuffer();
     expect(buf.get(0, 0).char).toBe("B");
     expect(buf.get(1, 0).char).toBe("B");
     expect(buf.get(2, 0).char).toBe("A");
   });
 
   test("transparent cells in upper layer show lower layer", async () => {
-    const term = setup(10, 3);
+    setup(10, 3);
     cel.viewport(() => [
       // Base layer: fill row 0 with A's
       VStack({}, [Text("AAAAAAAAAA")]),
@@ -58,7 +67,7 @@ describe("layer compositing", () => {
     ]);
     await waitForRender();
 
-    const buf = cel._getBuffer()!;
+    const buf = currentBuffer();
     // First 5 chars: A from base layer (overlay is empty/transparent)
     expect(buf.get(0, 0).char).toBe("A");
     expect(buf.get(4, 0).char).toBe("A");
@@ -122,7 +131,7 @@ describe("layer compositing", () => {
 
     // Check buffer contents — diff rendering may not emit "modal" as a
     // contiguous string since unchanged chars (like 'm') are skipped
-    const buf = cel._getBuffer()!;
+    const buf = currentBuffer();
     const row = Array.from({ length: 5 }, (_, i) => buf.get(i, 0).char).join(
       "",
     );

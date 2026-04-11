@@ -16,26 +16,26 @@
  * ```
  */
 
-export { Spacer } from "./spacer.js";
-export { Divider, type DividerProps } from "./divider.js";
-export { VDivider, type VDividerProps } from "./vdivider.js";
 export { Button, type ButtonProps } from "./button.js";
+export { Divider, type DividerProps } from "./divider.js";
 export {
-  Select,
-  type SelectProps,
-  type SelectItem,
-  type SelectInstance,
-} from "./select.js";
-export {
-  Markdown,
-  tokenize,
-  type MarkdownProps,
-  type MarkdownTheme,
   type BlockToken,
   type InlineSpan,
+  Markdown,
+  type MarkdownProps,
+  type MarkdownTheme,
+  tokenize,
 } from "./markdown.js";
+export {
+  Select,
+  type SelectInstance,
+  type SelectItem,
+  type SelectProps,
+} from "./select.js";
+export { Spacer } from "./spacer.js";
 export {
   SyntaxHighlight,
   type SyntaxHighlightProps,
   type SyntaxHighlightTheme,
 } from "./syntax-highlight.js";
+export { VDivider, type VDividerProps } from "./vdivider.js";

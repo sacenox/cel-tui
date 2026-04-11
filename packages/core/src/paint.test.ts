@@ -2,11 +2,11 @@ import { describe, expect, test } from "bun:test";
 import { CellBuffer } from "./cell-buffer.js";
 import { layout } from "./layout.js";
 import {
-  paint,
   getTextInputCursorScreenPos,
+  paint,
   setTextInputCursor,
 } from "./paint.js";
-import { VStack, HStack } from "./primitives/stacks.js";
+import { HStack, VStack } from "./primitives/stacks.js";
 import { Text } from "./primitives/text.js";
 import { TextInput } from "./primitives/text-input.js";
 
@@ -26,15 +26,6 @@ function readRawRow(buf: CellBuffer, y: number): string {
     row += buf.get(x, y).char;
   }
   return row;
-}
-
-/** Read all rows as strings. */
-function readAll(buf: CellBuffer): string[] {
-  const rows: string[] = [];
-  for (let y = 0; y < buf.height; y++) {
-    rows.push(readRow(buf, y));
-  }
-  return rows;
 }
 
 describe("paint", () => {

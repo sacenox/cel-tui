@@ -1,5 +1,5 @@
+import { Text, VStack } from "@cel-tui/core";
 import type { Color, ContainerNode } from "@cel-tui/types";
-import { VStack, Text } from "@cel-tui/core";
 
 /** Props for the {@link VDivider} component. */
 export interface VDividerProps {

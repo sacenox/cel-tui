@@ -1,5 +1,5 @@
-import type { ContainerNode, StyleProps } from "@cel-tui/types";
 import { HStack, Text } from "@cel-tui/core";
+import type { ContainerNode, ContainerProps, StyleProps } from "@cel-tui/types";
 
 /**
  * Props for the {@link Button} component.
@@ -37,7 +37,7 @@ export interface ButtonProps extends StyleProps {
    * Key event handler. Receives normalized semantic keys that bubble up
    * to this button. Return `false` to keep bubbling.
    */
-  onKeyPress?: (key: string) => boolean | void;
+  onKeyPress?: ContainerProps["onKeyPress"];
   /** Internal padding in cells. */
   padding?: { x?: number; y?: number };
 }

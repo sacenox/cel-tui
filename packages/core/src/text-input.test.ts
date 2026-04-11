@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { cel } from "./cel.js";
-import { MockTerminal } from "./terminal.js";
 import { VStack } from "./primitives/stacks.js";
 import { Text } from "./primitives/text.js";
 import { TextInput } from "./primitives/text-input.js";
+import { MockTerminal } from "./terminal.js";
 import { kittyEncode } from "./test-helpers.js";
 
 const ENTER = kittyEncode("enter");
@@ -44,6 +44,15 @@ describe("TextInput integration", () => {
 
   async function waitForRender(): Promise<void> {
     await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+
+  function currentBuffer() {
+    const buf = cel._getBuffer();
+    expect(buf).not.toBeNull();
+    if (buf === null) {
+      throw new Error("Expected a rendered buffer");
+    }
+    return buf;
   }
 
   test("renders value text", async () => {
@@ -909,7 +918,7 @@ describe("TextInput integration", () => {
 
     // The buffer should show the cursor line (line4 area)
     // not the top lines. Check that the scroll adjusted.
-    const buf = cel._getBuffer()!;
+    const buf = currentBuffer();
     // The cursor should be visible somewhere in the viewport.
     // With 4 lines and 3-row viewport, scroll should be at least 1.
     // Row 2 (bottom of viewport) should show content from line3 or line4 area.
@@ -979,7 +988,7 @@ describe("TextInput integration", () => {
     );
     await waitForRender();
 
-    const buf = cel._getBuffer()!;
+    const buf = currentBuffer();
     // With padding x=2, content starts at col 2. With padding y=1, content at row 1.
     // Content should be at (2, 1) not (0, 0)
     expect(buf.get(0, 0).char).toBe(" "); // padding
@@ -1022,7 +1031,7 @@ describe("TextInput integration", () => {
     expect(value).toBe("a");
 
     // Verify the text is actually visible in the buffer
-    const buf = cel._getBuffer()!;
+    const buf = currentBuffer();
     let found = false;
     for (let x = 0; x < 30; x++) {
       if (buf.get(x, 0).char === "a") {
@@ -1052,7 +1061,7 @@ describe("TextInput integration", () => {
     );
     await waitForRender();
 
-    const buf = cel._getBuffer()!;
+    const buf = currentBuffer();
     // TextInput should have height 3 (1 content + 2 padding)
     // "after" should start at row 3
     let afterRow = "";

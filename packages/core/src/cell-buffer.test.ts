@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { CellBuffer, type Cell, EMPTY_CELL } from "./cell-buffer.js";
+import { type Cell, CellBuffer, EMPTY_CELL } from "./cell-buffer.js";
 
 describe("CellBuffer", () => {
   describe("creation", () => {

@@ -1,14 +1,44 @@
 import { describe, expect, test } from "bun:test";
-import { layout } from "./layout.js";
 import {
-  hitTest,
+  collectFocusable,
+  collectKeyPressHandlers,
   findClickHandler,
   findScrollTarget,
-  collectKeyPressHandlers,
-  collectFocusable,
+  hitTest,
 } from "./hit-test.js";
-import { VStack, HStack } from "./primitives/stacks.js";
+import { type LayoutNode, layout } from "./layout.js";
+import { HStack, VStack } from "./primitives/stacks.js";
 import { Text } from "./primitives/text.js";
+
+function item<T>(items: readonly T[], index: number): T {
+  const value = items[index];
+  expect(value).toBeDefined();
+  if (value === undefined) {
+    throw new Error(`Missing item at index ${index}`);
+  }
+  return value;
+}
+
+function expectSome<T>(value: T | null | undefined): T {
+  expect(value).toBeDefined();
+  expect(value).not.toBeNull();
+  if (value == null) {
+    throw new Error("Expected value to be present");
+  }
+  return value;
+}
+
+function last<T>(items: readonly T[]): T {
+  return item(items, items.length - 1);
+}
+
+function textContent(layoutNode: LayoutNode): string {
+  expect(layoutNode.node.type).toBe("text");
+  if (layoutNode.node.type !== "text") {
+    throw new Error(`Expected text node, got ${layoutNode.node.type}`);
+  }
+  return layoutNode.node.content;
+}
 
 describe("hitTest", () => {
   test("returns path to deepest node at position", () => {
@@ -16,7 +46,7 @@ describe("hitTest", () => {
     const ln = layout(node, 20, 10);
     const path = hitTest(ln, 5, 0);
     expect(path.length).toBe(2); // root VStack + Text
-    expect(path[path.length - 1]!.node.type).toBe("text");
+    expect(last(path).node.type).toBe("text");
   });
 
   test("returns root only when hitting empty area", () => {
@@ -27,7 +57,7 @@ describe("hitTest", () => {
     // Hit below the child (y=5)
     const path = hitTest(ln, 5, 5);
     expect(path.length).toBe(1);
-    expect(path[0]!.node.type).toBe("vstack");
+    expect(item(path, 0).node.type).toBe("vstack");
   });
 
   test("returns empty for out-of-bounds", () => {
@@ -45,13 +75,11 @@ describe("hitTest", () => {
     const ln = layout(node, 20, 5);
 
     const pathLeft = hitTest(ln, 3, 0);
-    expect(pathLeft[pathLeft.length - 1]!.node.type).toBe("text");
-    expect((pathLeft[pathLeft.length - 1]!.node as any).content).toBe("left");
+    expect(last(pathLeft).node.type).toBe("text");
+    expect(textContent(last(pathLeft))).toBe("left");
 
     const pathRight = hitTest(ln, 13, 0);
-    expect((pathRight[pathRight.length - 1]!.node as any).content).toBe(
-      "right",
-    );
+    expect(textContent(last(pathRight))).toBe("right");
   });
 
   test("finds deepest nested node", () => {
@@ -61,7 +89,7 @@ describe("hitTest", () => {
     const ln = layout(node, 30, 10);
     const path = hitTest(ln, 3, 0);
     expect(path.length).toBe(4); // root > HStack > VStack > Text
-    expect((path[path.length - 1]!.node as any).content).toBe("deep");
+    expect(textContent(last(path))).toBe("deep");
   });
 
   test("adjusts for vertical scroll offset", () => {
@@ -81,11 +109,11 @@ describe("hitTest", () => {
     // With scrollOffset=2, clicking at row 0 should hit "line 2"
     // (the 3rd child, which is visually at the top)
     const path = hitTest(ln, 3, 0);
-    expect((path[path.length - 1]!.node as any).content).toBe("line 2");
+    expect(textContent(last(path))).toBe("line 2");
 
     // Row 2 should hit "line 4"
     const path2 = hitTest(ln, 3, 2);
-    expect((path2[path2.length - 1]!.node as any).content).toBe("line 4");
+    expect(textContent(last(path2))).toBe("line 4");
   });
 
   test("adjusts for horizontal scroll offset", () => {
@@ -101,7 +129,7 @@ describe("hitTest", () => {
 
     // With scrollOffset=5, clicking at col 0 should hit child "b" (starts at x=5 in layout)
     const path = hitTest(ln, 0, 0);
-    expect((path[path.length - 1]!.node as any).content).toBe("b");
+    expect(textContent(last(path))).toBe("b");
   });
 
   test("no scroll adjustment without overflow scroll", () => {
@@ -112,7 +140,7 @@ describe("hitTest", () => {
     ]);
     const ln = layout(node, 20, 3);
     const path = hitTest(ln, 3, 0);
-    expect((path[path.length - 1]!.node as any).content).toBe("line 0");
+    expect(textContent(last(path))).toBe("line 0");
   });
 });
 
@@ -126,7 +154,7 @@ describe("findClickHandler", () => {
     const path = hitTest(ln, 3, 0);
     const result = findClickHandler(path);
     expect(result).not.toBeNull();
-    expect(result!.handler).toBe(handler);
+    expect(expectSome(result).handler).toBe(handler);
   });
 
   test("returns null when no onClick in path", () => {
@@ -145,7 +173,7 @@ describe("findClickHandler", () => {
     const ln = layout(node, 20, 10);
     const path = hitTest(ln, 3, 0);
     const result = findClickHandler(path);
-    expect(result!.handler).toBe(inner);
+    expect(expectSome(result).handler).toBe(inner);
   });
 });
 
@@ -156,9 +184,8 @@ describe("findScrollTarget", () => {
     ]);
     const ln = layout(node, 20, 10);
     const path = hitTest(ln, 3, 0);
-    const target = findScrollTarget(path);
-    expect(target).not.toBeNull();
-    expect(target!.node.type).toBe("vstack");
+    const target = expectSome(findScrollTarget(path));
+    expect(target.node.type).toBe("vstack");
   });
 
   test("returns null when no scrollable in path", () => {
@@ -174,10 +201,12 @@ describe("findScrollTarget", () => {
     ]);
     const ln = layout(node, 20, 10);
     const path = hitTest(ln, 3, 0);
-    const target = findScrollTarget(path);
+    const target = expectSome(findScrollTarget(path));
     // The inner VStack should win
-    const innerNode = target!.node as any;
-    expect(innerNode.props.height).toBe(5);
+    expect(target.node.type).toBe("vstack");
+    if (target.node.type === "vstack") {
+      expect(target.node.props.height).toBe(5);
+    }
   });
 });
 
@@ -192,8 +221,8 @@ describe("collectKeyPressHandlers", () => {
     const path = hitTest(ln, 3, 0);
     const handlers = collectKeyPressHandlers(path);
     expect(handlers).toHaveLength(2);
-    expect(handlers[0]!.handler).toBe(midHandler);
-    expect(handlers[1]!.handler).toBe(rootHandler);
+    expect(item(handlers, 0).handler).toBe(midHandler);
+    expect(item(handlers, 1).handler).toBe(rootHandler);
   });
 
   test("returns single handler when only root has onKeyPress", () => {
@@ -205,7 +234,7 @@ describe("collectKeyPressHandlers", () => {
     const path = hitTest(ln, 3, 0);
     const handlers = collectKeyPressHandlers(path);
     expect(handlers).toHaveLength(1);
-    expect(handlers[0]!.handler).toBe(handler);
+    expect(item(handlers, 0).handler).toBe(handler);
   });
 
   test("returns empty array when no onKeyPress in path", () => {
