@@ -8,7 +8,7 @@
 
 > **Color** = `"color00"` \| `"color01"` \| `"color02"` \| `"color03"` \| `"color04"` \| `"color05"` \| `"color06"` \| `"color07"` \| `"color08"` \| `"color09"` \| `"color10"` \| `"color11"` \| `"color12"` \| `"color13"` \| `"color14"` \| `"color15"`
 
-Defined in: [types/src/index.ts:12](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/types/src/index.ts#L12)
+Defined in: [types/src/index.ts:12](https://github.com/sacenox/cel-tui/blob/0b562f7e6ef4714e6324d16018cd997c4e9e5d95/packages/types/src/index.ts#L12)
 
 A numbered color slot in the 16-color palette.
 

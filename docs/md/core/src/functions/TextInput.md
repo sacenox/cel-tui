@@ -8,7 +8,7 @@
 
 > **TextInput**(`props`): [`TextInputNode`](../../../types/src/interfaces/TextInputNode.md)
 
-Defined in: [core/src/primitives/text-input.ts:44](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/core/src/primitives/text-input.ts#L44)
+Defined in: [core/src/primitives/text-input.ts:50](https://github.com/sacenox/cel-tui/blob/0b562f7e6ef4714e6324d16018cd997c4e9e5d95/packages/core/src/primitives/text-input.ts#L50)
 
 Create a multi-line editable text container.
 
@@ -20,12 +20,18 @@ Word-wrap is always on. Cursor position is framework-managed.
 Scroll is always uncontrolled — the view follows the cursor and
 responds to mouse wheel automatically.
 
-TextInput is always focusable. When focused, text-editing keys
-(printable characters, arrows, backspace, Enter, Tab) are consumed.
-Modifier combos (e.g., `ctrl+s`) bubble up to ancestor `onKeyPress` handlers.
+TextInput is always focusable. When focused, it consumes insertable text
+plus editing/navigation keys (arrows, backspace, delete, Enter, Tab),
+along with a small set of readline-style shortcuts: `ctrl+a` / `ctrl+e`,
+`alt+b` / `alt+f`, `ctrl+left` / `ctrl+right`, `ctrl+w`, and `alt+d`.
+Word movement and deletion use whitespace-delimited boundaries, and
+`up` / `down` follow visual wrapped lines. Other modifier combos (e.g.,
+`ctrl+s`) and non-insertable control keys bubble up to ancestor
+`onKeyPress` handlers.
 
-Use `onKeyPress` to intercept keys before editing. Return `false` to
-prevent the default editing action for that key.
+Use `onKeyPress` to intercept keys before editing. The handler receives a
+normalized semantic key string; inserted text preserves the original
+characters. Return `false` to prevent the default editing action.
 
 ## Parameters
 

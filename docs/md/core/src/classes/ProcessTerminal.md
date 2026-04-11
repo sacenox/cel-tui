@@ -6,12 +6,15 @@
 
 # Class: ProcessTerminal
 
-Defined in: [core/src/terminal.ts:30](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/core/src/terminal.ts#L30)
+Defined in: [core/src/terminal.ts:39](https://github.com/sacenox/cel-tui/blob/0b562f7e6ef4714e6324d16018cd997c4e9e5d95/packages/core/src/terminal.ts#L39)
 
 Real terminal using process.stdin/stdout.
 
-Enables the Kitty keyboard protocol (level 1) for unambiguous key input,
-SGR mouse tracking, and raw mode. All modes are restored on stop/crash.
+Enables Kitty keyboard protocol level 1, bracketed paste mode, SGR mouse
+tracking, and raw mode. The runtime prefers Kitty semantics for full
+modifier fidelity, while the parser remains compatible with mixed
+tmux/legacy keyboard encodings that may still arrive on stdin. All modes are
+restored on stop/crash.
 
 ## Implements
 
@@ -35,7 +38,7 @@ SGR mouse tracking, and raw mode. All modes are restored on stop/crash.
 
 > **get** **columns**(): `number`
 
-Defined in: [core/src/terminal.ts:37](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/core/src/terminal.ts#L37)
+Defined in: [core/src/terminal.ts:46](https://github.com/sacenox/cel-tui/blob/0b562f7e6ef4714e6324d16018cd997c4e9e5d95/packages/core/src/terminal.ts#L46)
 
 Terminal width in columns.
 
@@ -55,7 +58,7 @@ Terminal width in columns.
 
 > **get** **rows**(): `number`
 
-Defined in: [core/src/terminal.ts:41](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/core/src/terminal.ts#L41)
+Defined in: [core/src/terminal.ts:50](https://github.com/sacenox/cel-tui/blob/0b562f7e6ef4714e6324d16018cd997c4e9e5d95/packages/core/src/terminal.ts#L50)
 
 Terminal height in rows.
 
@@ -73,7 +76,7 @@ Terminal height in rows.
 
 > **hideCursor**(): `void`
 
-Defined in: [core/src/terminal.ts:131](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/core/src/terminal.ts#L131)
+Defined in: [core/src/terminal.ts:144](https://github.com/sacenox/cel-tui/blob/0b562f7e6ef4714e6324d16018cd997c4e9e5d95/packages/core/src/terminal.ts#L144)
 
 Hide the terminal cursor.
 
@@ -91,7 +94,7 @@ Hide the terminal cursor.
 
 > **showCursor**(): `void`
 
-Defined in: [core/src/terminal.ts:135](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/core/src/terminal.ts#L135)
+Defined in: [core/src/terminal.ts:148](https://github.com/sacenox/cel-tui/blob/0b562f7e6ef4714e6324d16018cd997c4e9e5d95/packages/core/src/terminal.ts#L148)
 
 Show the terminal cursor.
 
@@ -109,9 +112,13 @@ Show the terminal cursor.
 
 > **start**(`onInput`, `onResize`): `void`
 
-Defined in: [core/src/terminal.ts:49](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/core/src/terminal.ts#L49)
+Defined in: [core/src/terminal.ts:58](https://github.com/sacenox/cel-tui/blob/0b562f7e6ef4714e6324d16018cd997c4e9e5d95/packages/core/src/terminal.ts#L58)
 
-Enter raw mode, enable Kitty keyboard protocol, enable mouse tracking, hide cursor.
+Enter raw mode, enable Kitty level 1 keyboard reporting, enable bracketed
+paste mode, enable mouse tracking, and hide the cursor.
+
+The framework prefers Kitty semantics but its parser also accepts mixed
+tmux/legacy keyboard encodings that may still arrive on stdin.
 
 #### Parameters
 
@@ -137,7 +144,7 @@ Enter raw mode, enable Kitty keyboard protocol, enable mouse tracking, hide curs
 
 > **stop**(): `void`
 
-Defined in: [core/src/terminal.ts:92](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/core/src/terminal.ts#L92)
+Defined in: [core/src/terminal.ts:103](https://github.com/sacenox/cel-tui/blob/0b562f7e6ef4714e6324d16018cd997c4e9e5d95/packages/core/src/terminal.ts#L103)
 
 Restore terminal state.
 
@@ -155,7 +162,7 @@ Restore terminal state.
 
 > **write**(`data`): `void`
 
-Defined in: [core/src/terminal.ts:45](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/core/src/terminal.ts#L45)
+Defined in: [core/src/terminal.ts:54](https://github.com/sacenox/cel-tui/blob/0b562f7e6ef4714e6324d16018cd997c4e9e5d95/packages/core/src/terminal.ts#L54)
 
 Write a string to the terminal output.
 

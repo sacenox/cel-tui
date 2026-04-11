@@ -6,7 +6,7 @@
 
 # Interface: SelectInstance()
 
-Defined in: [components/src/select.ts:105](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/components/src/select.ts#L105)
+Defined in: [components/src/select.ts:108](https://github.com/sacenox/cel-tui/blob/0b562f7e6ef4714e6324d16018cd997c4e9e5d95/packages/components/src/select.ts#L108)
 
 A Select component instance returned by [Select](../functions/Select.md).
 
@@ -15,7 +15,7 @@ Use `.reset()` to clear the search query and highlight.
 
 > **SelectInstance**(): [`ContainerNode`](../../../types/src/interfaces/ContainerNode.md)
 
-Defined in: [components/src/select.ts:107](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/components/src/select.ts#L107)
+Defined in: [components/src/select.ts:110](https://github.com/sacenox/cel-tui/blob/0b562f7e6ef4714e6324d16018cd997c4e9e5d95/packages/components/src/select.ts#L110)
 
 Returns the current Select node tree. Call inside `cel.viewport()`.
 
@@ -29,7 +29,7 @@ Returns the current Select node tree. Call inside `cel.viewport()`.
 
 > **reset**(): `void`
 
-Defined in: [components/src/select.ts:109](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/components/src/select.ts#L109)
+Defined in: [components/src/select.ts:112](https://github.com/sacenox/cel-tui/blob/0b562f7e6ef4714e6324d16018cd997c4e9e5d95/packages/components/src/select.ts#L112)
 
 Reset the search query, highlight position, and scroll offset.
 

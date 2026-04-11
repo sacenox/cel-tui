@@ -6,9 +6,7 @@
 
 # Interface: SelectProps
 
-Defined in: [components/src/select.ts:35](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/components/src/select.ts#L35)
-
-Configuration for the [Select](../functions/Select.md) component.
+Defined in: [components/src/select.ts:38](https://github.com/sacenox/cel-tui/blob/0b562f7e6ef4714e6324d16018cd997c4e9e5d95/packages/components/src/select.ts#L38)
 
 ## Properties
 
@@ -16,7 +14,7 @@ Configuration for the [Select](../functions/Select.md) component.
 
 > `optional` **bgColor?**: [`Color`](../../../types/src/type-aliases/Color.md)
 
-Defined in: [components/src/select.ts:80](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/components/src/select.ts#L80)
+Defined in: [components/src/select.ts:83](https://github.com/sacenox/cel-tui/blob/0b562f7e6ef4714e6324d16018cd997c4e9e5d95/packages/components/src/select.ts#L83)
 
 Background color (fills the container rect).
 
@@ -26,7 +24,7 @@ Background color (fills the container rect).
 
 > `optional` **fgColor?**: [`Color`](../../../types/src/type-aliases/Color.md)
 
-Defined in: [components/src/select.ts:78](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/components/src/select.ts#L78)
+Defined in: [components/src/select.ts:81](https://github.com/sacenox/cel-tui/blob/0b562f7e6ef4714e6324d16018cd997c4e9e5d95/packages/components/src/select.ts#L81)
 
 Foreground text color.
 
@@ -36,7 +34,7 @@ Foreground text color.
 
 > `optional` **flex?**: `number`
 
-Defined in: [components/src/select.ts:76](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/components/src/select.ts#L76)
+Defined in: [components/src/select.ts:79](https://github.com/sacenox/cel-tui/blob/0b562f7e6ef4714e6324d16018cd997c4e9e5d95/packages/components/src/select.ts#L79)
 
 Flex grow factor.
 
@@ -46,7 +44,7 @@ Flex grow factor.
 
 > `optional` **focusable?**: `boolean`
 
-Defined in: [components/src/select.ts:90](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/components/src/select.ts#L90)
+Defined in: [components/src/select.ts:93](https://github.com/sacenox/cel-tui/blob/0b562f7e6ef4714e6324d16018cd997c4e9e5d95/packages/components/src/select.ts#L93)
 
 Whether the select participates in focus traversal.
 
@@ -62,7 +60,7 @@ true
 
 > `optional` **focused?**: `boolean`
 
-Defined in: [components/src/select.ts:85](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/components/src/select.ts#L85)
+Defined in: [components/src/select.ts:88](https://github.com/sacenox/cel-tui/blob/0b562f7e6ef4714e6324d16018cd997c4e9e5d95/packages/components/src/select.ts#L88)
 
 Whether the select is currently focused (controlled mode).
 When omitted, focus is uncontrolled (framework-managed).
@@ -73,7 +71,7 @@ When omitted, focus is uncontrolled (framework-managed).
 
 > `optional` **focusStyle?**: [`StyleProps`](../../../types/src/interfaces/StyleProps.md)
 
-Defined in: [components/src/select.ts:96](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/components/src/select.ts#L96)
+Defined in: [components/src/select.ts:99](https://github.com/sacenox/cel-tui/blob/0b562f7e6ef4714e6324d16018cd997c4e9e5d95/packages/components/src/select.ts#L99)
 
 Style overrides applied when focused.
 
@@ -83,7 +81,7 @@ Style overrides applied when focused.
 
 > `optional` **height?**: [`SizeValue`](../../../types/src/type-aliases/SizeValue.md)
 
-Defined in: [components/src/select.ts:74](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/components/src/select.ts#L74)
+Defined in: [components/src/select.ts:77](https://github.com/sacenox/cel-tui/blob/0b562f7e6ef4714e6324d16018cd997c4e9e5d95/packages/components/src/select.ts#L77)
 
 Fixed height in cells or percentage.
 
@@ -93,7 +91,7 @@ Fixed height in cells or percentage.
 
 > `optional` **highlightColor?**: [`Color`](../../../types/src/type-aliases/Color.md)
 
-Defined in: [components/src/select.ts:63](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/components/src/select.ts#L63)
+Defined in: [components/src/select.ts:66](https://github.com/sacenox/cel-tui/blob/0b562f7e6ef4714e6324d16018cd997c4e9e5d95/packages/components/src/select.ts#L66)
 
 Color of the highlighted item and its indicator.
 
@@ -109,7 +107,7 @@ Color of the highlighted item and its indicator.
 
 > `optional` **indicator?**: `string`
 
-Defined in: [components/src/select.ts:58](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/components/src/select.ts#L58)
+Defined in: [components/src/select.ts:61](https://github.com/sacenox/cel-tui/blob/0b562f7e6ef4714e6324d16018cd997c4e9e5d95/packages/components/src/select.ts#L61)
 
 Character used for the highlight indicator.
 
@@ -125,7 +123,7 @@ Character used for the highlight indicator.
 
 > **items**: [`SelectItem`](../type-aliases/SelectItem.md)[]
 
-Defined in: [components/src/select.ts:37](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/components/src/select.ts#L37)
+Defined in: [components/src/select.ts:40](https://github.com/sacenox/cel-tui/blob/0b562f7e6ef4714e6324d16018cd997c4e9e5d95/packages/components/src/select.ts#L40)
 
 Items to choose from.
 
@@ -135,7 +133,7 @@ Items to choose from.
 
 > `optional` **maxVisible?**: `number`
 
-Defined in: [components/src/select.ts:53](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/components/src/select.ts#L53)
+Defined in: [components/src/select.ts:56](https://github.com/sacenox/cel-tui/blob/0b562f7e6ef4714e6324d16018cd997c4e9e5d95/packages/components/src/select.ts#L56)
 
 Maximum number of items visible at once.
 When the filtered list exceeds this, a "N more" indicator is shown.
@@ -152,7 +150,7 @@ When the filtered list exceeds this, a "N more" indicator is shown.
 
 > `optional` **onBlur?**: () => `void`
 
-Defined in: [components/src/select.ts:94](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/components/src/select.ts#L94)
+Defined in: [components/src/select.ts:97](https://github.com/sacenox/cel-tui/blob/0b562f7e6ef4714e6324d16018cd997c4e9e5d95/packages/components/src/select.ts#L97)
 
 Called when the select loses focus.
 
@@ -166,7 +164,7 @@ Called when the select loses focus.
 
 > `optional` **onFocus?**: () => `void`
 
-Defined in: [components/src/select.ts:92](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/components/src/select.ts#L92)
+Defined in: [components/src/select.ts:95](https://github.com/sacenox/cel-tui/blob/0b562f7e6ef4714e6324d16018cd997c4e9e5d95/packages/components/src/select.ts#L95)
 
 Called when the select receives focus.
 
@@ -178,24 +176,16 @@ Called when the select receives focus.
 
 ### onKeyPress?
 
-> `optional` **onKeyPress?**: (`key`) => `boolean` \| `void`
+> `optional` **onKeyPress?**: [`KeyPressHandler`](../../../types/src/type-aliases/KeyPressHandler.md)
 
-Defined in: [components/src/select.ts:70](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/components/src/select.ts#L70)
+Defined in: [components/src/select.ts:73](https://github.com/sacenox/cel-tui/blob/0b562f7e6ef4714e6324d16018cd997c4e9e5d95/packages/components/src/select.ts#L73)
 
 Called on key events that bubble up to the Select.
 Return `false` to keep bubbling to ancestors.
 
-#### Parameters
+#### Param
 
-##### key
-
-`string`
-
-The key string.
-
-#### Returns
-
-`boolean` \| `void`
+The normalized semantic key string.
 
 ***
 
@@ -203,7 +193,7 @@ The key string.
 
 > **onSelect**: (`value`) => `void`
 
-Defined in: [components/src/select.ts:42](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/components/src/select.ts#L42)
+Defined in: [components/src/select.ts:45](https://github.com/sacenox/cel-tui/blob/0b562f7e6ef4714e6324d16018cd997c4e9e5d95/packages/components/src/select.ts#L45)
 
 Called when the user selects an item (Enter or click).
 
@@ -225,7 +215,7 @@ The selected item's value.
 
 > `optional` **placeholder?**: `string`
 
-Defined in: [components/src/select.ts:47](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/components/src/select.ts#L47)
+Defined in: [components/src/select.ts:50](https://github.com/sacenox/cel-tui/blob/0b562f7e6ef4714e6324d16018cd997c4e9e5d95/packages/components/src/select.ts#L50)
 
 Placeholder text shown when the search query is empty.
 
@@ -241,6 +231,6 @@ Placeholder text shown when the search query is empty.
 
 > `optional` **width?**: [`SizeValue`](../../../types/src/type-aliases/SizeValue.md)
 
-Defined in: [components/src/select.ts:72](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/components/src/select.ts#L72)
+Defined in: [components/src/select.ts:75](https://github.com/sacenox/cel-tui/blob/0b562f7e6ef4714e6324d16018cd997c4e9e5d95/packages/components/src/select.ts#L75)
 
 Fixed width in cells or percentage.

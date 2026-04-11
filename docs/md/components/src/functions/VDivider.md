@@ -8,7 +8,7 @@
 
 > **VDivider**(`props?`): [`ContainerNode`](../../../types/src/interfaces/ContainerNode.md)
 
-Defined in: [components/src/vdivider.ts:46](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/components/src/vdivider.ts#L46)
+Defined in: [components/src/vdivider.ts:46](https://github.com/sacenox/cel-tui/blob/0b562f7e6ef4714e6324d16018cd997c4e9e5d95/packages/components/src/vdivider.ts#L46)
 
 Vertical divider that fills the available height.
 

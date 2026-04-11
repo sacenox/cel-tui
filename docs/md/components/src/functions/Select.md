@@ -8,7 +8,7 @@
 
 > **Select**(`props`): [`SelectInstance`](../interfaces/SelectInstance.md)
 
-Defined in: [components/src/select.ts:222](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/components/src/select.ts#L222)
+Defined in: [components/src/select.ts:225](https://github.com/sacenox/cel-tui/blob/0b562f7e6ef4714e6324d16018cd997c4e9e5d95/packages/components/src/select.ts#L225)
 
 Creates a filterable select list component.
 

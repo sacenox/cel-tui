@@ -6,11 +6,11 @@
 
 # Interface: ContainerNode
 
-Defined in: [types/src/index.ts:384](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/types/src/index.ts#L384)
+Defined in: [types/src/index.ts:401](https://github.com/sacenox/cel-tui/blob/0b562f7e6ef4714e6324d16018cd997c4e9e5d95/packages/types/src/index.ts#L401)
 
 A layout container node in the UI tree.
 
-Created by VStack (vertical) or HStack (horizontal).
+Created by `VStack` (vertical) or `HStack` (horizontal).
 Contains an ordered list of child nodes.
 
 ## Properties
@@ -19,7 +19,7 @@ Contains an ordered list of child nodes.
 
 > **children**: [`Node`](../type-aliases/Node.md)[]
 
-Defined in: [types/src/index.ts:390](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/types/src/index.ts#L390)
+Defined in: [types/src/index.ts:407](https://github.com/sacenox/cel-tui/blob/0b562f7e6ef4714e6324d16018cd997c4e9e5d95/packages/types/src/index.ts#L407)
 
 Ordered child nodes.
 
@@ -29,7 +29,7 @@ Ordered child nodes.
 
 > **props**: [`ContainerProps`](ContainerProps.md)
 
-Defined in: [types/src/index.ts:388](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/types/src/index.ts#L388)
+Defined in: [types/src/index.ts:405](https://github.com/sacenox/cel-tui/blob/0b562f7e6ef4714e6324d16018cd997c4e9e5d95/packages/types/src/index.ts#L405)
 
 Container layout, sizing, and interaction props.
 
@@ -39,6 +39,6 @@ Container layout, sizing, and interaction props.
 
 > **type**: `"vstack"` \| `"hstack"`
 
-Defined in: [types/src/index.ts:386](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/types/src/index.ts#L386)
+Defined in: [types/src/index.ts:403](https://github.com/sacenox/cel-tui/blob/0b562f7e6ef4714e6324d16018cd997c4e9e5d95/packages/types/src/index.ts#L403)
 
 `"vstack"` for vertical layout, `"hstack"` for horizontal.

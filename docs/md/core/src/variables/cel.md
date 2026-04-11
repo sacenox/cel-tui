@@ -8,7 +8,7 @@
 
 > `const` **cel**: `object`
 
-Defined in: [core/src/cel.ts:842](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/core/src/cel.ts#L842)
+Defined in: [core/src/cel.ts:1116](https://github.com/sacenox/cel-tui/blob/0b562f7e6ef4714e6324d16018cd997c4e9e5d95/packages/core/src/cel.ts#L1116)
 
 cel-tui framework entrypoint.
 
@@ -26,8 +26,8 @@ state changes.
 Initialize the framework with a terminal implementation.
 Must be called before [cel.viewport](#viewport).
 
-Enables the Kitty keyboard protocol (level 1) via the terminal,
-enters raw mode, and starts mouse tracking.
+Enables the Kitty keyboard protocol (level 1) and bracketed paste mode via
+the terminal, enters raw mode, and starts mouse tracking.
 
 #### Parameters
 
@@ -64,14 +64,34 @@ tick produce a single render.
 
 `void`
 
+### setTitle()
+
+> **setTitle**(`title`): `void`
+
+Set the terminal window or tab title.
+
+This is an imperative side effect, not part of the render tree.
+Control characters are stripped from the title before writing the
+terminal sequence. Best effort only — some hosts may ignore it.
+
+#### Parameters
+
+##### title
+
+`string`
+
+#### Returns
+
+`void`
+
 ### stop()
 
 > **stop**(): `void`
 
 Stop the framework and restore terminal state.
 
-Pops the Kitty keyboard protocol mode, disables mouse tracking,
-and restores the terminal to its previous state.
+Pops the Kitty keyboard protocol mode, disables bracketed paste and mouse
+tracking, and restores the terminal to its previous state.
 
 #### Returns
 

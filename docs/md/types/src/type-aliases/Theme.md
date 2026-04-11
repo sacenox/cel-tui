@@ -8,7 +8,7 @@
 
 > **Theme** = `Record`\<[`Color`](Color.md), [`ThemeValue`](ThemeValue.md)\>
 
-Defined in: [types/src/index.ts:60](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/types/src/index.ts#L60)
+Defined in: [types/src/index.ts:60](https://github.com/sacenox/cel-tui/blob/0b562f7e6ef4714e6324d16018cd997c4e9e5d95/packages/types/src/index.ts#L60)
 
 A mapping from the 16 color slots to rendering output.
 

@@ -19,6 +19,7 @@
 ## Type Aliases
 
 - [Color](type-aliases/Color.md)
+- [KeyPressHandler](type-aliases/KeyPressHandler.md)
 - [Node](type-aliases/Node.md)
 - [SizeValue](type-aliases/SizeValue.md)
 - [Theme](type-aliases/Theme.md)

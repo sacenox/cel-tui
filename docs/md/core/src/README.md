@@ -47,6 +47,7 @@ cel.viewport(() =>
 - [emitBuffer](functions/emitBuffer.md)
 - [extractAnsiCode](functions/extractAnsiCode.md)
 - [HStack](functions/HStack.md)
+- [measureContentHeight](functions/measureContentHeight.md)
 - [Text](functions/Text.md)
 - [TextInput](functions/TextInput.md)
 - [visibleWidth](functions/visibleWidth.md)

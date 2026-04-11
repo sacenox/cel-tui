@@ -6,7 +6,7 @@
 
 # Interface: VDividerProps
 
-Defined in: [components/src/vdivider.ts:5](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/components/src/vdivider.ts#L5)
+Defined in: [components/src/vdivider.ts:5](https://github.com/sacenox/cel-tui/blob/0b562f7e6ef4714e6324d16018cd997c4e9e5d95/packages/components/src/vdivider.ts#L5)
 
 Props for the [VDivider](../functions/VDivider.md) component.
 
@@ -16,7 +16,7 @@ Props for the [VDivider](../functions/VDivider.md) component.
 
 > `optional` **char?**: `string`
 
-Defined in: [components/src/vdivider.ts:10](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/components/src/vdivider.ts#L10)
+Defined in: [components/src/vdivider.ts:10](https://github.com/sacenox/cel-tui/blob/0b562f7e6ef4714e6324d16018cd997c4e9e5d95/packages/components/src/vdivider.ts#L10)
 
 Character to repeat down the height.
 
@@ -32,6 +32,6 @@ Character to repeat down the height.
 
 > `optional` **fgColor?**: [`Color`](../../../types/src/type-aliases/Color.md)
 
-Defined in: [components/src/vdivider.ts:12](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/components/src/vdivider.ts#L12)
+Defined in: [components/src/vdivider.ts:12](https://github.com/sacenox/cel-tui/blob/0b562f7e6ef4714e6324d16018cd997c4e9e5d95/packages/components/src/vdivider.ts#L12)
 
 Foreground color of the divider character.

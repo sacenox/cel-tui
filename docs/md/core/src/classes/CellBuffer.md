@@ -6,7 +6,7 @@
 
 # Class: CellBuffer
 
-Defined in: [core/src/cell-buffer.ts:61](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/core/src/cell-buffer.ts#L61)
+Defined in: [core/src/cell-buffer.ts:61](https://github.com/sacenox/cel-tui/blob/0b562f7e6ef4714e6324d16018cd997c4e9e5d95/packages/core/src/cell-buffer.ts#L61)
 
 A 2D grid of styled terminal cells.
 
@@ -25,7 +25,7 @@ where they have non-empty content.
 
 > **new CellBuffer**(`width`, `height`): `CellBuffer`
 
-Defined in: [core/src/cell-buffer.ts:72](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/core/src/cell-buffer.ts#L72)
+Defined in: [core/src/cell-buffer.ts:72](https://github.com/sacenox/cel-tui/blob/0b562f7e6ef4714e6324d16018cd997c4e9e5d95/packages/core/src/cell-buffer.ts#L72)
 
 Create a new cell buffer filled with empty cells.
 
@@ -55,7 +55,7 @@ Buffer height in rows.
 
 > **get** **height**(): `number`
 
-Defined in: [core/src/cell-buffer.ts:85](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/core/src/cell-buffer.ts#L85)
+Defined in: [core/src/cell-buffer.ts:85](https://github.com/sacenox/cel-tui/blob/0b562f7e6ef4714e6324d16018cd997c4e9e5d95/packages/core/src/cell-buffer.ts#L85)
 
 Buffer height in rows.
 
@@ -71,7 +71,7 @@ Buffer height in rows.
 
 > **get** **width**(): `number`
 
-Defined in: [core/src/cell-buffer.ts:80](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/core/src/cell-buffer.ts#L80)
+Defined in: [core/src/cell-buffer.ts:80](https://github.com/sacenox/cel-tui/blob/0b562f7e6ef4714e6324d16018cd997c4e9e5d95/packages/core/src/cell-buffer.ts#L80)
 
 Buffer width in columns.
 
@@ -85,7 +85,7 @@ Buffer width in columns.
 
 > **clear**(): `void`
 
-Defined in: [core/src/cell-buffer.ts:118](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/core/src/cell-buffer.ts#L118)
+Defined in: [core/src/cell-buffer.ts:123](https://github.com/sacenox/cel-tui/blob/0b562f7e6ef4714e6324d16018cd997c4e9e5d95/packages/core/src/cell-buffer.ts#L123)
 
 Reset all cells to [EMPTY\_CELL](../variables/EMPTY_CELL.md).
 
@@ -99,7 +99,7 @@ Reset all cells to [EMPTY\_CELL](../variables/EMPTY_CELL.md).
 
 > **diff**(`other`): `object`[]
 
-Defined in: [core/src/cell-buffer.ts:177](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/core/src/cell-buffer.ts#L177)
+Defined in: [core/src/cell-buffer.ts:182](https://github.com/sacenox/cel-tui/blob/0b562f7e6ef4714e6324d16018cd997c4e9e5d95/packages/core/src/cell-buffer.ts#L182)
 
 Compare this buffer against another and return positions that differ.
 Used for differential rendering — only changed cells need terminal updates.
@@ -124,7 +124,7 @@ Array of `{ x, y }` positions where cells differ.
 
 > **fill**(`x`, `y`, `w`, `h`, `cell`): `void`
 
-Defined in: [core/src/cell-buffer.ts:132](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/core/src/cell-buffer.ts#L132)
+Defined in: [core/src/cell-buffer.ts:137](https://github.com/sacenox/cel-tui/blob/0b562f7e6ef4714e6324d16018cd997c4e9e5d95/packages/core/src/cell-buffer.ts#L137)
 
 Fill a rectangular region with a cell value.
 Coordinates are clipped to buffer bounds.
@@ -171,7 +171,7 @@ Cell value to fill with.
 
 > **get**(`x`, `y`): [`Cell`](../interfaces/Cell.md)
 
-Defined in: [core/src/cell-buffer.ts:93](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/core/src/cell-buffer.ts#L93)
+Defined in: [core/src/cell-buffer.ts:93](https://github.com/sacenox/cel-tui/blob/0b562f7e6ef4714e6324d16018cd997c4e9e5d95/packages/core/src/cell-buffer.ts#L93)
 
 Get the cell at `(x, y)`.
 Returns [EMPTY\_CELL](../variables/EMPTY_CELL.md) for out-of-bounds coordinates.
@@ -196,7 +196,7 @@ Returns [EMPTY\_CELL](../variables/EMPTY_CELL.md) for out-of-bounds coordinates.
 
 > **isEmpty**(`x`, `y`): `boolean`
 
-Defined in: [core/src/cell-buffer.ts:113](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/core/src/cell-buffer.ts#L113)
+Defined in: [core/src/cell-buffer.ts:118](https://github.com/sacenox/cel-tui/blob/0b562f7e6ef4714e6324d16018cd997c4e9e5d95/packages/core/src/cell-buffer.ts#L118)
 
 Check if the cell at `(x, y)` is empty (transparent).
 A cell is empty if it matches [EMPTY\_CELL](../variables/EMPTY_CELL.md) exactly.
@@ -221,7 +221,7 @@ A cell is empty if it matches [EMPTY\_CELL](../variables/EMPTY_CELL.md) exactly.
 
 > **resize**(`width`, `height`): `void`
 
-Defined in: [core/src/cell-buffer.ts:151](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/core/src/cell-buffer.ts#L151)
+Defined in: [core/src/cell-buffer.ts:156](https://github.com/sacenox/cel-tui/blob/0b562f7e6ef4714e6324d16018cd997c4e9e5d95/packages/core/src/cell-buffer.ts#L156)
 
 Resize the buffer. Existing content within the new bounds is preserved.
 New cells are initialized to [EMPTY\_CELL](../variables/EMPTY_CELL.md).
@@ -250,7 +250,7 @@ New height in rows.
 
 > **set**(`x`, `y`, `cell`): `void`
 
-Defined in: [core/src/cell-buffer.ts:104](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/core/src/cell-buffer.ts#L104)
+Defined in: [core/src/cell-buffer.ts:109](https://github.com/sacenox/cel-tui/blob/0b562f7e6ef4714e6324d16018cd997c4e9e5d95/packages/core/src/cell-buffer.ts#L109)
 
 Set the cell at `(x, y)`.
 Out-of-bounds writes are silently ignored.

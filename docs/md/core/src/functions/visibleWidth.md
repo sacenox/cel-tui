@@ -8,7 +8,7 @@
 
 > **visibleWidth**(`str`): `number`
 
-Defined in: [core/src/width.ts:133](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/core/src/width.ts#L133)
+Defined in: [core/src/width.ts:138](https://github.com/sacenox/cel-tui/blob/0b562f7e6ef4714e6324d16018cd997c4e9e5d95/packages/core/src/width.ts#L138)
 
 Calculate the visible width of a string in terminal columns.
 

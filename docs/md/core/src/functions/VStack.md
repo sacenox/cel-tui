@@ -8,7 +8,7 @@
 
 > **VStack**(`props`, `children`): [`ContainerNode`](../../../types/src/interfaces/ContainerNode.md)
 
-Defined in: [core/src/primitives/stacks.ts:19](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/core/src/primitives/stacks.ts#L19)
+Defined in: [core/src/primitives/stacks.ts:19](https://github.com/sacenox/cel-tui/blob/0b562f7e6ef4714e6324d16018cd997c4e9e5d95/packages/core/src/primitives/stacks.ts#L19)
 
 Create a vertical stack container — children laid out top to bottom.
 

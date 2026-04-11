@@ -6,11 +6,11 @@
 
 # Interface: TextInputNode
 
-Defined in: [types/src/index.ts:372](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/types/src/index.ts#L372)
+Defined in: [types/src/index.ts:389](https://github.com/sacenox/cel-tui/blob/0b562f7e6ef4714e6324d16018cd997c4e9e5d95/packages/types/src/index.ts#L389)
 
 An editable text container node in the UI tree.
 
-Created by the TextInput function. Accepts container sizing
+Created by the `TextInput` function. Accepts container sizing
 props but has no children — its content is the `value` prop.
 
 ## Properties
@@ -19,7 +19,7 @@ props but has no children — its content is the `value` prop.
 
 > **props**: [`TextInputProps`](TextInputProps.md)
 
-Defined in: [types/src/index.ts:375](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/types/src/index.ts#L375)
+Defined in: [types/src/index.ts:392](https://github.com/sacenox/cel-tui/blob/0b562f7e6ef4714e6324d16018cd997c4e9e5d95/packages/types/src/index.ts#L392)
 
 TextInput configuration and styling props.
 
@@ -29,4 +29,4 @@ TextInput configuration and styling props.
 
 > **type**: `"textinput"`
 
-Defined in: [types/src/index.ts:373](https://github.com/sacenox/cel-tui/blob/2d099e69ab5d50da49ab24db1b048765e3824208/packages/types/src/index.ts#L373)
+Defined in: [types/src/index.ts:390](https://github.com/sacenox/cel-tui/blob/0b562f7e6ef4714e6324d16018cd997c4e9e5d95/packages/types/src/index.ts#L390)
