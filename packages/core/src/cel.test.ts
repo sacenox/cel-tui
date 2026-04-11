@@ -941,6 +941,87 @@ describe("cel end-to-end", () => {
       expect(received).toEqual(["mid:x", "root:x"]);
     });
 
+    test("ancestor onKeyPress can consume Escape before blur", async () => {
+      const term = setup(20, 5);
+      const received: string[] = [];
+      let btnFocused = true;
+      let blurred = false;
+
+      cel.viewport(() =>
+        VStack(
+          {
+            width: 20,
+            height: 5,
+            onKeyPress: (key) => {
+              received.push(key);
+            },
+          },
+          [
+            HStack(
+              {
+                onClick: () => {},
+                focused: btnFocused,
+                onBlur: () => {
+                  blurred = true;
+                  btnFocused = false;
+                },
+              },
+              [Text("Btn")],
+            ),
+          ],
+        ),
+      );
+      await waitForRender();
+
+      term.sendInput(ESCAPE);
+      await waitForRender();
+
+      expect(received).toEqual(["escape"]);
+      expect(blurred).toBe(false);
+      expect(btnFocused).toBe(true);
+    });
+
+    test("Escape blurs after bubbling when ancestor handlers return false", async () => {
+      const term = setup(20, 5);
+      const received: string[] = [];
+      let btnFocused = true;
+      let blurred = false;
+
+      cel.viewport(() =>
+        VStack(
+          {
+            width: 20,
+            height: 5,
+            onKeyPress: (key) => {
+              received.push(key);
+              return false;
+            },
+          },
+          [
+            HStack(
+              {
+                onClick: () => {},
+                focused: btnFocused,
+                onBlur: () => {
+                  blurred = true;
+                  btnFocused = false;
+                },
+              },
+              [Text("Btn")],
+            ),
+          ],
+        ),
+      );
+      await waitForRender();
+
+      term.sendInput(ESCAPE);
+      await waitForRender();
+
+      expect(received).toEqual(["escape"]);
+      expect(blurred).toBe(true);
+      expect(btnFocused).toBe(false);
+    });
+
     test("key reaches root onKeyPress when no intermediate handlers", async () => {
       const term = setup(20, 5);
       let rootKey = "";
@@ -1003,6 +1084,51 @@ describe("cel end-to-end", () => {
       term.sendInput(CTRL_S);
       await waitForRender();
       expect(parentKey).toBe("ctrl+s");
+    });
+
+    test("TextInput onKeyPress returning false prevents Escape blur", async () => {
+      const term = setup(20, 5);
+      let parentKey = "";
+      let inputKey = "";
+      let inputValue = "hello";
+      let inputFocused = true;
+
+      cel.viewport(() =>
+        VStack(
+          {
+            width: 20,
+            height: 5,
+            onKeyPress: (key) => {
+              parentKey = key;
+            },
+          },
+          [
+            TextInput({
+              value: inputValue,
+              onChange: (v) => {
+                inputValue = v;
+              },
+              focused: inputFocused,
+              onBlur: () => {
+                inputFocused = false;
+              },
+              onKeyPress: (key) => {
+                inputKey = key;
+                if (key === "escape") return false;
+              },
+            }),
+          ],
+        ),
+      );
+      await waitForRender();
+
+      term.sendInput(ESCAPE);
+      await waitForRender();
+
+      expect(inputKey).toBe("escape");
+      expect(parentKey).toBe("");
+      expect(inputFocused).toBe(true);
+      expect(inputValue).toBe("hello");
     });
 
     test("unfocused state routes key to root handler", async () => {

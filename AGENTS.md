@@ -29,7 +29,7 @@ Dependency chain: `components → core → types`
 - **Cell buffer rendering:** Layout writes to a 2D grid of styled cells, not raw strings. Clipping and layer compositing are cell writes. Diff against previous buffer for minimal terminal output.
 - **Reactive rendering:** `cel.render()` batches via `process.nextTick()`. No fixed FPS.
 - **Layers:** `cel.viewport(() => [layer1, layer2])` — array of independent viewport-sized trees, composited bottom-to-top. Conditional inclusion = show/hide.
-- **Key bubbling:** Unconsumed keys bubble up from focused element through ancestors. Root `onKeyPress` = global handler.
+- **Key bubbling:** Unconsumed keys bubble up from focused element through ancestors. Root `onKeyPress` = global handler. Escape blur is a fallback default action after bubbling — consuming `escape` prevents blur.
 - **Hit detection:** Topmost layer first, deepest node at (x,y), walk up to find handler. Innermost wins for scroll, click, keys.
 
 ## Implementation Status
@@ -216,7 +216,7 @@ chore: scaffold monorepo with types, core, components packages
 
 ## Architecture Notes
 
-- `cel.ts` — Framework entrypoint. Owns render loop, input dispatch, focus management. `cel.init(terminal, options?)` starts (accepts optional `{ theme }` for custom color themes), `cel.viewport(fn)` sets render function, `cel.render()` requests re-render, `cel.stop()` restores terminal. Input handling treats stdin as a mixed stream: keyboard chunks may contain multiple decoded key events, mouse input handles batched SGR events, and TextInput batching preserves the latest value/cursor across multiple keys in one chunk. TextInput `onKeyPress` fires before built-in editing logic — returning `false` prevents the default action (e.g. intercept Enter to submit instead of inserting a newline). The TextInput's `onKeyPress` is excluded from ancestor bubbling to avoid double-calling.
+- `cel.ts` — Framework entrypoint. Owns render loop, input dispatch, focus management. `cel.init(terminal, options?)` starts (accepts optional `{ theme }` for custom color themes), `cel.viewport(fn)` sets render function, `cel.render()` requests re-render, `cel.stop()` restores terminal. Input handling treats stdin as a mixed stream: keyboard chunks may contain multiple decoded key events, mouse input handles batched SGR events, and TextInput batching preserves the latest value/cursor across multiple keys in one chunk. TextInput `onKeyPress` fires before built-in editing logic — returning `false` prevents the default TextInput action for that key (for example, intercept Enter instead of inserting a newline, or intercept Escape instead of blurring). The TextInput's `onKeyPress` is excluded from ancestor bubbling to avoid double-calling. Escape blur itself runs only after `onKeyPress` bubbling leaves the key unconsumed.
 - `layout.ts` — Flexbox engine. `layout(root, width, height)` → `LayoutNode` tree with absolute screen rects.
 - `paint.ts` — Paints `LayoutNode` tree into `CellBuffer`. Handles clip rects, scroll offsets (clamped to max — apps can pass `Infinity` to mean "scroll to end"), scrollbars, grapheme-aware text rendering, TextInput cursor/scroll state (with cursor screen position export for native cursor), TextInput background fill, container bgColor fill, style inheritance threading, focusStyle resolution.
 - `emitter.ts` — `emitBuffer()` for full renders, `emitDiff()` for differential. Both accept an optional `Theme` for color resolution and wrap in CSI 2026 synchronized output. Exports `defaultTheme` (ANSI 16 mapping).

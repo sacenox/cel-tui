@@ -822,6 +822,15 @@ function handleBracketedPaste(text: string): void {
   commitTextInputEdit(props, editState, nextState);
 }
 
+function blurFocusedElement(): boolean {
+  const current = findFocusedElement();
+  if (!current) return false;
+
+  changeFocus(null);
+  cel.render();
+  return true;
+}
+
 function handleKeyEvent(event: KeyInput): void {
   const { key, text } = event;
 
@@ -872,16 +881,6 @@ function handleKeyEvent(event: KeyInput): void {
       cel.render();
       return;
     } // end: not a focused TextInput
-  }
-
-  // Escape: unfocus current element
-  if (key === "escape") {
-    const current = findFocusedElement();
-    if (current) {
-      changeFocus(null);
-      cel.render();
-      return;
-    }
   }
 
   // Enter: activate focused clickable container
@@ -1016,25 +1015,44 @@ function handleKeyEvent(event: KeyInput): void {
           }
           // Always return — the key was offered to every handler in the
           // focused element's path (including root). Even if all returned
-          // false, we don't retry via the unfocused fallback path.
-          if (consumed) cel.render();
+          // false, we don't retry via the top-layer fallback path.
+          if (consumed) {
+            cel.render();
+            return;
+          }
+          if (key === "escape" && blurFocusedElement()) return;
           return;
         }
       }
     }
   }
 
-  // No focused element — only the topmost layer's root can receive the key.
+  // Fallback: offer the key to the topmost layer's root when it was not
+  // already handled on the focused path.
   const topLayer = currentLayouts[currentLayouts.length - 1];
-  if (!topLayer) return;
+  if (!topLayer) {
+    if (key === "escape") blurFocusedElement();
+    return;
+  }
 
   const handlers = collectKeyPressHandlers([topLayer]);
-  if (handlers.length === 0) return;
-
-  for (const h of handlers) {
-    const result = h.handler(key);
-    if (result !== false) break;
+  if (handlers.length > 0) {
+    let consumed = false;
+    for (const h of handlers) {
+      const result = h.handler(key);
+      if (result !== false) {
+        consumed = true;
+        break;
+      }
+    }
+    if (consumed) {
+      cel.render();
+      return;
+    }
   }
+
+  if (key === "escape" && blurFocusedElement()) return;
+  if (handlers.length === 0) return;
   cel.render();
 }
 

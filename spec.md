@@ -359,9 +359,9 @@ Focus is implicit — no `focusable` prop needed for the common case:
 
 ### Traversal
 
-**Escape** unfocuses the current element. **Tab / Shift+Tab** moves focus to the next/previous focusable element in document order (depth-first tree traversal).
+**Escape** behaves like a normal key first: it bubbles through `onKeyPress` handlers, and if it remains unconsumed the framework unfocuses the current element. **Tab / Shift+Tab** moves focus to the next/previous focusable element in document order (depth-first tree traversal).
 
-When a TextInput is focused, insertable text and text-editing keys go to the input. This includes arrows, backspace, delete, Enter, Tab, plus readline-style shortcuts: `ctrl+a` / `ctrl+e` for start/end, `alt+b` / `alt+f` and `ctrl+left` / `ctrl+right` for whitespace-delimited word movement, and `ctrl+w` / `alt+d` for whitespace-delimited word deletion. `up` and `down` follow the input's visual wrapped lines, not just newline-separated hard lines. Other modifier combos (e.g., `ctrl+s`) are not consumed by TextInput and bubble up. The TextInput's `onKeyPress` handler fires before editing — returning `false` prevents the default action, letting the app override any key's behavior. Legacy control-byte encodings are normalized when possible, so recoverable shortcuts still bubble in environments like `tmux`. Press Escape to leave the input, then Tab to traverse.
+When a TextInput is focused, insertable text and text-editing keys go to the input. This includes arrows, backspace, delete, Enter, Tab, plus readline-style shortcuts: `ctrl+a` / `ctrl+e` for start/end, `alt+b` / `alt+f` and `ctrl+left` / `ctrl+right` for whitespace-delimited word movement, and `ctrl+w` / `alt+d` for whitespace-delimited word deletion. `up` and `down` follow the input's visual wrapped lines, not just newline-separated hard lines. Other modifier combos (e.g., `ctrl+s`) are not consumed by TextInput and bubble up. The TextInput's `onKeyPress` handler fires before editing — returning `false` prevents the default action for that key, letting the app override any key's behavior, including Escape blur. Legacy control-byte encodings are normalized when possible, so recoverable shortcuts still bubble in environments like `tmux`. If no handler consumes it, press Escape to leave the input, then Tab to traverse.
 
 ### Uncontrolled Focus
 
@@ -481,12 +481,13 @@ cel-tui enables bracketed paste mode so the terminal wraps pasted content with `
 
 1. **Topmost layer** receives the key event
 2. If a **TextInput** is focused:
-   - If the TextInput has `onKeyPress`, call it first. If `onKeyPress` returns `false`, the key's **default editing action is prevented** — no character insertion, no cursor movement, nothing. The key is consumed.
+   - If the TextInput has `onKeyPress`, call it first. If `onKeyPress` returns `false`, the key's **default TextInput action** is prevented — no character insertion, no cursor movement, and no Escape blur. The key is consumed.
    - Otherwise, the TextInput processes insertable text, editing/navigation keys (arrows, backspace, delete, Enter, Tab), and these modifier-based editing shortcuts: `ctrl+a` / `ctrl+e`, `alt+b` / `alt+f`, `ctrl+left` / `ctrl+right`, `ctrl+w`, and `alt+d`. Word movement and deletion use whitespace-delimited boundaries, and `up` / `down` navigate visual wrapped lines. Other modifier combos (e.g., `ctrl+s`) and non-insertable control keys are not editing keys and pass through.
 3. If a **clickable container** is focused, Enter fires `onClick`. Other keys pass through.
 4. Unconsumed keys **bubble up** through ancestors — each `onKeyPress` handler in the ancestor chain is called from innermost to root.
 5. A handler that returns `false` signals the key was **not consumed** — bubbling continues to the next ancestor. Any other return (`undefined`, `true`, or no return) **stops bubbling** (backward-compatible: existing `void` handlers consume by default).
 6. The root container's `onKeyPress` acts as the global key handler — it receives keys that bubble all the way up.
+7. After bubbling, framework default actions run for still-unconsumed keys. Today that means: if `escape` is still unconsumed and an element is focused, the framework blurs it.
 
 ### Key Format
 
@@ -643,12 +644,12 @@ TextInput(props: TextInputProps)
 
 Container sizing props (`width`, `height`, `flex`, `min*`, `max*`, `padding`), focus props (`focused`, `onFocus`, `onBlur`, `focusStyle`), styling props, wheel scroll prop (`scrollStep`), and:
 
-| Prop          | Type                               | Description                                                                                                                        |
-| ------------- | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `value`       | `string`                           | Current text content (controlled)                                                                                                  |
-| `onChange`    | `(value: string) => void`          | Called on text change                                                                                                              |
-| `onKeyPress`  | `(key: string) => boolean \| void` | Key handler, fires before editing. Receives normalized semantic key strings. Return `false` to prevent the default editing action. |
-| `placeholder` | `TextNode`                         | Text node shown when value is empty (pass a `Text()` call)                                                                         |
+| Prop          | Type                               | Description                                                                                                                                       |
+| ------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `value`       | `string`                           | Current text content (controlled)                                                                                                                 |
+| `onChange`    | `(value: string) => void`          | Called on text change                                                                                                                             |
+| `onKeyPress`  | `(key: string) => boolean \| void` | Key handler, fires before editing. Receives normalized semantic key strings. Return `false` to prevent the default TextInput action for that key. |
+| `placeholder` | `TextNode`                         | Text node shown when value is empty (pass a `Text()` call)                                                                                        |
 
 Word-wrap is always on. Cursor position is framework-managed. Supported editing shortcuts include `ctrl+a` / `ctrl+e`, `alt+b` / `alt+f`, `ctrl+left` / `ctrl+right`, `ctrl+w`, and `alt+d`; word movement and deletion use whitespace-delimited boundaries, and `up` / `down` navigate visual wrapped lines. In bracketed paste mode, pasted text is inserted literally at the cursor as one batch edit: one `onChange`, no `onKeyPress`, newlines and tabs preserved.
 

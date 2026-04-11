@@ -12,7 +12,7 @@ Remaining work, known bugs, and planned improvements.
 
 ## API Improvements
 
-- ❌ **Focus callbacks need reason metadata** — `onFocus`/`onBlur` currently expose only that focus changed, not why. Controlled-focus apps can't distinguish blur caused by `Escape` from blur caused by Tab traversal, mouse clicks, overlay changes, or other focus transitions, which forces awkward workarounds for behaviors like "Escape blurs first, second Escape triggers a global action".
+- ❌ **Focus callbacks need reason metadata** — `onFocus`/`onBlur` currently expose only that focus changed, not why. Controlled-focus apps can't distinguish blur caused by `Escape` from blur caused by Tab traversal, mouse clicks, overlay changes, or other focus transitions, which still makes blur-specific behavior awkward.
 
 - ❌ **Define TextInput scroll semantics for cursor-follow and resize** — After the text layout refactor, the framework now has one canonical visual wrapping model, but the behavior contract around TextInput scrolling still needs to be specified. In particular: when a user has manually scrolled away from the cursor, what actions should re-enable automatic cursor-follow (typing, cursor movement, focus changes, programmatic value changes)? And when a TextInput changes height because of intrinsic growth/shrink or `maxHeight` clamping, should the existing scroll offset be preserved, clamped, or adjusted to keep the cursor/viewport anchored? Fix: write down the intended model in the spec and make implementation/tests match it.
 
