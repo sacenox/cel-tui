@@ -402,6 +402,26 @@ describe("paint", () => {
       expect(lastCol.some((c) => c !== " ")).toBe(true);
     });
 
+    test("scrollbar thumb position accounts for vertical padding", () => {
+      const node = VStack(
+        {
+          width: 6,
+          height: 7,
+          overflow: "scroll",
+          scrollOffset: 1,
+          scrollbar: true,
+          padding: { y: 1 },
+        },
+        Array.from({ length: 7 }, (_, i) => Text(`line${i}`)),
+      );
+      const ln = layout(node, 6, 7);
+      const buf = new CellBuffer(6, 7);
+      paint(ln, buf);
+
+      const lastCol = Array.from({ length: 7 }, (_, y) => buf.get(5, y).char);
+      expect(lastCol.join("")).toBe("│┃┃┃┃┃│");
+    });
+
     test("scroll clamps to max offset", () => {
       const node = VStack(
         { width: 10, height: 3, overflow: "scroll", scrollOffset: 99 },

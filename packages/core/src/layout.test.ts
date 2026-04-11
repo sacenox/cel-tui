@@ -479,6 +479,28 @@ describe("layout", () => {
       expect(item(childRects(result), 0).y).toBe(0);
     });
 
+    test("space-between ignores main-axis gap in HStack", () => {
+      const node = HStack(
+        {
+          width: 25,
+          height: 1,
+          justifyContent: "space-between",
+          gap: 4,
+        },
+        [
+          VStack({ width: 6, height: 1 }, []),
+          VStack({ width: 6, height: 1 }, []),
+          VStack({ width: 6, height: 1 }, []),
+        ],
+      );
+      const result = layout(node, 25, 1);
+      const rects = childRects(result);
+
+      expect(rects[0]).toEqual({ x: 0, y: 0, width: 6, height: 1 });
+      expect(rects[1]).toEqual({ x: 10, y: 0, width: 6, height: 1 });
+      expect(rects[2]).toEqual({ x: 19, y: 0, width: 6, height: 1 });
+    });
+
     test("center in HStack centers horizontally", () => {
       const node = HStack({ width: 80, height: 24, justifyContent: "center" }, [
         VStack({ width: 10, height: 24 }, []),
@@ -945,6 +967,29 @@ describe("layout", () => {
       expect(item(rects, 1).x).toBe(20);
       expect(item(rects, 2).x).toBe(40);
       expect(item(rects, 3).x).toBe(60);
+    });
+
+    test("wrapping HStack space-between ignores main-axis gap", () => {
+      const node = HStack(
+        {
+          width: 25,
+          height: 4,
+          flexWrap: "wrap",
+          justifyContent: "space-between",
+          gap: 4,
+        },
+        [
+          VStack({ width: 6, height: 1 }, []),
+          VStack({ width: 6, height: 1 }, []),
+          VStack({ width: 6, height: 1 }, []),
+        ],
+      );
+      const result = layout(node, 25, 4);
+      const rects = childRects(result);
+
+      expect(rects[0]).toEqual({ x: 0, y: 0, width: 6, height: 1 });
+      expect(rects[1]).toEqual({ x: 10, y: 0, width: 6, height: 1 });
+      expect(rects[2]).toEqual({ x: 19, y: 0, width: 6, height: 1 });
     });
 
     test("intrinsic height of wrapping HStack equals sum of row heights", () => {

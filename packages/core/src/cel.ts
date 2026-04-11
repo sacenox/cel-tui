@@ -123,6 +123,8 @@ function doRender(): void {
     currentLayouts.push(layoutTree);
   }
 
+  syncLastFocusedIndex();
+
   // Stamp uncontrolled focus and scroll before painting
   stampUncontrolledFocus();
   stampUncontrolledScroll();
@@ -208,6 +210,32 @@ function findFocusedTIInTree(ln: LayoutNode): LayoutNode | null {
     if (found) return found;
   }
   return null;
+}
+
+function syncLastFocusedIndex(): void {
+  const topLayer = currentLayouts[currentLayouts.length - 1];
+  if (!topLayer) return;
+
+  const focusables = collectFocusable(topLayer);
+  if (focusables.length === 0) return;
+
+  const controlled = findFocusedInTree(topLayer);
+  if (controlled) {
+    let idx = focusables.indexOf(controlled);
+    if (idx === -1) {
+      idx = focusables.findIndex(
+        (focusable) => focusable.node === controlled.node,
+      );
+    }
+    if (idx !== -1) {
+      lastFocusedIndex = idx;
+    }
+    return;
+  }
+
+  if (frameworkFocusIndex >= 0 && frameworkFocusIndex < focusables.length) {
+    lastFocusedIndex = frameworkFocusIndex;
+  }
 }
 
 // --- Input handling ---
@@ -996,20 +1024,18 @@ function handleKeyEvent(event: KeyInput): void {
     }
   }
 
-  // No focused element — try root onKeyPress on topmost layer
-  for (let i = currentLayouts.length - 1; i >= 0; i--) {
-    const layoutRoot = requiredAt(currentLayouts, i, "layout root");
-    const path = [layoutRoot];
-    const handlers = collectKeyPressHandlers(path);
-    if (handlers.length > 0) {
-      for (const h of handlers) {
-        const result = h.handler(key);
-        if (result !== false) break;
-      }
-      cel.render();
-      return;
-    }
+  // No focused element — only the topmost layer's root can receive the key.
+  const topLayer = currentLayouts[currentLayouts.length - 1];
+  if (!topLayer) return;
+
+  const handlers = collectKeyPressHandlers([topLayer]);
+  if (handlers.length === 0) return;
+
+  for (const h of handlers) {
+    const result = h.handler(key);
+    if (result !== false) break;
   }
+  cel.render();
 }
 
 /**

@@ -1027,6 +1027,30 @@ describe("cel end-to-end", () => {
       await waitForRender();
       expect(rootKey).toBe("z");
     });
+
+    test("unfocused key does not leak through a topmost layer without a root handler", async () => {
+      const term = setup(20, 5);
+      let baseLayerKey = "";
+
+      cel.viewport(() => [
+        VStack(
+          {
+            width: 20,
+            height: 5,
+            onKeyPress: (key) => {
+              baseLayerKey = key;
+            },
+          },
+          [Text("base")],
+        ),
+        VStack({ width: 20, height: 5 }, [Text("overlay")]),
+      ]);
+      await waitForRender();
+
+      term.sendInput("z");
+      await waitForRender();
+      expect(baseLayerKey).toBe("");
+    });
   });
 
   describe("TextInput Tab handling", () => {
@@ -1849,6 +1873,71 @@ describe("cel end-to-end", () => {
       term.sendInput(ENTER);
       await waitForRender();
       expect(clicks).toEqual(["btn"]);
+    });
+
+    test("controlled TextInput blur from re-render preserves Tab continuity", async () => {
+      const term = setup(40, 5);
+      let value = "";
+      let inputFocused = false;
+      let buttonFocused = false;
+
+      cel.viewport(() =>
+        VStack({ width: 40, height: 5 }, [
+          TextInput({
+            value,
+            onChange: (v) => {
+              value = v;
+              cel.render();
+            },
+            focused: inputFocused,
+            onFocus: () => {
+              inputFocused = true;
+              buttonFocused = false;
+              cel.render();
+            },
+            onBlur: () => {
+              inputFocused = false;
+              cel.render();
+            },
+            onKeyPress: (key) => {
+              if (key === "enter") {
+                inputFocused = false;
+                cel.render();
+                return false;
+              }
+            },
+          }),
+          HStack(
+            {
+              onClick: () => {},
+              focused: buttonFocused,
+              onFocus: () => {
+                buttonFocused = true;
+                inputFocused = false;
+                cel.render();
+              },
+              onBlur: () => {
+                buttonFocused = false;
+                cel.render();
+              },
+            },
+            [Text("Button")],
+          ),
+        ]),
+      );
+      await waitForRender();
+
+      term.sendInput(TAB);
+      await waitForRender();
+      expect(inputFocused).toBe(true);
+
+      term.sendInput(ENTER);
+      await waitForRender();
+      expect(inputFocused).toBe(false);
+
+      term.sendInput(TAB);
+      await waitForRender();
+      expect(buttonFocused).toBe(true);
     });
   });
 

@@ -15,6 +15,7 @@ import {
   VDivider,
   type SyntaxHighlightTheme,
 } from "@cel-tui/components";
+import { warningBox } from "./warning-box";
 
 const LANGUAGE = "typescript";
 const BASH_LANGUAGE = "bash";
@@ -269,17 +270,14 @@ cel.viewport(() => {
         },
       },
       [
-        Text("┌───────────────────────────────┐", { fgColor: "color03" }),
-        Text("│  Terminal too small :(       │", { fgColor: "color03" }),
-        Text("│                               │", { fgColor: "color03" }),
-        Text("│  Please resize to at least   │", { fgColor: "color03" }),
-        Text(
-          `│  ${String(MIN_COLS).padStart(3)}×${String(minRows).padStart(2)} characters.        │`,
-          { fgColor: "color03" },
-        ),
-        Text("│                               │", { fgColor: "color03" }),
-        Text("│  Ctrl+Q to quit              │", { fgColor: "color03" }),
-        Text("└───────────────────────────────┘", { fgColor: "color03" }),
+        ...warningBox([
+          "  Terminal too small :(",
+          "",
+          "  Please resize to at least",
+          `  ${String(MIN_COLS).padStart(3)}×${String(minRows).padStart(2)} characters.`,
+          "",
+          "  Ctrl+Q to quit",
+        ]),
       ],
     );
   }
@@ -289,14 +287,14 @@ cel.viewport(() => {
   const theme = THEME_OPTIONS[themeIndex]!;
   const panes = useSideBySide
     ? HStack({ flex: 1 }, [
-        codePane("TypeScript", "streaming", content, LANGUAGE, theme.theme),
+        codePane("TypeScript", status, content, LANGUAGE, theme.theme),
         VDivider({ fgColor: "color08" }),
-        codePane("Bash", "streaming", bashContent, BASH_LANGUAGE, theme.theme),
+        codePane("Bash", status, bashContent, BASH_LANGUAGE, theme.theme),
       ])
     : VStack({ flex: 1 }, [
-        codePane("TypeScript", "streaming", content, LANGUAGE, theme.theme),
+        codePane("TypeScript", status, content, LANGUAGE, theme.theme),
         Divider({ fgColor: "color08" }),
-        codePane("Bash", "streaming", bashContent, BASH_LANGUAGE, theme.theme),
+        codePane("Bash", status, bashContent, BASH_LANGUAGE, theme.theme),
       ]);
 
   return VStack(

@@ -232,23 +232,30 @@ function paintScrollbar(
 ): void {
   const { rect, children } = ln;
   const isVertical = ln.node.type === "vstack";
+  const props =
+    ln.node.type === "vstack" || ln.node.type === "hstack"
+      ? ln.node.props
+      : null;
+  if (!props) return;
 
   if (isVertical) {
-    // Compute total content height from children
+    // Compute total scrollable height from children plus bottom padding.
+    // Child positions already include top padding, so add only the trailing pad.
     let contentHeight = 0;
     for (const child of children) {
       const childBottom = child.rect.y + child.rect.height - rect.y;
       if (childBottom > contentHeight) contentHeight = childBottom;
     }
+    const scrollHeight = contentHeight + (props.padding?.y ?? 0);
     const viewportH = rect.height;
-    if (contentHeight <= viewportH) return; // no scrollbar needed
+    if (scrollHeight <= viewportH) return; // no scrollbar needed
 
     // Thumb size and position
     const thumbSize = Math.max(
       1,
-      Math.round((viewportH / contentHeight) * viewportH),
+      Math.round((viewportH / scrollHeight) * viewportH),
     );
-    const maxOffset = contentHeight - viewportH;
+    const maxOffset = scrollHeight - viewportH;
     const thumbPos =
       maxOffset > 0
         ? Math.round((scrollOffset / maxOffset) * (viewportH - thumbSize))
@@ -276,14 +283,15 @@ function paintScrollbar(
       const childRight = child.rect.x + child.rect.width - rect.x;
       if (childRight > contentWidth) contentWidth = childRight;
     }
+    const scrollWidth = contentWidth + (props.padding?.x ?? 0);
     const viewportW = rect.width;
-    if (contentWidth <= viewportW) return;
+    if (scrollWidth <= viewportW) return;
 
     const thumbSize = Math.max(
       1,
-      Math.round((viewportW / contentWidth) * viewportW),
+      Math.round((viewportW / scrollWidth) * viewportW),
     );
-    const maxOffset = contentWidth - viewportW;
+    const maxOffset = scrollWidth - viewportW;
     const thumbPos =
       maxOffset > 0
         ? Math.round((scrollOffset / maxOffset) * (viewportW - thumbSize))

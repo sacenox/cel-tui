@@ -64,6 +64,13 @@ function requiredAt<T>(
   return item;
 }
 
+function getMainAxisGap(
+  gap: number,
+  justify: ContainerProps["justifyContent"] | undefined,
+): number {
+  return justify === "space-between" ? 0 : gap;
+}
+
 // --- Intrinsic size computation ---
 
 /**
@@ -111,6 +118,7 @@ function intrinsicMainSize(
   // If it's the cross axis, take the max of children on that axis.
   const props = node.props;
   const gap = props.gap ?? 0;
+  const mainAxisGap = getMainAxisGap(gap, props.justifyContent);
   const containerIsVertical = node.type === "vstack";
   const axisMatchesMain = isVertical === containerIsVertical;
 
@@ -149,7 +157,7 @@ function intrinsicMainSize(
         childMain = clamp(childMain, minMain, maxMain);
       }
       total += childMain;
-      if (i < node.children.length - 1) total += gap;
+      if (i < node.children.length - 1) total += mainAxisGap;
     }
     return total + padMain;
   }
@@ -185,7 +193,7 @@ function intrinsicMainSize(
       }
       wrapHeights.push(h);
     }
-    const wrapRows = assignWrapRows(wrapWidths, innerCross, gap);
+    const wrapRows = assignWrapRows(wrapWidths, innerCross, mainAxisGap);
     let total = 0;
     for (let ri = 0; ri < wrapRows.length; ri++) {
       let maxH = 0;
@@ -359,6 +367,7 @@ function layoutWrapHStack(
   const gap = props.gap ?? 0;
   const align = props.alignItems ?? "stretch";
   const justify = props.justifyContent ?? "start";
+  const itemGap = getMainAxisGap(gap, justify);
 
   // Padding
   const padX = props.padding?.x ?? 0;
@@ -404,7 +413,7 @@ function layoutWrapHStack(
   }
 
   // Phase 2: Assign children to rows
-  const rows = assignWrapRows(baseWidths, innerW, gap);
+  const rows = assignWrapRows(baseWidths, innerW, itemGap);
 
   // Phase 3: Layout each row independently
   const layoutChildren: LayoutNode[] = [];
@@ -412,7 +421,7 @@ function layoutWrapHStack(
 
   for (let ri = 0; ri < rows.length; ri++) {
     const rowIdx = requiredAt(rows, ri, "wrap row");
-    const rowGapTotal = gap * (rowIdx.length - 1);
+    const rowGapTotal = itemGap * (rowIdx.length - 1);
     const rowAvail = innerW - rowGapTotal;
 
     // Compute fixed and flex totals for this row
@@ -537,7 +546,7 @@ function layoutWrapHStack(
 
       xOffset += childW;
       if (ci < rowIdx.length - 1) {
-        xOffset += gap;
+        xOffset += itemGap;
         if (betweenGaps) {
           xOffset += requiredAt(betweenGaps, ci, "justified gap");
         }
@@ -609,7 +618,9 @@ function layoutNode(
 
   // Gap
   const gap = props.gap ?? 0;
-  const totalGap = gap * (children.length - 1);
+  const justify = props.justifyContent ?? "start";
+  const mainAxisGap = getMainAxisGap(gap, justify);
+  const totalGap = mainAxisGap * (children.length - 1);
   const mainAvail = (isVertical ? innerH : innerW) - totalGap;
 
   // --- Measure phase: compute each child's main-axis and cross-axis size ---
@@ -738,7 +749,6 @@ function layoutNode(
   const remainingMain = Math.max(0, mainInner - totalContent);
 
   // justifyContent: compute main-axis starting offset and per-gap extra space
-  const justify = props.justifyContent ?? "start";
   let mainStart = 0;
   let betweenGaps: number[] | null = null;
 
@@ -780,7 +790,7 @@ function layoutNode(
 
     mainOffset += info.mainSize;
     if (i < infos.length - 1) {
-      mainOffset += gap;
+      mainOffset += mainAxisGap;
       if (betweenGaps) {
         mainOffset += requiredAt(betweenGaps, i, "justified gap");
       }
