@@ -5,11 +5,11 @@
     "": {
       "name": "cel-tui",
       "devDependencies": {
-        "@biomejs/biome": "^2.4.10",
-        "@types/bun": "^1.3.11",
-        "lefthook": "^2.1.4",
+        "@biomejs/biome": "^2.4.11",
+        "@types/bun": "^1.3.12",
+        "lefthook": "^2.1.5",
         "mitata": "^1.0.34",
-        "prettier": "^3.8.1",
+        "prettier": "^3.8.2",
         "typedoc": "^0.28.18",
         "typedoc-plugin-markdown": "^4.11.0",
         "typescript": "^6.0.2",
@@ -21,7 +21,7 @@
       "dependencies": {
         "@cel-tui/core": "workspace:*",
         "@cel-tui/types": "workspace:*",
-        "lextide": "^0.1.0",
+        "lextide": "^0.2.0",
         "yoctomarkdown": "^0.1.0",
       },
       "peerDependencies": {
@@ -128,7 +128,7 @@
 
     "lefthook-windows-x64": ["lefthook-windows-x64@2.1.5", "", { "os": "win32", "cpu": "x64" }, "sha512-yiAh8qxml6uqy10jDxOdN9fOQpyLxBFY1fgCEAhn7sVJYmJKRhjqSBwZX6LG5MQjzr29KStrIdw7TR3lf3rT7Q=="],
 
-    "lextide": ["lextide@0.1.0", "", {}, "sha512-i1fx9SzultDOIgVtFt/vBOeyFaGYCNLT6OcdqOLRfWL9p6aTQsq8JQ+8LpJ4T7znWNjfjLqUU6dK5g2kXhSq3A=="],
+    "lextide": ["lextide@0.2.0", "", {}, "sha512-EGORriYc1h2xHVcIpLdfETIVOp4impZ+X2nnm5EJOt3L55Jf/U9zFLxONfl3kWiB5WhyzUJLHL1m/7Rv17lb0g=="],
 
     "linkify-it": ["linkify-it@5.0.0", "", { "dependencies": { "uc.micro": "^2.0.0" } }, "sha512-5aHCbzQRADcdP+ATqnDuhhJ/MRIqDkZX5pyjFHRRysS8vZ5AbqGEoFIb6pYHPZ+L/OC2Lc+xT8uHVVR5CAK/wQ=="],
 
