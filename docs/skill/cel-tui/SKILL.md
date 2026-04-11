@@ -258,7 +258,7 @@ VStack({ flex: 1, overflow: "scroll", padding: { x: 1 } }, [
 SyntaxHighlight(source, "javascript", { theme: "dark-plus" });
 ```
 
-`SyntaxHighlight(content, language, props?)` renders registered lowlight/highlight.js languages and aliases into cel-tui primitives. Highlighting is synchronous. Unknown language ids render plain text. The optional `theme` accepts the small built-in presets (`"default"`, `"dark-plus"`) or a best-effort token-color registration object.
+`SyntaxHighlight(content, language, props?)` renders registered lextide languages and aliases into cel-tui primitives. The component stays synchronous to call, but append-only updates reuse lextide's streaming parser state. Unknown language ids render plain text. The optional `theme` accepts the small built-in presets (`"default"`, `"dark-plus"`) or a best-effort token-color registration object.
 
 ## Gotchas
 
@@ -278,7 +278,7 @@ SyntaxHighlight(source, "javascript", { theme: "dark-plus" });
 - **Kitty-first keyboard input** — the framework enables Kitty level 1 and gets full modifier fidelity when the host preserves it (`alt+x`, `ctrl+plus`, `shift+enter`, etc.). It also normalizes recoverable legacy encodings so common shortcuts keep working in tmux. For best results, use a Kitty-compatible terminal or `tmux` with `set -s extended-keys on`. On older legacy hosts, historically ambiguous collisions such as `ctrl+i` vs `tab` or `ctrl+m` vs `enter` cannot be recovered once the host collapses them.
 - **tmux is good for keyboard-driven manual checks** — common `tmux send-keys` paths work for printable chars, `Tab`/`BTab`, `Enter`, `Escape`, arrows, and many `Ctrl+letter` shortcuts. Use exact raw-sequence injection only when you need to target a protocol-specific encoding. Mouse input remains unreliable in tmux and should be verified in a real terminal.
 - **Button limitations** — `Button` from `@cel-tui/components` does not forward container sizing props (`width`, `height`, `flex`, `minWidth`, etc.). It supports styling (`fgColor`, `bgColor`, `bold`, etc.), `focusStyle`, `focused`, `onFocus`, `onBlur`, `onKeyPress`, and `padding`. For full layout control, use `HStack` + `Text` directly.
-- **SyntaxHighlight is append-optimized, not parser-state perfect** — append-only updates re-highlight a suffix window near the end instead of the whole block. Non-append edits still fall back to a full re-highlight. Unknown language ids render plain text.
+- **SyntaxHighlight keeps streaming parser state only for append-only growth** — appended content reuses lextide's stream state, but non-append edits still reset and replay the full snippet. Unknown language ids render plain text.
 
 ## Composing Components
 

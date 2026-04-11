@@ -293,11 +293,11 @@ SyntaxHighlight(code, "javascript", { theme: "dark-plus" });
 ```
 
 - Signature: `SyntaxHighlight(content, language, props?)`
-- `language` accepts registered lowlight/highlight.js language ids and aliases
+- `language` accepts registered lextide language ids and aliases
 - `props.theme` accepts the built-in presets (`"default"`, `"dark-plus"`) or a best-effort token theme registration object
 - Uses a terminal-friendly ANSI 16 fallback theme by default
-- Highlighting is synchronous; unsupported languages render plain text
-- Append-only updates reuse a small per-language cache by re-highlighting only a suffix window near the end of the block
+- Highlighting is synchronous at the component boundary; unsupported languages render plain text
+- Append-only updates reuse lextide stream state, while non-append edits reset and replay the full snippet
 
 ## Theme
 

@@ -32,9 +32,9 @@
     "typescript"
   ],
   "dependencies": {
-    "@cel-tui/types": "workspace:*",
     "@cel-tui/core": "workspace:*",
-    "lowlight": "^3.3.0",
+    "@cel-tui/types": "workspace:*",
+    "lextide": "^0.1.0",
     "yoctomarkdown": "^0.1.0"
   },
   "peerDependencies": {

@@ -32,14 +32,6 @@ Remaining work, known bugs, and planned improvements.
 
 - ❌ **Markdown heading inline styling** — Headings (`#`, `##`, `###`) still strip inline formatting to plain text. Since headings are short and single-line, this is low priority. Paragraphs, list items, and blockquotes now render inline formatting via wrapping HStack.
 
-## Syntax Highlighting
-
-- ❌ **Shell / terminal language highlighting needs a better backend** — `SyntaxHighlight` currently uses `lowlight` / `highlight.js`. Local checks in this repo show `bash`, `shell`, `shellsession`, and `zsh` are registered, but `fish` and `tmux` are not. Bash quality is also a known upstream weak spot: highlight.js issues call out heredocs, redirects, line continuations, and switch / prompt mis-highlighting, and maintainers explicitly describe bash as "a very simple grammar" that needs a champion. Research options:
-  1. **Stay on lowlight + register extra grammars/aliases** — lowest migration cost and keeps the current synchronous model, but highlight.js pushes niche language support to third-party grammars and a quick npm search did not turn up obvious maintained `fish` / `tmux` packages.
-  2. **Prototype Shiki backend** — TextMate / VS Code grammar ecosystem, documented `shellsession` and `ansi` support, and a JavaScript regex engine option that avoids WASM. Costs: async initialization, more dependency / bundle weight, and a new TextMate-scope-to-cel-style mapping layer.
-  3. **Prototype starry-night or tree-sitter backend** — starry-night gives GitHub-style TextMate coverage but is async + WASM-heavy; tree-sitter has active bash / fish / tmux / zsh grammars, but would require building our own highlight-query + theme-mapping pipeline.
-     Fix: hide highlighter behind an internal adapter, add fixture-based comparison tests for `bash`, `shellsession`, `zsh`, `fish`, `tmux`, and `ansi`, then prototype Shiki first and only switch after measuring startup cost, memory, and token quality against lowlight on those fixtures.
-
 ## Toolchain
 
 - 🔧 **Biome formatter clashes with Prettier on generic type arguments** — When a chained `.method<TypeArgs>(longString)` call exceeds `lineWidth`, biome's formatter breaks at the function args `(` while prettier breaks at the type args `<`. They never converge. Current config has biome formatter enabled (`indentStyle: "space"`), which means both formatters fight on this pattern. Fix: either disable biome's formatter (set `formatter.enabled: false` — `organizeImports` still works as an error under `assist`) and let prettier own all formatting, or drop prettier for TS files entirely. The mini-coder repo chose the former approach successfully.
@@ -50,10 +42,5 @@ Remaining work, known bugs, and planned improvements.
 
 - 💡 **Scrollbar styling** — Scrollbar characters (`┃`/`│` vertical, `━`/`─` horizontal) and colors are hardcoded in `paintScrollbar`. A `scrollbarStyle` prop on containers (or a global theme option) would allow customizing thumb/track characters and colors. Currently the only two visual elements the framework doesn't support styling.
 
-- 💡 **Textarea component** (`packages/components`) — A higher-level wrapper around TextInput that handles the autogrowing pattern out of the box. Props like `maxLines`, `minLines`, and `placeholder` would cover the common chat-input / form-field use case without requiring the `HStack + flex + maxHeight` boilerplate. Could also include optional line-count display and character limit.
-
-- 💡 **Editor component** (`packages/components`) — A TextInput with a line-number gutter, built as a component. Would compose an HStack with a fixed-width line-number column (styled, right-aligned) alongside a flex TextInput, keeping scroll synchronized. Useful for code/config editing use cases like the markdown editor example.
-
-- 💡 Additional example apps (text editor from spec reference example)
 - 💡 `overflow: "hidden"` as explicit prop (currently all containers clip by default, which matches the spec's default behavior, but the prop value is not checked)
 - 💡 Higher Kitty protocol levels — key-release events (level 2), associated text (level 3), and full event types (level 4) for advanced input patterns (games, physical key layout awareness)

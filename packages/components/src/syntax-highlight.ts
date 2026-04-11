@@ -1,11 +1,17 @@
 import type { Color, ContainerNode, Node, StyleProps } from "@cel-tui/types";
 import { HStack, Text, VStack } from "@cel-tui/core";
-import { all, createLowlight } from "lowlight";
+import {
+  all,
+  createLowlight,
+  type Element,
+  type ElementContent,
+  type HighlightStream,
+  type StreamUpdate,
+} from "lextide";
 
 const lowlight = createLowlight(all);
 
 const DEFAULT_THEME_NAME = "cel-ansi16";
-const APPEND_REHIGHLIGHT_WINDOW = 8_192;
 const MAX_STATES_PER_KEY = 4;
 
 const ANSI_SLOT_HEX: ReadonlyArray<readonly [Color, string]> = [
@@ -88,7 +94,7 @@ export interface SyntaxHighlightProps {
    *
    * Built-in presets currently include `"default"` and `"dark-plus"`.
    * Theme registration objects are applied as best-effort overrides onto the
-   * lowlight/highlight.js token categories used by this component.
+   * lextide token categories used by this component.
    */
   theme?: SyntaxHighlightTheme;
 }
@@ -110,26 +116,15 @@ interface ResolvedSyntaxHighlightTheme {
 }
 
 interface SyntaxHighlightState {
+  children: HighlightNode[];
   lastContent: string;
   lastNode: ContainerNode | null;
-  lines: HighlightRun[][];
+  stream: HighlightStream;
   theme: ResolvedSyntaxHighlightTheme;
 }
 
-interface HighlightTextNode {
-  type: "text";
-  value: string;
-}
-
-interface HighlightElementNode {
-  type: "element";
-  children: HighlightNode[];
-  properties?: {
-    className?: string | readonly string[];
-  };
-}
-
-type HighlightNode = HighlightElementNode | HighlightTextNode;
+type HighlightElementNode = Element;
+type HighlightNode = ElementContent;
 
 const rgbCache = new Map<string, readonly [number, number, number]>();
 const colorSlotCache = new Map<string, Color>();
@@ -518,34 +513,43 @@ function findState(
   return best;
 }
 
+function createStream(language: string): HighlightStream {
+  return lowlight.stream(language, { allowRecalls: true });
+}
+
 function createState(
+  language: string,
   theme: ResolvedSyntaxHighlightTheme,
 ): SyntaxHighlightState {
   return {
+    children: [],
     lastContent: "",
     lastNode: null,
-    lines: [[]],
+    stream: createStream(language),
     theme,
   };
 }
 
-function countNewlines(input: string): number {
-  let count = 0;
-  for (let i = 0; i < input.length; i++) {
-    if (input.charCodeAt(i) === 10) {
-      count++;
-    }
-  }
-  return count;
+function applyStreamUpdate(
+  children: HighlightNode[],
+  update: StreamUpdate,
+): void {
+  const nextLength = Math.max(0, children.length - update.recall);
+  children.length = nextLength;
+  children.push(...update.stable, ...update.unstable);
 }
 
-function findAppendWindowStart(
+function resetState(
+  state: SyntaxHighlightState,
+  language: string,
   content: string,
-  previousLength: number,
-): number {
-  const target = Math.max(0, previousLength - APPEND_REHIGHLIGHT_WINDOW);
-  const newline = content.lastIndexOf("\n", target);
-  return newline === -1 ? 0 : newline + 1;
+): void {
+  state.children = [];
+  state.stream = createStream(language);
+
+  if (content.length > 0) {
+    applyStreamUpdate(state.children, state.stream.write(content));
+  }
 }
 
 function pushRun(
@@ -567,11 +571,7 @@ function pushRun(
 }
 
 function getClassNames(node: HighlightElementNode): readonly string[] {
-  const className = node.properties?.className;
-  if (Array.isArray(className)) {
-    return className;
-  }
-  return typeof className === "string" ? [className] : [];
+  return node.properties.className;
 }
 
 function resolveNodeStyle(
@@ -630,21 +630,13 @@ function pushHighlightNode(
   }
 }
 
-function highlightContentToLines(
-  content: string,
-  language: string,
+function highlightChildrenToLines(
+  children: readonly HighlightNode[],
   theme: ResolvedSyntaxHighlightTheme,
 ): HighlightRun[][] {
-  if (content.length === 0) {
-    return [[]];
-  }
-
-  const root = lowlight.highlight(language, content) as {
-    children: HighlightNode[];
-  };
   const lines: HighlightRun[][] = [[]];
 
-  for (const child of root.children) {
+  for (const child of children) {
     pushHighlightNode(lines, child, theme.baseStyle, theme);
   }
 
@@ -661,25 +653,14 @@ function updateState(
   }
 
   if (!content.startsWith(state.lastContent)) {
-    state.lines = highlightContentToLines(content, language, state.theme);
-    state.lastContent = content;
-    state.lastNode = null;
-    return;
+    resetState(state, language, content);
+  } else {
+    const chunk = content.slice(state.lastContent.length);
+    if (chunk.length > 0) {
+      applyStreamUpdate(state.children, state.stream.write(chunk));
+    }
   }
 
-  const windowStart = findAppendWindowStart(content, state.lastContent.length);
-  const prefixLineCount = Math.min(
-    countNewlines(content.slice(0, windowStart)),
-    state.lines.length,
-  );
-  const suffixLines = highlightContentToLines(
-    content.slice(windowStart),
-    language,
-    state.theme,
-  );
-
-  state.lines.length = prefixLineCount;
-  state.lines.push(...suffixLines);
   state.lastContent = content;
   state.lastNode = null;
 }
@@ -717,24 +698,25 @@ function renderHighlightedState(state: SyntaxHighlightState): ContainerNode {
     return state.lastNode;
   }
 
-  state.lastNode = VStack({}, state.lines.map(lineToNode));
+  const lines = highlightChildrenToLines(state.children, state.theme);
+  state.lastNode = VStack({}, lines.map(lineToNode));
   return state.lastNode;
 }
 
 /**
  * Render syntax-highlighted code as cel-tui primitives.
  *
- * Uses lowlight/highlight.js synchronously with a small append-only cache. When
- * content grows by appending new text, only a suffix window near the end is
- * re-highlighted and merged back into the cached lines. Non-append edits fall
- * back to a full re-highlight of the snippet.
+ * Uses lextide synchronously at the component boundary while keeping a
+ * streaming parser state per language/theme cache entry. Append-only updates
+ * apply lextide's recall/stable/unstable deltas, while non-append edits reset
+ * the stream and replay the full snippet.
  *
  * Unknown languages render as plain text. The default theme is terminal-friendly
- * and maps lowlight token classes onto cel's ANSI palette slots while leaving
+ * and maps lextide token classes onto cel's ANSI palette slots while leaving
  * base text on terminal defaults.
  *
  * @param content - Source code to render.
- * @param language - Registered highlight.js language id or alias.
+ * @param language - Registered lextide language id or alias.
  * @param props - Optional theme override.
  * @returns A `VStack` containing one highlighted line per child.
  */
@@ -750,7 +732,7 @@ export function SyntaxHighlight(
   }
 
   const key = stateKey(language, theme);
-  const state = findState(key, content) ?? createState(theme);
+  const state = findState(key, content) ?? createState(language, theme);
   updateState(state, language, content);
   touchState(key, state);
   return renderHighlightedState(state);

@@ -2,7 +2,7 @@
  * cel-tui: SyntaxHighlight demo
  *
  * Streams TypeScript and Bash code into SyntaxHighlight.
- * Shows synchronous lowlight highlighting plus append-only incremental updates.
+ * Shows lextide-backed highlighting with append-only incremental updates.
  *
  * Run: bun run examples/syntax-highlight.ts
  */
@@ -117,19 +117,23 @@ const BASH_CODE = [
   "#!/usr/bin/env bash",
   "set -euo pipefail",
   "",
-  'project_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)',
+  "readonly script_path=${BASH_SOURCE[0]}",
+  "script_dir=${script_path%/*}",
+  "targets=(debug release)",
+  "count=0",
   "",
   "build() {",
   "  local target=${1:-debug}",
-  '  echo "==> building ${target} from ${project_root}"',
+  '  printf \'==> building %s from %s\\n\' "$target" "$script_dir"',
+  "  ((count += 1))",
   "  bun run typecheck",
   "  bun test",
   "}",
   "",
-  "for target in debug release; do",
-  '  if [[ "$target" == "release" ]]; then',
-  '    build "$target"',
-  "  fi",
+  'for target in "${targets[@]}"; do',
+  '  case "$target" in',
+  '    release) build "$target" ;;',
+  "  esac",
   "done",
 ].join("\n");
 

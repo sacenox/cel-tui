@@ -96,6 +96,14 @@ describe("SyntaxHighlight", () => {
     expect(firstToken.props.fgColor).toBeDefined();
   });
 
+  test("supports shell alias highlighting", () => {
+    const node = render('if true; then echo "$HOME"; fi', "shell");
+
+    expect(findText(node, "if").props.fgColor).toBeDefined();
+    expect(findText(node, "then").props.fgColor).toBeDefined();
+    expect(findText(node, "fi").props.fgColor).toBeDefined();
+  });
+
   test("wraps plain fallback content by default", () => {
     const node = render(
       "alpha beta gamma delta epsilon",
