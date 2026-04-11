@@ -3,7 +3,10 @@ import {
   insertChar,
   deleteBackward,
   deleteForward,
+  deleteWordBackward,
+  deleteWordForward,
   moveCursor,
+  moveCursorByWord,
   type EditState,
 } from "./text-edit.js";
 
@@ -110,6 +113,71 @@ describe("text editing", () => {
     });
   });
 
+  describe("deleteWordBackward", () => {
+    test("deletes previous word", () => {
+      const result = deleteWordBackward(state("hello brave world", 17));
+      expect(result.value).toBe("hello brave ");
+      expect(result.cursor).toBe(12);
+    });
+
+    test("deletes previous word and preceding spaces as one chunk", () => {
+      const result = deleteWordBackward(state("hello   world", 8));
+      expect(result.value).toBe("world");
+      expect(result.cursor).toBe(0);
+    });
+
+    test("deletes an emoji word without splitting the grapheme", () => {
+      const result = deleteWordBackward(state("go 😀 now", 5));
+      expect(result.value).toBe("go  now");
+      expect(result.cursor).toBe(3);
+    });
+  });
+
+  describe("deleteWordForward", () => {
+    test("deletes next word without trimming following whitespace", () => {
+      const result = deleteWordForward(state("hello brave world", 6));
+      expect(result.value).toBe("hello  world");
+      expect(result.cursor).toBe(6);
+    });
+
+    test("deletes next word and leading spaces as one chunk", () => {
+      const result = deleteWordForward(state("hello   world", 5));
+      expect(result.value).toBe("hello");
+      expect(result.cursor).toBe(5);
+    });
+
+    test("deletes an emoji word without splitting the grapheme", () => {
+      const result = deleteWordForward(state("😀 test", 0));
+      expect(result.value).toBe(" test");
+      expect(result.cursor).toBe(0);
+    });
+  });
+
+  describe("moveCursorByWord", () => {
+    test("backward moves to the start of the previous word", () => {
+      const result = moveCursorByWord(
+        state("hello brave world", 17),
+        "backward",
+      );
+      expect(result.cursor).toBe(12);
+    });
+
+    test("backward skips trailing whitespace before the previous word", () => {
+      const result = moveCursorByWord(state("hello   ", 8), "backward");
+      expect(result.cursor).toBe(0);
+    });
+
+    test("forward moves to the end of the next word", () => {
+      const result = moveCursorByWord(state("hello brave world", 0), "forward");
+      expect(result.cursor).toBe(5);
+    });
+
+    test("forward skips leading whitespace before the next word", () => {
+      const result = moveCursorByWord(state("   hello", 0), "forward");
+      expect(result.cursor).toBe(8);
+    });
+  });
+
   describe("moveCursor", () => {
     test("left moves back one", () => {
       const result = moveCursor(state("hello", 3), "left");
@@ -161,6 +229,21 @@ describe("text editing", () => {
     test("end moves to end", () => {
       const result = moveCursor(state("hello", 2), "end");
       expect(result.cursor).toBe(5);
+    });
+
+    test("up follows visual wrapped lines", () => {
+      const result = moveCursor(state("foo bar baz", 11), "up", 6);
+      expect(result.cursor).toBe(7);
+    });
+
+    test("down follows visual wrapped lines", () => {
+      const result = moveCursor(state("foo bar baz", 0), "down", 6);
+      expect(result.cursor).toBe(4);
+    });
+
+    test("down clamps to the end of a shorter wrapped line", () => {
+      const result = moveCursor(state("foo bar baz", 7), "down", 6);
+      expect(result.cursor).toBe(11);
     });
 
     test("up moves to previous line", () => {

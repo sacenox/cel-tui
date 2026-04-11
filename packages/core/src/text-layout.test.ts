@@ -15,6 +15,10 @@ describe("text-layout", () => {
     expect(result.offsetToPosition(4)).toEqual({ line: 1, col: 0 });
     expect(result.offsetToPosition(5)).toEqual({ line: 1, col: 1 });
     expect(result.offsetToPosition(8)).toEqual({ line: 2, col: 0 });
+
+    expect(result.positionToOffset(1, 0)).toBe(4);
+    expect(result.positionToOffset(1, 1)).toBe(5);
+    expect(result.positionToOffset(2, 0)).toBe(8);
   });
 
   test("preserves repeated and trailing spaces", () => {
@@ -44,5 +48,6 @@ describe("text-layout", () => {
       { text: "世界", width: 4 },
     ]);
     expect(result.offsetToPosition(2)).toEqual({ line: 1, col: 0 });
+    expect(result.positionToOffset(1, 1)).toBe(3);
   });
 });

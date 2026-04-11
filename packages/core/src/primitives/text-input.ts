@@ -12,9 +12,13 @@ import type { TextInputNode, TextInputProps } from "@cel-tui/types";
  * responds to mouse wheel automatically.
  *
  * TextInput is always focusable. When focused, it consumes insertable text
- * plus editing/navigation keys (arrows, backspace, delete, Enter, Tab).
- * Modifier combos (e.g., `ctrl+s`) and non-insertable control keys bubble
- * up to ancestor `onKeyPress` handlers.
+ * plus editing/navigation keys (arrows, backspace, delete, Enter, Tab),
+ * along with a small set of readline-style shortcuts: `ctrl+a` / `ctrl+e`,
+ * `alt+b` / `alt+f`, `ctrl+left` / `ctrl+right`, `ctrl+w`, and `alt+d`.
+ * Word movement and deletion use whitespace-delimited boundaries, and
+ * `up` / `down` follow visual wrapped lines. Other modifier combos (e.g.,
+ * `ctrl+s`) and non-insertable control keys bubble up to ancestor
+ * `onKeyPress` handlers.
  *
  * Use `onKeyPress` to intercept keys before editing. The handler receives a
  * normalized semantic key string; inserted text preserves the original

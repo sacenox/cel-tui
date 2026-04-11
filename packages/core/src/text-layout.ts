@@ -18,6 +18,7 @@ export interface TextLayoutResult {
   lines: VisualLine[];
   lineCount: number;
   offsetToPosition(offset: number): VisualPosition;
+  positionToOffset(line: number, col: number): number;
 }
 
 interface GraphemeInfo {
@@ -77,6 +78,9 @@ export function layoutText(
     lineCount: lines.length,
     offsetToPosition(offset: number): VisualPosition {
       return offsetToPosition(lines, clamp(offset, 0, value.length));
+    },
+    positionToOffset(line: number, col: number): number {
+      return positionToOffset(lines, line, col);
     },
   };
 }
@@ -243,6 +247,36 @@ function offsetToPosition(
 
   const last = lines[lines.length - 1]!;
   return { line: lines.length - 1, col: last.line.width };
+}
+
+function positionToOffset(
+  lines: VisualLineData[],
+  line: number,
+  col: number,
+): number {
+  const lineIndex = clamp(line, 0, lines.length - 1);
+  const entry = lines[lineIndex]!;
+  const targetCol = Math.max(0, col);
+
+  if (targetCol === 0 || entry.graphemes.length === 0) {
+    return entry.line.startOffset;
+  }
+
+  let currentCol = 0;
+  for (const grapheme of entry.graphemes) {
+    const nextCol = currentCol + grapheme.width;
+    if (targetCol < nextCol) {
+      return targetCol - currentCol < nextCol - targetCol
+        ? grapheme.startOffset
+        : grapheme.endOffset;
+    }
+    if (targetCol === nextCol) {
+      return grapheme.endOffset;
+    }
+    currentCol = nextCol;
+  }
+
+  return entry.line.endOffset;
 }
 
 function clamp(value: number, min: number, max: number): number {

@@ -305,7 +305,18 @@ describe("isEditingKey", () => {
     expect(isEditingKey("shift+enter")).toBe(true);
   });
 
-  test("modifier combos are NOT editing keys", () => {
+  test("TextInput modifier editing shortcuts are editing keys", () => {
+    expect(isEditingKey("ctrl+a")).toBe(true);
+    expect(isEditingKey("ctrl+e")).toBe(true);
+    expect(isEditingKey("alt+b")).toBe(true);
+    expect(isEditingKey("alt+f")).toBe(true);
+    expect(isEditingKey("ctrl+left")).toBe(true);
+    expect(isEditingKey("ctrl+right")).toBe(true);
+    expect(isEditingKey("ctrl+w")).toBe(true);
+    expect(isEditingKey("alt+d")).toBe(true);
+  });
+
+  test("other modifier combos are NOT editing keys", () => {
     expect(isEditingKey("ctrl+s")).toBe(false);
     expect(isEditingKey("ctrl+r")).toBe(false);
     expect(isEditingKey("alt+x")).toBe(false);

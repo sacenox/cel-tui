@@ -8,7 +8,17 @@ import { kittyEncode } from "./test-helpers.js";
 
 const ENTER = kittyEncode("enter");
 const BACKSPACE = kittyEncode("backspace");
+const CTRL_A = kittyEncode("ctrl+a");
+const CTRL_E = kittyEncode("ctrl+e");
+const CTRL_LEFT = kittyEncode("ctrl+left");
+const CTRL_RIGHT = kittyEncode("ctrl+right");
 const CTRL_S = kittyEncode("ctrl+s");
+const CTRL_W = kittyEncode("ctrl+w");
+const ALT_B = kittyEncode("alt+b");
+const ALT_D = kittyEncode("alt+d");
+const ALT_F = kittyEncode("alt+f");
+const UP = kittyEncode("up");
+const DOWN = kittyEncode("down");
 const LEFT = kittyEncode("left");
 const LEGACY_CTRL_R = "\x12";
 const LEGACY_ALT_X = "\x1bx";
@@ -288,6 +298,221 @@ describe("TextInput integration", () => {
     await waitForRender();
 
     expect(value).toBe("ab");
+  });
+
+  test("ctrl+a and ctrl+e move to the start and end of the value", async () => {
+    const term = setup(20, 3);
+    let value = "hello";
+    const onChange = (v: string) => {
+      value = v;
+    };
+    cel.viewport(() =>
+      VStack({}, [
+        TextInput({
+          value,
+          focused: true,
+          onChange,
+        }),
+      ]),
+    );
+    await waitForRender();
+
+    term.sendInput(CTRL_A);
+    await waitForRender();
+    term.sendInput("X");
+    await waitForRender();
+
+    expect(value).toBe("Xhello");
+
+    term.sendInput(CTRL_E);
+    await waitForRender();
+    term.sendInput("!");
+    await waitForRender();
+
+    expect(value).toBe("Xhello!");
+  });
+
+  test("alt+b and alt+f move by whitespace-delimited words", async () => {
+    const term = setup(20, 3);
+    let value = "hello brave world";
+    const onChange = (v: string) => {
+      value = v;
+    };
+    cel.viewport(() =>
+      VStack({}, [
+        TextInput({
+          value,
+          focused: true,
+          onChange,
+        }),
+      ]),
+    );
+    await waitForRender();
+
+    term.sendInput(ALT_B);
+    await waitForRender();
+    term.sendInput("!");
+    await waitForRender();
+
+    expect(value).toBe("hello brave !world");
+
+    term.sendInput(CTRL_A);
+    await waitForRender();
+    term.sendInput(ALT_F);
+    await waitForRender();
+    term.sendInput("?");
+    await waitForRender();
+
+    expect(value).toBe("hello? brave !world");
+  });
+
+  test("ctrl+left and ctrl+right move by whitespace-delimited words", async () => {
+    const term = setup(20, 3);
+    let value = "hello brave world";
+    const onChange = (v: string) => {
+      value = v;
+    };
+    cel.viewport(() =>
+      VStack({}, [
+        TextInput({
+          value,
+          focused: true,
+          onChange,
+        }),
+      ]),
+    );
+    await waitForRender();
+
+    term.sendInput(CTRL_LEFT);
+    await waitForRender();
+    term.sendInput("!");
+    await waitForRender();
+
+    expect(value).toBe("hello brave !world");
+
+    term.sendInput(CTRL_A);
+    await waitForRender();
+    term.sendInput(CTRL_RIGHT);
+    await waitForRender();
+    term.sendInput("?");
+    await waitForRender();
+
+    expect(value).toBe("hello? brave !world");
+  });
+
+  test("ctrl+w and alt+d delete by whitespace-delimited words", async () => {
+    const term = setup(20, 3);
+    let value = "hello brave world";
+    const onChange = (v: string) => {
+      value = v;
+    };
+    cel.viewport(() =>
+      VStack({}, [
+        TextInput({
+          value,
+          focused: true,
+          onChange,
+        }),
+      ]),
+    );
+    await waitForRender();
+
+    term.sendInput(CTRL_W);
+    await waitForRender();
+
+    expect(value).toBe("hello brave ");
+
+    term.sendInput(CTRL_A);
+    await waitForRender();
+    term.sendInput(ALT_D);
+    await waitForRender();
+
+    expect(value).toBe(" brave ");
+  });
+
+  test("up follows visual wrapped lines in TextInput", async () => {
+    const term = setup(20, 3);
+    let value = "foo bar baz";
+    const onChange = (v: string) => {
+      value = v;
+    };
+    cel.viewport(() =>
+      VStack({}, [
+        TextInput({
+          width: 6,
+          value,
+          focused: true,
+          onChange,
+        }),
+      ]),
+    );
+    await waitForRender();
+
+    term.sendInput(UP);
+    await waitForRender();
+    term.sendInput("!");
+    await waitForRender();
+
+    expect(value).toBe("foo bar! baz");
+  });
+
+  test("down follows visual wrapped lines in TextInput", async () => {
+    const term = setup(20, 3);
+    let value = "foo bar baz";
+    const onChange = (v: string) => {
+      value = v;
+    };
+    cel.viewport(() =>
+      VStack({}, [
+        TextInput({
+          width: 6,
+          value,
+          focused: true,
+          onChange,
+        }),
+      ]),
+    );
+    await waitForRender();
+
+    term.sendInput(CTRL_A);
+    await waitForRender();
+    term.sendInput(DOWN);
+    await waitForRender();
+    term.sendInput("?");
+    await waitForRender();
+
+    expect(value).toBe("foo ?bar baz");
+  });
+
+  test("TextInput consumes editing modifier shortcuts instead of bubbling them", async () => {
+    const term = setup(20, 3);
+    let parentKey = "";
+    let value = "hello brave world";
+    cel.viewport(() =>
+      VStack(
+        {
+          onKeyPress: (key) => {
+            parentKey = key;
+          },
+        },
+        [
+          TextInput({
+            value,
+            focused: true,
+            onChange: (v) => {
+              value = v;
+            },
+          }),
+        ],
+      ),
+    );
+    await waitForRender();
+
+    term.sendInput(CTRL_W);
+    await waitForRender();
+
+    expect(value).toBe("hello brave ");
+    expect(parentKey).toBe("");
   });
 
   test("enter inserts newline by default", async () => {

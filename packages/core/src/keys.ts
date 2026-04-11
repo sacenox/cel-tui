@@ -306,8 +306,10 @@ export function normalizeKey(key: string): string {
  * Check whether a semantic key represents TextInput editing/navigation.
  *
  * Single-character semantic keys represent insertable text, while named keys
- * like `"enter"` and `"left"` represent editing/navigation actions. Modifier
- * combos (`ctrl+s`, `alt+x`) are NOT editing keys and should bubble.
+ * like `"enter"` and `"left"` represent editing/navigation actions. Most
+ * modifier combos (`ctrl+s`, `alt+x`) are NOT editing keys and should bubble,
+ * but TextInput consumes a small set of readline-style shortcuts for cursor
+ * movement and word deletion.
  */
 export function isEditingKey(key: string): boolean {
   if (key.length === 1) return true;
@@ -326,6 +328,14 @@ export function isEditingKey(key: string): boolean {
     "space",
     "plus",
     "shift+enter",
+    "ctrl+a",
+    "ctrl+e",
+    "alt+b",
+    "alt+f",
+    "ctrl+left",
+    "ctrl+right",
+    "ctrl+w",
+    "alt+d",
   ]);
 
   return editingKeys.has(key);

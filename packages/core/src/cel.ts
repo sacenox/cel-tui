@@ -27,7 +27,10 @@ import {
   insertChar,
   deleteBackward,
   deleteForward,
+  deleteWordBackward,
+  deleteWordForward,
   moveCursor,
+  moveCursorByWord,
   type EditState,
 } from "./text-edit.js";
 import type { Terminal } from "./terminal.js";
@@ -854,12 +857,20 @@ function handleKeyEvent(event: KeyInput): void {
         case "delete":
           newState = deleteForward(editState);
           break;
+        case "ctrl+w":
+          newState = deleteWordBackward(editState);
+          break;
+        case "alt+d":
+          newState = deleteWordForward(editState);
+          break;
         case "left":
         case "right":
         case "up":
         case "down":
         case "home":
         case "end":
+        case "ctrl+a":
+        case "ctrl+e":
           {
             const tiPadX =
               (focusedInput.node as TextInputNode).props.padding?.x ?? 0;
@@ -867,12 +878,22 @@ function handleKeyEvent(event: KeyInput): void {
               0,
               focusedInput.rect.width - tiPadX * 2,
             );
+            const direction =
+              key === "ctrl+a" ? "home" : key === "ctrl+e" ? "end" : key;
             newState = moveCursor(
               editState,
-              key as "left" | "right" | "up" | "down" | "home" | "end",
+              direction as "left" | "right" | "up" | "down" | "home" | "end",
               contentWidth,
             );
           }
+          break;
+        case "alt+b":
+        case "ctrl+left":
+          newState = moveCursorByWord(editState, "backward");
+          break;
+        case "alt+f":
+        case "ctrl+right":
+          newState = moveCursorByWord(editState, "forward");
           break;
         case "enter":
         case "shift+enter":

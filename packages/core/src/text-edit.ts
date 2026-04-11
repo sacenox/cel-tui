@@ -1,3 +1,5 @@
+import { layoutText } from "./text-layout.js";
+
 /**
  * Framework-managed editing state for TextInput.
  */
@@ -9,6 +11,7 @@ export interface EditState {
 }
 
 const segmenter = new Intl.Segmenter(undefined, { granularity: "grapheme" });
+const WHITESPACE_RE = /^\s+$/u;
 
 /**
  * Get the grapheme boundary before the given cursor position.
@@ -37,6 +40,46 @@ function nextGraphemeBoundary(value: string, cursor: number): number {
     if (index >= cursor) return end;
   }
   return value.length;
+}
+
+function isWhitespaceGrapheme(segment: string): boolean {
+  return WHITESPACE_RE.test(segment);
+}
+
+function findWordBoundaryBackward(value: string, cursor: number): number {
+  let boundary = cursor;
+
+  while (boundary > 0) {
+    const prev = prevGraphemeBoundary(value, boundary);
+    if (!isWhitespaceGrapheme(value.slice(prev, boundary))) break;
+    boundary = prev;
+  }
+
+  while (boundary > 0) {
+    const prev = prevGraphemeBoundary(value, boundary);
+    if (isWhitespaceGrapheme(value.slice(prev, boundary))) break;
+    boundary = prev;
+  }
+
+  return boundary;
+}
+
+function findWordBoundaryForward(value: string, cursor: number): number {
+  let boundary = cursor;
+
+  while (boundary < value.length) {
+    const next = nextGraphemeBoundary(value, boundary);
+    if (!isWhitespaceGrapheme(value.slice(boundary, next))) break;
+    boundary = next;
+  }
+
+  while (boundary < value.length) {
+    const next = nextGraphemeBoundary(value, boundary);
+    if (isWhitespaceGrapheme(value.slice(boundary, next))) break;
+    boundary = next;
+  }
+
+  return boundary;
 }
 
 /**
@@ -72,6 +115,32 @@ export function deleteForward(state: EditState): EditState {
   const { value, cursor } = state;
   if (cursor >= value.length) return state;
   const boundary = nextGraphemeBoundary(value, cursor);
+  return {
+    value: value.slice(0, cursor) + value.slice(boundary),
+    cursor,
+  };
+}
+
+/**
+ * Delete the whitespace-delimited word before the cursor.
+ */
+export function deleteWordBackward(state: EditState): EditState {
+  const { value, cursor } = state;
+  const boundary = findWordBoundaryBackward(value, cursor);
+  if (boundary === cursor) return state;
+  return {
+    value: value.slice(0, boundary) + value.slice(cursor),
+    cursor: boundary,
+  };
+}
+
+/**
+ * Delete the whitespace-delimited word after the cursor.
+ */
+export function deleteWordForward(state: EditState): EditState {
+  const { value, cursor } = state;
+  const boundary = findWordBoundaryForward(value, cursor);
+  if (boundary === cursor) return state;
   return {
     value: value.slice(0, cursor) + value.slice(boundary),
     cursor,
@@ -115,8 +184,24 @@ export function moveCursor(
 }
 
 /**
- * Vertical cursor movement — maps cursor offset to line/column,
- * moves up or down a line, then maps back to offset.
+ * Move the cursor by one whitespace-delimited word.
+ */
+export function moveCursorByWord(
+  state: EditState,
+  direction: "backward" | "forward",
+): EditState {
+  const { value, cursor } = state;
+  const nextCursor =
+    direction === "backward"
+      ? findWordBoundaryBackward(value, cursor)
+      : findWordBoundaryForward(value, cursor);
+
+  if (nextCursor === cursor) return state;
+  return { value, cursor: nextCursor };
+}
+
+/**
+ * Vertical cursor movement follows the visual wrapped lines used for painting.
  */
 function moveVertical(
   state: EditState,
@@ -124,49 +209,22 @@ function moveVertical(
   width: number,
 ): EditState {
   const { value, cursor } = state;
-  const lines = value.split("\n");
+  const textLayout = layoutText(value, width, "word");
+  const pos = textLayout.offsetToPosition(cursor);
+  const targetLine =
+    direction === "up"
+      ? Math.max(0, pos.line - 1)
+      : Math.min(textLayout.lineCount - 1, pos.line + 1);
 
-  // Find which line and column the cursor is on
-  let offset = 0;
-  let cursorLine = 0;
-  let cursorCol = 0;
-
-  for (let i = 0; i < lines.length; i++) {
-    const lineLen = lines[i]!.length;
-    if (cursor >= offset && cursor <= offset + lineLen) {
-      cursorLine = i;
-      cursorCol = cursor - offset;
-      break;
-    }
-    offset += lineLen + 1; // +1 for \n
-  }
-
-  // Move line
-  let targetLine = cursorLine;
-  if (direction === "up") {
-    targetLine = Math.max(0, cursorLine - 1);
-  } else {
-    targetLine = Math.min(lines.length - 1, cursorLine + 1);
-  }
-
-  if (targetLine === cursorLine) {
-    // Can't move — go to start (up) or end (down)
+  if (targetLine === pos.line) {
     return {
       value,
       cursor: direction === "up" ? 0 : value.length,
     };
   }
 
-  // Map column to new line, clamping to line length
-  const targetLineLen = lines[targetLine]!.length;
-  const targetCol = Math.min(cursorCol, targetLineLen);
-
-  // Compute new offset
-  let newOffset = 0;
-  for (let i = 0; i < targetLine; i++) {
-    newOffset += lines[i]!.length + 1;
-  }
-  newOffset += targetCol;
-
-  return { value, cursor: newOffset };
+  return {
+    value,
+    cursor: textLayout.positionToOffset(targetLine, pos.col),
+  };
 }

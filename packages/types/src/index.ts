@@ -258,7 +258,7 @@ export interface ContainerProps extends StyleProps {
   /**
    * Called on key events that bubble up to this container.
    * Keys are first handled by the focused element; unconsumed keys
-   * (e.g., modifier combos like `"ctrl+s"`) bubble up through ancestors.
+   * (e.g., non-editing shortcuts like `"ctrl+s"`) bubble up through ancestors.
    * The root container's `onKeyPress` acts as the global key handler.
    *
    * Return `false` to indicate the key was **not consumed** — it will
@@ -315,8 +315,12 @@ export interface TextProps extends StyleProps {
  * Word-wrap is always on.
  *
  * When focused, TextInput consumes insertable text plus editing/navigation
- * keys (arrows, backspace, delete, Enter, Tab). Modifier combos and
- * non-insertable control keys bubble to ancestor {@link onKeyPress} handlers.
+ * keys (arrows, backspace, delete, Enter, Tab), along with a small set of
+ * readline-style shortcuts: `ctrl+a` / `ctrl+e`, `alt+b` / `alt+f`,
+ * `ctrl+left` / `ctrl+right`, `ctrl+w`, and `alt+d`. Word movement and
+ * deletion use whitespace-delimited boundaries, and `up` / `down` follow
+ * visual wrapped lines. Other modifier combos and non-insertable control
+ * keys bubble to ancestor {@link onKeyPress} handlers.
  */
 export interface TextInputProps extends ContainerProps {
   /** Current text content. Controlled — the app owns this value. */

@@ -69,6 +69,7 @@ cel.viewport(() =>
 - **16-color palette** — numbered slots (`"color00"`–`"color15"`) mapped to ANSI 16 by default. Custom themes can remap to different ANSI indices or 24-bit true color.
 - **Cell buffer rendering** — styled cells, differential updates, synchronized output.
 - **Kitty-first keyboard input** — cel-tui enables Kitty level 1 for full modifier fidelity, works well in `tmux` with `set -s extended-keys on`, and accepts recoverable legacy encodings when the host does not preserve a pure Kitty stream.
+- **TextInput editing shortcuts** — focused inputs support familiar readline-style editing (`ctrl+a/e`, `alt+b/f`, `ctrl+left/right`, `ctrl+w`, `alt+d`), and `up` / `down` follow visual wrapped lines.
 
 ## Terminal Compatibility
 

@@ -132,7 +132,7 @@ TextInput({
 });
 ```
 
-When focused, TextInput consumes insertable text plus editing/navigation keys. Modifier combos and non-insertable control keys bubble. Key strings are semantic identifiers for handlers, not necessarily the exact inserted text — uppercase `A` normalizes to key `"a"` while still inserting `"A"`.
+When focused, TextInput consumes insertable text plus editing/navigation keys, including readline-style shortcuts: `ctrl+a` / `ctrl+e`, `alt+b` / `alt+f`, `ctrl+left` / `ctrl+right`, `ctrl+w`, and `alt+d`. Word movement and deletion are whitespace-delimited, and `up` / `down` navigate visual wrapped lines. Other modifier combos and non-insertable control keys bubble. Key strings are semantic identifiers for handlers, not necessarily the exact inserted text — uppercase `A` normalizes to key `"a"` while still inserting `"A"`.
 
 ## Sizing Strategies
 
