@@ -13,6 +13,11 @@ const ESCAPE = kittyEncode("escape");
 const SHIFT_TAB = kittyEncode("shift+tab");
 const CTRL_S = kittyEncode("ctrl+s");
 const LEGACY_CTRL_R = "\x12";
+const TITLE_SEQUENCE_RE = /\x1b\][02];([^\x07\x1b]*)(?:\x07|\x1b\\)/g;
+
+function extractTitlePayloads(output: string): string[] {
+  return Array.from(output.matchAll(TITLE_SEQUENCE_RE), (match) => match[1]!);
+}
 
 describe("cel end-to-end", () => {
   let term: MockTerminal;
@@ -136,6 +141,43 @@ describe("cel end-to-end", () => {
 
     expect(term.output).toContain("\x1b[?2026h");
     expect(term.output).toContain("\x1b[?2026l");
+  });
+
+  describe("terminal title", () => {
+    test("setTitle writes a terminal title OSC sequence with the requested text", () => {
+      const term = setup();
+
+      cel.setTitle("cel-tui demo");
+
+      expect(extractTitlePayloads(term.output)).toEqual(["cel-tui demo"]);
+    });
+
+    test("setTitle strips control characters from the title text", () => {
+      const term = setup();
+
+      cel.setTitle("ab\x00c\nd\te\x1bf");
+
+      expect(extractTitlePayloads(term.output)).toEqual(["abcdef"]);
+    });
+
+    test("setTitle can be called multiple times and writes each title update", () => {
+      const term = setup();
+
+      cel.setTitle("first");
+      cel.setTitle("second");
+
+      expect(extractTitlePayloads(term.output)).toEqual(["first", "second"]);
+    });
+
+    test("stop does not emit a title restore sequence", () => {
+      const term = setup();
+      cel.setTitle("session");
+      term.clearOutput();
+
+      cel.stop();
+
+      expect(extractTitlePayloads(term.output)).toEqual([]);
+    });
   });
 
   describe("input handling", () => {

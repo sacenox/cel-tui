@@ -13,6 +13,7 @@ cel-tui is a TypeScript TUI framework built around a declarative functional API,
 ```ts
 cel.viewport(render: () => Node | Node[])
 cel.render()
+cel.setTitle(title: string)
 ```
 
 `cel.viewport` sets the render function that returns the UI tree. Accepts a single layer or an array of layers. Each layer is a container with full viewport dimensions, laid out independently. When multiple layers are provided, they are composited bottom-to-top (array index = z-order). Setting the viewport triggers the first render.
@@ -20,6 +21,22 @@ cel.render()
 `cel.render` requests a re-render. Batched via `process.nextTick()` — multiple calls within the same tick produce a single render. Call this after state changes.
 
 State is fully external to the framework. Use any state management approach — plain variables, classes, libraries. The framework just calls the render function and renders the returned tree.
+
+### Terminal Title
+
+```ts
+cel.setTitle(title: string)
+```
+
+Sets the terminal window or tab title as an imperative side effect. This is **global terminal state**, not part of the declarative render tree, so it should be called directly when the title needs to change.
+
+The framework emits a best-effort terminal title request using an OSC title sequence. Support varies by terminal emulator, multiplexer, and remote environment — some hosts may ignore it, reinterpret it, or map it to a pane/window title instead.
+
+**Semantics:**
+
+- Later calls replace the previous title set by the app.
+- `title` is treated as plain text. Control characters are stripped before writing the sequence.
+- The framework does **not** automatically restore the previous terminal title on `cel.stop()`.
 
 ### Measurement Helpers
 

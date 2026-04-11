@@ -216,6 +216,10 @@ let batchScrollOffsets: Map<object, number> | null = null;
 // keys in the same chunk must see the updated value/cursor immediately.
 let batchTextInputEdits: Map<TextInputProps, EditState> | null = null;
 
+function sanitizeTerminalTitle(title: string): string {
+  return title.replace(/[\x00-\x1f\x7f-\x9f]/g, "");
+}
+
 function handleInput(data: string): void {
   batchTextInputEdits = new Map();
 
@@ -1041,6 +1045,18 @@ export const cel = {
     if (renderScheduled) return;
     renderScheduled = true;
     process.nextTick(doRender);
+  },
+
+  /**
+   * Set the terminal window or tab title.
+   *
+   * This is an imperative side effect, not part of the render tree.
+   * Control characters are stripped from the title before writing the
+   * terminal sequence. Best effort only — some hosts may ignore it.
+   */
+  setTitle(title: string): void {
+    if (!terminal) return;
+    terminal.write(`\x1b]2;${sanitizeTerminalTitle(title)}\x1b\\`);
   },
 
   /**
