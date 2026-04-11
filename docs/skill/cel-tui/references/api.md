@@ -1,5 +1,20 @@
 # cel-tui API Reference
 
+## Framework lifecycle
+
+```ts
+cel.init(new ProcessTerminal(), { theme?: Theme });
+cel.viewport(() => tree); // or () => [layer1, layer2]
+cel.render();
+cel.setTitle("My App");
+cel.stop();
+```
+
+- `cel.viewport` sets the render function and triggers the first render.
+- `cel.render()` requests a batched re-render after external state changes.
+- `cel.setTitle(title)` writes a best-effort terminal title request. Control characters are stripped from `title`, and `cel.stop()` does not restore the previous title automatically.
+- `cel.stop()` restores terminal state (raw mode, keyboard protocol, mouse tracking, alternate screen).
+
 ## Container Props
 
 All props accepted by `VStack` and `HStack`:

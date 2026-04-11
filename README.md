@@ -65,6 +65,7 @@ cel.viewport(() =>
 - **Uncontrolled by default** — focus and scroll just work. Opt into controlled mode when needed.
 - **Adaptive wheel scrolling** — scrollables and TextInput use an adaptive mouse-wheel step by default; override it with `scrollStep` when needed.
 - **Content measurement helper** — `measureContentHeight(node, { width })` lets apps preserve scroll anchors when prepending intrinsically sized content.
+- **Terminal title helper** — `cel.setTitle("My App")` updates the window/tab title when the host honors OSC titles.
 - **Style inheritance** — containers propagate styles to descendants. `bgColor` fills the rect.
 - **16-color palette** — numbered slots (`"color00"`–`"color15"`) mapped to ANSI 16 by default. Custom themes can remap to different ANSI indices or 24-bit true color.
 - **Cell buffer rendering** — styled cells, differential updates, synchronized output.

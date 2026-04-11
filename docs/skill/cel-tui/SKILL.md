@@ -5,7 +5,7 @@ license: MIT
 compatibility: Requires Bun runtime. Best experience on Kitty-compatible terminals and in tmux with `set -s extended-keys on`; uses SGR mouse mode and accepts recoverable legacy key encodings when hosts do not preserve a pure Kitty stream.
 metadata:
   author: sacenox
-  version: "0.6.2"
+  version: "0.7.0"
 ---
 
 # Building TUIs with cel-tui
@@ -73,6 +73,8 @@ cel.viewport(() =>
 ```
 
 The steps: `cel.init(terminal)` → `cel.viewport(() => tree)` → mutate state + `cel.render()`.
+
+Use `cel.setTitle("My App")` when you want to update the terminal window or tab title. It is imperative terminal state, not part of the render tree, and the previous title is not restored automatically on `cel.stop()`.
 
 ## 4 Primitives
 
