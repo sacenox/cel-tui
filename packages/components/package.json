@@ -1,6 +1,6 @@
 {
   "name": "@cel-tui/components",
-  "version": "0.6.1",
+  "version": "0.6.2",
   "description": "Pre-made components for cel-tui — Button, Spacer, Divider, VDivider, Select, Markdown, SyntaxHighlight",
   "type": "module",
   "module": "src/index.ts",
