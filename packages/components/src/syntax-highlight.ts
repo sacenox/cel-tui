@@ -33,29 +33,9 @@ const ANSI_SLOT_HEX: ReadonlyArray<readonly [Color, string]> = [
   ["color15", "#ffffff"],
 ];
 
-type TokenCategory =
-  | "addition"
-  | "comment"
-  | "deletion"
-  | "emphasis"
-  | "function"
-  | "keyword"
-  | "link"
-  | "literal"
-  | "meta"
-  | "number"
-  | "parameter"
-  | "property"
-  | "regexp"
-  | "string"
-  | "strong"
-  | "tag"
-  | "type"
-  | "variable";
-
 /** A best-effort token color override entry. */
 export interface SyntaxHighlightThemeTokenColor {
-  /** Target scopes or categories. */
+  /** Target lextide / highlight.js classes, with or without the `hljs-` prefix. */
   scope?: string | readonly string[];
   /** Style settings for the matched scopes. */
   settings: {
@@ -94,7 +74,7 @@ export interface SyntaxHighlightProps {
    *
    * Built-in presets currently include `"default"` and `"dark-plus"`.
    * Theme registration objects are applied as best-effort overrides onto the
-   * lextide token categories used by this component.
+   * lextide / highlight.js classes emitted by this component.
    */
   theme?: SyntaxHighlightTheme;
 }
@@ -142,125 +122,68 @@ function requiredAt<T>(
   return item;
 }
 
-const DEFAULT_CATEGORY_STYLES: Readonly<Record<TokenCategory, StyleProps>> = {
-  addition: { fgColor: "color02" },
-  comment: { fgColor: "color08", italic: true },
-  deletion: { fgColor: "color01" },
-  emphasis: { italic: true },
-  function: { fgColor: "color04" },
-  keyword: { fgColor: "color05" },
-  link: { fgColor: "color04", underline: true },
-  literal: { fgColor: "color03" },
-  meta: { fgColor: "color09", bold: true },
-  number: { fgColor: "color03" },
-  parameter: { fgColor: "color11" },
-  property: { fgColor: "color06" },
-  regexp: { fgColor: "color01" },
-  string: { fgColor: "color02" },
-  strong: { bold: true },
-  tag: { fgColor: "color01" },
-  type: { fgColor: "color06" },
-  variable: {},
+type ClassStyleRecord = Readonly<Record<string, ResolvedClassStyle>>;
+
+const DEFAULT_CLASS_STYLES: ClassStyleRecord = {
+  addition: { style: { fgColor: "color02" } },
+  attr: { style: { fgColor: "color06" } },
+  attribute: { style: { fgColor: "color06" } },
+  bullet: { style: { fgColor: "color03" } },
+  built_in: { style: { fgColor: "color06" } },
+  class_: { style: { fgColor: "color06" } },
+  code: { style: { fgColor: "color02" } },
+  comment: { style: { fgColor: "color08", italic: true } },
+  deletion: { style: { fgColor: "color01" } },
+  doctag: { style: { fgColor: "color08", italic: true } },
+  emphasis: { style: { italic: true } },
+  escape: { style: { fgColor: "color03" } },
+  function_: { style: { fgColor: "color04" } },
+  inherited__: { style: { fgColor: "color06" } },
+  keyword: { style: { fgColor: "color05" } },
+  link: { style: { fgColor: "color04", underline: true } },
+  literal: { style: { fgColor: "color03" } },
+  meta: { style: { fgColor: "color09", bold: true } },
+  name: { style: { fgColor: "color01" } },
+  number: { style: { fgColor: "color03" } },
+  operator: { style: { fgColor: "color05" } },
+  params: { style: { fgColor: "color11" } },
+  property: { style: { fgColor: "color06" } },
+  quote: { style: { fgColor: "color08", italic: true } },
+  regexp: { style: { fgColor: "color01" } },
+  section: { style: { fgColor: "color09", bold: true } },
+  "selector-attr": { style: { fgColor: "color06" } },
+  "selector-class": { style: { fgColor: "color06" } },
+  "selector-id": { style: { fgColor: "color06" } },
+  "selector-pseudo": { style: { fgColor: "color05" } },
+  "selector-tag": { style: { fgColor: "color01" } },
+  string: { style: { fgColor: "color02" } },
+  strong: { style: { bold: true } },
+  subst: { resetToBase: true, style: {} },
+  symbol: { style: { fgColor: "color03" } },
+  tag: { style: { fgColor: "color01" } },
+  title: { style: { fgColor: "color04" } },
+  type: { style: { fgColor: "color06" } },
+  variable: { style: {} },
 };
 
-const DARK_PLUS_CATEGORY_STYLES: Readonly<
-  Partial<Record<TokenCategory, StyleProps>>
-> = {
+const DARK_PLUS_CLASS_STYLE_OVERRIDES: Readonly<Record<string, StyleProps>> = {
+  code: { fgColor: "color09" },
   comment: { fgColor: "color08", italic: true },
-  function: { fgColor: "color11" },
+  function_: { fgColor: "color11" },
   keyword: { fgColor: "color12" },
   meta: { fgColor: "color08" },
+  name: { fgColor: "color09" },
   number: { fgColor: "color10" },
   property: { fgColor: "color07" },
   regexp: { fgColor: "color09" },
+  section: { fgColor: "color08" },
   string: { fgColor: "color09" },
   tag: { fgColor: "color09" },
+  title: { fgColor: "color11" },
   type: { fgColor: "color06" },
 };
 
-const CATEGORY_CLASSES: Readonly<Record<TokenCategory, readonly string[]>> = {
-  addition: ["addition"],
-  comment: ["comment", "doctag", "quote"],
-  deletion: ["deletion"],
-  emphasis: ["emphasis"],
-  function: ["function_", "title"],
-  keyword: ["keyword", "operator", "selector-pseudo"],
-  link: ["link"],
-  literal: ["bullet", "literal", "symbol"],
-  meta: ["meta", "section"],
-  number: ["number"],
-  parameter: ["params"],
-  property: [
-    "attr",
-    "attribute",
-    "property",
-    "selector-attr",
-    "selector-class",
-    "selector-id",
-  ],
-  regexp: ["regexp"],
-  string: ["string"],
-  strong: ["strong"],
-  tag: ["name", "selector-tag", "tag"],
-  type: ["built_in", "class_", "type"],
-  variable: ["variable"],
-};
-
-const CATEGORY_SCOPE_HINTS: Readonly<Record<TokenCategory, readonly string[]>> =
-  {
-    addition: ["addition", "markup.inserted"],
-    comment: ["comment", "quote"],
-    deletion: ["deletion", "markup.deleted"],
-    emphasis: ["emphasis", "markup.italic"],
-    function: [
-      "entity.name.function",
-      "function",
-      "meta.function-call",
-      "support.function",
-      "title",
-    ],
-    keyword: ["entity.name.operator", "keyword", "operator", "storage"],
-    link: ["link", "meta.link"],
-    literal: [
-      "bullet",
-      "constant.character",
-      "constant.language",
-      "literal",
-      "symbol",
-    ],
-    meta: ["markup.heading", "meta", "section"],
-    number: ["constant.numeric", "number"],
-    parameter: ["params", "variable.parameter"],
-    property: [
-      "attr",
-      "attribute",
-      "entity.other.attribute-name",
-      "meta.object-literal.key",
-      "meta.property-name",
-      "property",
-      "support.type.property-name",
-    ],
-    regexp: ["regexp", "string.regexp"],
-    string: ["markup.inline", "string"],
-    strong: ["markup.bold", "markup.heading", "strong"],
-    tag: ["entity.name.tag", "name", "selector-tag", "tag"],
-    type: [
-      "built_in",
-      "class",
-      "entity.name.type",
-      "entity.other.inherited-class",
-      "support.class",
-      "support.type",
-      "type",
-    ],
-    variable: ["variable"],
-  };
-
-const DEFAULT_RESOLVED_THEME = buildResolvedTheme(
-  DEFAULT_THEME_NAME,
-  {},
-  DEFAULT_CATEGORY_STYLES,
-);
+const DEFAULT_RESOLVED_THEME = buildResolvedTheme(DEFAULT_THEME_NAME, {});
 
 function hashString(input: string): string {
   let hash = 2166136261;
@@ -371,37 +294,79 @@ function themeSettingsToStyle(settings: {
   };
 }
 
+function normalizeClassName(className: string): string {
+  return className.startsWith("hljs-") ? className.slice(5) : className;
+}
+
+function cloneClassStyles(
+  source: ClassStyleRecord,
+): Map<string, ResolvedClassStyle> {
+  const classStyles = new Map<string, ResolvedClassStyle>();
+
+  for (const [className, resolved] of Object.entries(source)) {
+    classStyles.set(normalizeClassName(className), {
+      resetToBase: resolved.resetToBase,
+      style: { ...resolved.style },
+    });
+  }
+
+  return classStyles;
+}
+
+function applyClassStyleOverride(
+  classStyles: Map<string, ResolvedClassStyle>,
+  className: string,
+  style: StyleProps,
+): void {
+  const normalized = normalizeClassName(className);
+  const current = classStyles.get(normalized);
+
+  classStyles.set(normalized, {
+    resetToBase: current?.resetToBase,
+    style: mergeStyles(current?.style ?? {}, style),
+  });
+}
+
+function applyThemeTokenColors(
+  classStyles: Map<string, ResolvedClassStyle>,
+  tokenColors: readonly SyntaxHighlightThemeTokenColor[] | undefined,
+  baseStyle: StyleProps,
+): void {
+  for (const tokenColor of tokenColors ?? []) {
+    const style = themeSettingsToStyle(tokenColor.settings);
+    const scopes = tokenColor.scope
+      ? Array.isArray(tokenColor.scope)
+        ? tokenColor.scope
+        : [tokenColor.scope]
+      : [];
+
+    if (scopes.length === 0) {
+      Object.assign(baseStyle, mergeStyles(baseStyle, style));
+      continue;
+    }
+
+    for (const scope of scopes) {
+      applyClassStyleOverride(classStyles, scope, style);
+    }
+  }
+}
+
 function buildResolvedTheme(
   cacheKey: string,
   baseStyle: StyleProps,
-  categoryStyles: Readonly<Record<TokenCategory, StyleProps>>,
+  classStyleOverrides?: Readonly<Record<string, StyleProps>>,
 ): ResolvedSyntaxHighlightTheme {
-  const classStyles = new Map<string, ResolvedClassStyle>();
+  const classStyles = cloneClassStyles(DEFAULT_CLASS_STYLES);
 
-  for (const [category, classes] of Object.entries(CATEGORY_CLASSES) as [
-    TokenCategory,
-    readonly string[],
-  ][]) {
-    const style = categoryStyles[category];
-    for (const className of classes) {
-      classStyles.set(className, { style });
-    }
+  for (const [className, style] of Object.entries(classStyleOverrides ?? {})) {
+    applyClassStyleOverride(classStyles, className, style);
   }
-
-  classStyles.set("subst", {
-    resetToBase: true,
-    style: baseStyle,
-  });
 
   return {
     baseStyle,
     cacheKey,
     classStyles,
   };
-}
-
-function scopeMatchesHint(scope: string, hint: string): boolean {
-  return scope === hint || scope.startsWith(`${hint}.`);
 }
 
 function resolveTheme(
@@ -419,10 +384,7 @@ function resolveTheme(
     return buildResolvedTheme(
       "preset:dark-plus",
       { fgColor: "color07" },
-      {
-        ...DEFAULT_CATEGORY_STYLES,
-        ...DARK_PLUS_CATEGORY_STYLES,
-      },
+      DARK_PLUS_CLASS_STYLE_OVERRIDES,
     );
   }
 
@@ -432,38 +394,15 @@ function resolveTheme(
     background: theme.bg,
     foreground: theme.fg,
   });
-  const categoryStyles: Record<TokenCategory, StyleProps> = {
-    ...DEFAULT_CATEGORY_STYLES,
+  const classStyles = cloneClassStyles(DEFAULT_CLASS_STYLES);
+
+  applyThemeTokenColors(classStyles, theme.tokenColors, baseStyle);
+
+  return {
+    baseStyle,
+    cacheKey: `custom:${cacheHash}`,
+    classStyles,
   };
-
-  for (const tokenColor of theme.tokenColors ?? []) {
-    const style = themeSettingsToStyle(tokenColor.settings);
-    const scopes = tokenColor.scope
-      ? Array.isArray(tokenColor.scope)
-        ? tokenColor.scope
-        : [tokenColor.scope]
-      : [];
-
-    if (scopes.length === 0) {
-      Object.assign(baseStyle, mergeStyles(baseStyle, style));
-      continue;
-    }
-
-    for (const [category, hints] of Object.entries(CATEGORY_SCOPE_HINTS) as [
-      TokenCategory,
-      readonly string[],
-    ][]) {
-      if (
-        scopes.some((scope) =>
-          hints.some((hint) => scopeMatchesHint(scope, hint)),
-        )
-      ) {
-        categoryStyles[category] = mergeStyles(categoryStyles[category], style);
-      }
-    }
-  }
-
-  return buildResolvedTheme(`custom:${cacheHash}`, baseStyle, categoryStyles);
 }
 
 function stateKey(
@@ -594,10 +533,7 @@ function resolveNodeStyle(
   let style = inherited;
 
   for (const className of classNames) {
-    const normalized = className.startsWith("hljs-")
-      ? className.slice(5)
-      : className;
-    const classStyle = theme.classStyles.get(normalized);
+    const classStyle = theme.classStyles.get(normalizeClassName(className));
     if (!classStyle) {
       continue;
     }
@@ -728,8 +664,8 @@ function renderHighlightedState(state: SyntaxHighlightState): ContainerNode {
  * the stream and replay the full snippet.
  *
  * Unknown languages render as plain text. The default theme is terminal-friendly
- * and maps lextide token classes onto cel's ANSI palette slots while leaving
- * base text on terminal defaults.
+ * and maps lextide's emitted highlight.js classes onto cel's ANSI palette slots
+ * while leaving base text on terminal defaults.
  *
  * @param content - Source code to render.
  * @param language - Registered lextide language id or alias.

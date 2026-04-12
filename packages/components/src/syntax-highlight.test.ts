@@ -139,8 +139,16 @@ describe("SyntaxHighlight", () => {
     expect(findText(node, "42").props.fgColor).toBe("color03");
   });
 
-  test("custom theme object overrides default colors", () => {
-    const node = render('const message = "hello"', "javascript", {
+  test("default ansi16 theme styles markdown code blocks from direct lextide classes", () => {
+    const node = render("# title\n\n```ts\nconst value = 1\n```", "markdown");
+
+    expect(findText(node, "#").props.fgColor).toBeDefined();
+    expect(findText(node, "```ts").props.fgColor).toBeDefined();
+    expect(findText(node, "const").props.fgColor).toBeDefined();
+  });
+
+  test("custom theme object matches bare lextide class names directly", () => {
+    const node = render("class Derived extends Base {}", "typescript", {
       theme: {
         name: "syntax-highlight-test-theme",
         type: "dark",
@@ -149,16 +157,35 @@ describe("SyntaxHighlight", () => {
         tokenColors: [
           { settings: { foreground: "#e5e5e5" } },
           {
-            scope: ["keyword", "storage"],
+            scope: ["class_", "inherited__"],
             settings: { foreground: "#cd3131" },
           },
-          { scope: "string", settings: { foreground: "#0dbc79" } },
         ],
       },
     });
 
-    expect(findText(node, "const").props.fgColor).toBe("color01");
-    expect(findTextContaining(node, "hello").props.fgColor).toBe("color02");
+    expect(findText(node, "Derived").props.fgColor).toBe("color01");
+    expect(findText(node, "Base").props.fgColor).toBe("color01");
+    expect(findText(node, "class").props.fgColor).toBe("color05");
+  });
+
+  test("custom theme object matches prefixed hljs class names directly", () => {
+    const node = render("# title\n\n```ts\nconst value = 1\n```", "markdown", {
+      theme: {
+        name: "syntax-highlight-prefixed-class-theme",
+        type: "dark",
+        fg: "#e5e5e5",
+        bg: "#000000",
+        tokenColors: [
+          { settings: { foreground: "#e5e5e5" } },
+          { scope: "hljs-code", settings: { foreground: "#0dbc79" } },
+        ],
+      },
+    });
+
+    expect(findText(node, "```ts").props.fgColor).toBe("color02");
+    expect(findText(node, "const").props.fgColor).toBe("color02");
+    expect(findText(node, "#").props.fgColor).toBe("color09");
   });
 
   test("named theme presets are accepted", () => {

@@ -40,40 +40,31 @@ const CUSTOM_THEME: SyntaxHighlightTheme = {
   tokenColors: [
     { settings: { foreground: "#f8f8f2" } },
     {
-      scope: ["comment", "string.quoted.docstring.multi"],
+      scope: ["comment", "quote", "doctag"],
       settings: { foreground: "#7f849c", fontStyle: "italic" },
     },
     {
-      scope: ["keyword", "storage", "entity.name.operator"],
+      scope: ["keyword", "operator"],
       settings: { foreground: "#ff79c6" },
     },
     {
-      scope: ["string", "markup.inline"],
+      scope: ["string", "code"],
       settings: { foreground: "#f1fa8c" },
     },
     {
-      scope: ["constant.numeric", "constant.language", "constant.character"],
+      scope: ["number", "literal", "escape", "symbol"],
       settings: { foreground: "#ffb86c" },
     },
     {
-      scope: ["entity.name.function", "support.function", "meta.function-call"],
+      scope: ["function_", "title"],
       settings: { foreground: "#50fa7b" },
     },
     {
-      scope: [
-        "entity.name.type",
-        "support.type",
-        "support.class",
-        "entity.other.inherited-class",
-      ],
+      scope: ["class_", "type", "built_in", "inherited__"],
       settings: { foreground: "#8be9fd" },
     },
     {
-      scope: [
-        "variable.parameter",
-        "meta.object-literal.key",
-        "meta.property-name",
-      ],
+      scope: ["params", "property", "attr", "attribute", "selector-attr"],
       settings: { foreground: "#bd93f9" },
     },
   ],
