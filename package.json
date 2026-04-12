@@ -20,7 +20,7 @@
     "lefthook": "^2.1.5",
     "mitata": "^1.0.34",
     "prettier": "^3.8.2",
-    "typedoc": "^0.28.18",
+    "typedoc": "^0.28.19",
     "typedoc-plugin-markdown": "^4.11.0",
     "typescript": "^6.0.2"
   }

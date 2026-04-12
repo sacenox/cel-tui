@@ -34,7 +34,7 @@
   "dependencies": {
     "@cel-tui/core": "workspace:*",
     "@cel-tui/types": "workspace:*",
-    "lextide": "^0.2.0",
+    "lextide": "^0.2.1",
     "yoctomarkdown": "^0.1.0"
   },
   "peerDependencies": {
