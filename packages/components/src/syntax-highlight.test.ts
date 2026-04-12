@@ -58,6 +58,21 @@ function findTextContaining(node: ContainerNode, content: string): TextNode {
   return text;
 }
 
+function lineTokens(line: Node) {
+  const container = asContainer(line);
+  return container.children.map((child) => {
+    const text = asText(child);
+    return {
+      content: text.content,
+      fgColor: text.props.fgColor,
+      bgColor: text.props.bgColor,
+      bold: text.props.bold,
+      italic: text.props.italic,
+      underline: text.props.underline,
+    };
+  });
+}
+
 function hasStyledText(node: ContainerNode): boolean {
   return node.children.some((line) => {
     const container = asContainer(line);
@@ -211,6 +226,36 @@ describe("SyntaxHighlight", () => {
 
     expect(node.children).toHaveLength(1);
     expect(lineText(item(node.children, 0))).toBe('const message = "hello"');
+  });
+
+  test("produces the same final highlight regardless of append chunk boundaries", () => {
+    const firstChunk = "t";
+    const secondChunk = "ype Foo<T extends string | number> = { value: T };\n";
+    const finalContent = `${firstChunk}${secondChunk}const x: Foo<string> = { value: \"a\" };\n`;
+    const streamedTheme = {
+      name: "syntax-highlight-streamed-boundary-regression",
+      tokenColors: [],
+    };
+    const directTheme = {
+      name: "syntax-highlight-direct-boundary-regression",
+      tokenColors: [],
+    };
+
+    render(firstChunk, "typescript", { theme: streamedTheme });
+    render(`${firstChunk}${secondChunk}`, "typescript", {
+      theme: streamedTheme,
+    });
+    const streamed = render(finalContent, "typescript", {
+      theme: streamedTheme,
+    });
+    const direct = render(finalContent, "typescript", { theme: directTheme });
+
+    expect(lineTokens(item(streamed.children, 0))).toEqual(
+      lineTokens(item(direct.children, 0)),
+    );
+    expect(lineTokens(item(streamed.children, 1))).toEqual(
+      lineTokens(item(direct.children, 1)),
+    );
   });
 
   test("preserves highlighting across appended multiline comment", () => {

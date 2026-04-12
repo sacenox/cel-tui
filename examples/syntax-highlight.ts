@@ -2,8 +2,9 @@
  * cel-tui: SyntaxHighlight streaming demo
  *
  * Streams every built-in lextide language through SyntaxHighlight.
- * The large pane renders SyntaxHighlight, while the stream board mirrors
- * lextide's recall/stable/unstable updates for the same append-only chunks.
+ * The large pane renders SyntaxHighlight from the growing source text, while
+ * the stream board mirrors lextide's recall/stable/unstable updates for the
+ * same append-only chunks.
  *
  * Run: bun run examples/syntax-highlight.ts
  */
@@ -142,7 +143,7 @@ const SAMPLE_BY_LANGUAGE = {
     source: [
       "# Streaming markdown",
       "",
-      "`SyntaxHighlight` keeps append-only updates cheap.",
+      "`SyntaxHighlight` keeps final output stable across chunks.",
       "",
       "- headings",
       "- emphasis",
@@ -700,10 +701,13 @@ cel.viewport(() => {
       ]),
       Divider({ fgColor: "color08" }),
       VStack({ padding: { x: 1 } }, [
-        Text("All registered lextide built-ins stream in append-only chunks.", {
-          fgColor: "color08",
-          italic: true,
-        }),
+        Text(
+          "All registered lextide built-ins feed SyntaxHighlight append-only chunks.",
+          {
+            fgColor: "color08",
+            italic: true,
+          },
+        ),
         Text(
           "The large pane renders SyntaxHighlight(); the board shows the matching lowlight.stream(...) deltas.",
           {
@@ -735,7 +739,7 @@ cel.viewport(() => {
           Text("quit", { fgColor: "color08" }),
         ]),
         Text(
-          "Append-only only: restarting rebuilds every stream from empty; non-append edits would reset the streaming parser state.",
+          "Restarting rebuilds each sample from empty so you can compare the same chunk sequence again.",
           {
             fgColor: "color08",
           },

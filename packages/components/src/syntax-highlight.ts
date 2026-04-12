@@ -5,8 +5,6 @@ import {
   createLowlight,
   type Element,
   type ElementContent,
-  type HighlightStream,
-  type StreamUpdate,
 } from "lextide";
 
 const lowlight = createLowlight(all);
@@ -99,7 +97,6 @@ interface SyntaxHighlightState {
   children: HighlightNode[];
   lastContent: string;
   lastNode: ContainerNode | null;
-  stream: HighlightStream;
   theme: ResolvedSyntaxHighlightTheme;
 }
 
@@ -447,60 +444,18 @@ function findState(
     }
   }
 
-  let best: SyntaxHighlightState | undefined;
-  let bestLength = -1;
-
-  for (let i = states.length - 1; i >= 0; i--) {
-    const state = requiredAt(states, i, "syntax highlight state");
-    if (!content.startsWith(state.lastContent)) {
-      continue;
-    }
-    if (state.lastContent.length > bestLength) {
-      best = state;
-      bestLength = state.lastContent.length;
-    }
-  }
-
-  return best;
-}
-
-function createStream(language: string): HighlightStream {
-  return lowlight.stream(language, { allowRecalls: true });
+  return undefined;
 }
 
 function createState(
-  language: string,
   theme: ResolvedSyntaxHighlightTheme,
 ): SyntaxHighlightState {
   return {
     children: [],
     lastContent: "",
     lastNode: null,
-    stream: createStream(language),
     theme,
   };
-}
-
-function applyStreamUpdate(
-  children: HighlightNode[],
-  update: StreamUpdate,
-): void {
-  const nextLength = Math.max(0, children.length - update.recall);
-  children.length = nextLength;
-  children.push(...update.stable, ...update.unstable);
-}
-
-function resetState(
-  state: SyntaxHighlightState,
-  language: string,
-  content: string,
-): void {
-  state.children = [];
-  state.stream = createStream(language);
-
-  if (content.length > 0) {
-    applyStreamUpdate(state.children, state.stream.write(content));
-  }
 }
 
 function pushRun(
@@ -604,15 +559,7 @@ function updateState(
     return;
   }
 
-  if (!content.startsWith(state.lastContent)) {
-    resetState(state, language, content);
-  } else {
-    const chunk = content.slice(state.lastContent.length);
-    if (chunk.length > 0) {
-      applyStreamUpdate(state.children, state.stream.write(chunk));
-    }
-  }
-
+  state.children = lowlight.highlight(language, content).children;
   state.lastContent = content;
   state.lastNode = null;
 }
@@ -658,10 +605,9 @@ function renderHighlightedState(state: SyntaxHighlightState): ContainerNode {
 /**
  * Render syntax-highlighted code as cel-tui primitives.
  *
- * Uses lextide synchronously at the component boundary while keeping a
- * streaming parser state per language/theme cache entry. Append-only updates
- * apply lextide's recall/stable/unstable deltas, while non-append edits reset
- * the stream and replay the full snippet.
+ * Re-highlights the full snippet whenever the content changes so the final
+ * output stays deterministic regardless of how streamed chunks were split.
+ * Repeated renders with identical content reuse the cached rendered tree.
  *
  * Unknown languages render as plain text. The default theme is terminal-friendly
  * and maps lextide's emitted highlight.js classes onto cel's ANSI palette slots
@@ -684,7 +630,7 @@ export function SyntaxHighlight(
   }
 
   const key = stateKey(language, theme);
-  const state = findState(key, content) ?? createState(language, theme);
+  const state = findState(key, content) ?? createState(theme);
   updateState(state, language, content);
   touchState(key, state);
   return renderHighlightedState(state);

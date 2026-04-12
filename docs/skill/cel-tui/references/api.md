@@ -312,7 +312,7 @@ SyntaxHighlight(code, "javascript", { theme: "dark-plus" });
 - `props.theme` accepts the built-in presets (`"default"`, `"dark-plus"`) or a best-effort token theme registration object
 - Uses a terminal-friendly ANSI 16 fallback theme by default
 - Highlighting is synchronous at the component boundary; unsupported languages render plain text
-- Append-only updates reuse lextide stream state, while non-append edits reset and replay the full snippet
+- Content changes re-highlight the full snippet so final output stays stable across streamed chunk boundaries
 
 ## Theme
 
