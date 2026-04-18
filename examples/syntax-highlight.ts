@@ -1,10 +1,9 @@
 /**
- * cel-tui: SyntaxHighlight streaming demo
+ * cel-tui: SyntaxHighlight component demo
  *
- * Streams every built-in lextide language through SyntaxHighlight.
- * The large pane renders SyntaxHighlight from the growing source text, while
- * the stream board mirrors lextide's recall/stable/unstable updates for the
- * same append-only chunks.
+ * This example is intentionally component-focused.
+ * It streams append-only chunks into `SyntaxHighlight(content, language, { theme })`
+ * and lets you switch samples and themes, without reaching into tokenizer internals.
  *
  * Run: bun run examples/syntax-highlight.ts
  */
@@ -17,31 +16,31 @@ import {
   VDivider,
   type SyntaxHighlightTheme,
 } from "@cel-tui/components";
-import {
-  all,
-  createLowlight,
-  type HighlightStream,
-  type StreamUpdate,
-} from "lextide";
 import { warningBox } from "./warning-box";
 
-const lowlight = createLowlight(all);
+const MIN_COLS = 76;
+const MIN_ROWS = 20;
+const SIDE_BY_SIDE_MIN_COLS = 110;
+const TICK_MS = 70;
 
-const MIN_COLS = 72;
-const MIN_ROWS = 22;
-const STACKED_MIN_ROWS = 29;
-const SIDE_BY_SIDE_MIN_COLS = 116;
-const TICK_MS = 72;
+interface DemoSample {
+  title: string;
+  language: string;
+  aliases: readonly string[];
+  description: string;
+  chunkSize: number;
+  source: string;
+}
 
 const CUSTOM_THEME: SyntaxHighlightTheme = {
-  name: "cel-demo-sunset",
+  name: "syntax-highlight-demo-sunset",
   type: "dark",
   fg: "#f8f8f2",
   bg: "#1f2335",
   tokenColors: [
     { settings: { foreground: "#f8f8f2" } },
     {
-      scope: ["comment", "quote", "doctag"],
+      scope: ["comment"],
       settings: { foreground: "#7f849c", fontStyle: "italic" },
     },
     {
@@ -49,24 +48,32 @@ const CUSTOM_THEME: SyntaxHighlightTheme = {
       settings: { foreground: "#ff79c6" },
     },
     {
-      scope: ["string", "code"],
+      scope: ["string"],
       settings: { foreground: "#f1fa8c" },
     },
     {
-      scope: ["number", "literal", "escape", "symbol"],
+      scope: ["number", "escape"],
       settings: { foreground: "#ffb86c" },
     },
     {
-      scope: ["function_", "title"],
+      scope: ["command", "function"],
       settings: { foreground: "#50fa7b" },
     },
     {
-      scope: ["class_", "type", "built_in", "inherited__"],
+      scope: ["type", "builtin", "meta", "markup.heading"],
       settings: { foreground: "#8be9fd" },
     },
     {
-      scope: ["params", "property", "attr", "attribute", "selector-attr"],
+      scope: ["variable", "property"],
       settings: { foreground: "#bd93f9" },
+    },
+    {
+      scope: ["link"],
+      settings: { foreground: "#8be9fd", fontStyle: "underline" },
+    },
+    {
+      scope: ["markup.list", "markup.quote"],
+      settings: { foreground: "#ffb86c" },
     },
   ],
 };
@@ -78,113 +85,31 @@ const THEME_OPTIONS: ReadonlyArray<{
 }> = [
   {
     label: "terminal ansi16",
-    help: "Default theme follows terminal defaults plus ANSI slots.",
+    help: "Default theme follows terminal defaults plus ANSI slot accents.",
+  },
+  {
+    label: "dark-plus",
+    help: "Built-in preset with a VS Code-ish dark palette.",
+    theme: "dark-plus",
   },
   {
     label: "custom sunset",
-    help: "Custom token theme remapped onto cel ANSI slots.",
+    help: "Custom token theme mapped onto cel's ANSI palette slots.",
     theme: CUSTOM_THEME,
   },
 ];
 
-interface DemoSample {
-  language: string;
-  title: string;
-  aliases: readonly string[];
-  description: string;
-  chunkSize: number;
-  source: string;
-}
-
-const SAMPLE_BY_LANGUAGE = {
-  bash: {
-    title: "Bash",
-    aliases: ["sh", "shell", "zsh"],
-    description: "Variables, conditionals, and a heredoc.",
-    chunkSize: 5,
-    source: [
-      "#!/usr/bin/env bash",
-      "set -euo pipefail",
-      "",
-      "name=${1:-stream}",
-      'printf "start %s\\n" "$name"',
-      "",
-      'if [[ "$name" == "stream" ]]; then',
-      "  cat <<'EOF'",
-      "append-only shell chunks",
-      "keep parser state warm",
-      "EOF",
-      "fi",
-    ].join("\n"),
-  },
-  javascript: {
-    title: "JavaScript",
-    aliases: ["js", "jsx", "mjs", "cjs"],
-    description: "Async code, destructuring, and template literals.",
-    chunkSize: 5,
-    source: [
-      "async function loadUsers(signal) {",
-      '  const response = await fetch("/api/users", { signal });',
-      "  if (!response.ok) {",
-      "    throw new Error(`HTTP ${response.status}`);",
-      "  }",
-      "  const users = await response.json();",
-      "  return users",
-      "    .map(({ id, name }) => `${id}:${name}`)",
-      '    .join(", ");',
-      "}",
-    ].join("\n"),
-  },
-  markdown: {
-    title: "Markdown",
-    aliases: ["md", "mkdown", "mkd"],
-    description: "Headings, lists, inline code, and a fenced block.",
-    chunkSize: 6,
-    source: [
-      "# Streaming markdown",
-      "",
-      "`SyntaxHighlight` keeps final output stable across chunks.",
-      "",
-      "- headings",
-      "- emphasis",
-      "- `inline code`",
-      "",
-      "```ts",
-      'const status = "streaming";',
-      "console.log(status);",
-      "```",
-      "",
-      "> Fences and inline spans arrive a few bytes at a time.",
-    ].join("\n"),
-  },
-  python: {
-    title: "Python",
-    aliases: ["py"],
-    description:
-      "Decorators, dataclasses, triple-quoted strings, and f-strings.",
-    chunkSize: 5,
-    source: [
-      "from dataclasses import dataclass",
-      "",
-      "@dataclass(slots=True)",
-      "class Job:",
-      "    name: str",
-      "    retries: int = 0",
-      "",
-      "def describe(job: Job) -> str:",
-      '    note = """append-only streams',
-      '    stay highlighted across chunks"""',
-      '    return f"{job.name}:{job.retries} -> {note.strip()}"',
-    ].join("\n"),
-  },
-  typescript: {
+const SAMPLES: readonly DemoSample[] = [
+  {
     title: "TypeScript",
+    language: "typescript",
     aliases: ["ts", "tsx", "mts", "cts"],
-    description: "Types, generics, comments, and a template literal.",
+    description:
+      "Shows the current clew-backed path: keywords, strings, comments, and append-only updates.",
     chunkSize: 4,
     source: [
       "/**",
-      " * Streaming state stays append-only.",
+      " * clew is stream-first.",
       " */",
       'type Phase = "idle" | "streaming" | "done";',
       "",
@@ -201,81 +126,186 @@ const SAMPLE_BY_LANGUAGE = {
       "renderChunk(preview);",
     ].join("\n"),
   },
-} satisfies Record<string, Omit<DemoSample, "language">>;
-
-function hasDemoSample(
-  language: string,
-): language is keyof typeof SAMPLE_BY_LANGUAGE {
-  return Object.prototype.hasOwnProperty.call(SAMPLE_BY_LANGUAGE, language);
-}
-
-const REGISTERED_LANGUAGES = lowlight.listLanguages().sort();
-const MISSING_SAMPLES = REGISTERED_LANGUAGES.filter(
-  (language) => !hasDemoSample(language),
-);
-
-if (MISSING_SAMPLES.length > 0) {
-  throw new Error(
-    `Missing syntax-highlight demo samples for lextide languages: ${MISSING_SAMPLES.join(", ")}`,
-  );
-}
-
-const DEMO_SAMPLES: readonly DemoSample[] = REGISTERED_LANGUAGES.map(
-  (language) => {
-    if (!hasDemoSample(language)) {
-      throw new Error(`Unsupported demo language: ${language}`);
-    }
-
-    return {
-      language,
-      ...SAMPLE_BY_LANGUAGE[language],
-    };
+  {
+    title: "JavaScript",
+    language: "javascript",
+    aliases: ["js", "jsx", "mjs", "cjs"],
+    description: "Async code, destructuring, and a template literal.",
+    chunkSize: 5,
+    source: [
+      "async function loadUsers(signal) {",
+      '  const response = await fetch("/api/users", { signal });',
+      "  if (!response.ok) {",
+      "    throw new Error(`HTTP ${response.status}`);",
+      "  }",
+      "  const users = await response.json();",
+      "  return users.map(({ id, name }) => `${id}:${name}`).join(', ');",
+      "}",
+    ].join("\n"),
   },
-);
+  {
+    title: "Python",
+    language: "python",
+    aliases: ["py"],
+    description: "Decorators, classes, builtins, and an f-string.",
+    chunkSize: 5,
+    source: [
+      "from dataclasses import dataclass",
+      "",
+      "@dataclass",
+      "class Job:",
+      "    name: str",
+      "    retries: int = 0",
+      "",
+      "    def render(self) -> str:",
+      '        return f"{self.name}:{self.retries}"',
+      "",
+      'print(Job("clew", 2).render())',
+    ].join("\n"),
+  },
+  {
+    title: "Bash",
+    language: "bash",
+    aliases: ["bash"],
+    description:
+      "Bash-only support: builtins, variables, substitutions, and a heredoc.",
+    chunkSize: 5,
+    source: [
+      "#!/usr/bin/env bash",
+      "set -euo pipefail",
+      "",
+      "name=${1:-stream}",
+      'printf "start %s\\n" "$name"',
+      "",
+      'if [[ "$name" == "stream" ]]; then',
+      "  cat <<'EOF'",
+      "append-only shell chunks",
+      "EOF",
+      "fi",
+    ].join("\n"),
+  },
+  {
+    title: "JSON",
+    language: "json",
+    aliases: ["json"],
+    description:
+      "Object keys, string values, booleans, null, numbers, and nested arrays.",
+    chunkSize: 6,
+    source: [
+      "{",
+      '  "name": "clew",',
+      '  "stream": true,',
+      '  "stability": "eager",',
+      '  "retries": 2,',
+      '  "features": ["json", "markdown", null],',
+      '  "theme": { "name": "dark-plus", "enabled": true }',
+      "}",
+    ].join("\n"),
+  },
+  {
+    title: "Markdown",
+    language: "markdown",
+    aliases: ["markdown"],
+    description:
+      "Headings, list markers, links, inline code, blockquotes, and fenced code.",
+    chunkSize: 5,
+    source: [
+      "# clew notes",
+      "",
+      "- stream-first updates",
+      '- `SyntaxHighlight(content, "markdown")`',
+      "> Links stay atomic: [docs](https://example.com)",
+      "",
+      "```ts",
+      'const mode = "streaming";',
+      "```",
+    ].join("\n"),
+  },
+];
 
-interface StreamDelta {
-  recall: number;
-  stable: number;
-  unstable: number;
-}
-
-interface DemoStreamState {
-  sample: DemoSample;
-  content: string;
-  chunks: number;
-  lastChunk: string;
-  lastUpdate: StreamDelta;
-  stream: HighlightStream;
-}
-
-const EMPTY_DELTA: StreamDelta = {
-  recall: 0,
-  stable: 0,
-  unstable: 0,
-};
-
-let streams = createStreams();
-let paused = false;
+let sampleIndex = 0;
 let themeIndex = 0;
-let selectedIndex = Math.max(
-  0,
-  DEMO_SAMPLES.findIndex((sample) => sample.language === "typescript"),
-);
-let streamTimer: ReturnType<typeof setTimeout> | null = null;
+let content = "";
+let cursor = 0;
+let chunks = 0;
+let lastChunk = "";
+let paused = false;
+let timer: ReturnType<typeof setTimeout> | null = null;
 
-function createStreamState(sample: DemoSample): DemoStreamState {
-  return {
-    sample,
-    content: "",
-    chunks: 0,
-    lastChunk: "",
-    lastUpdate: EMPTY_DELTA,
-    stream: lowlight.stream(sample.language, { allowRecalls: true }),
-  };
+function currentSample(): DemoSample {
+  return SAMPLES[sampleIndex] ?? SAMPLES[0]!;
 }
 
-function createStreams(): DemoStreamState[] {
-  return DEMO_SAMPLES.map(createStreamState);
+function currentTheme() {
+  return THEME_OPTIONS[themeIndex] ?? THEME_OPTIONS[0]!;
+}
+
+function stopStreaming() {
+  if (timer) {
+    clearTimeout(timer);
+    timer = null;
+  }
+}
+
+function scheduleTick() {
+  stopStreaming();
+  if (paused || cursor >= currentSample().source.length) {
+    return;
+  }
+  timer = setTimeout(tick, TICK_MS);
+}
+
+function resetCurrentSample() {
+  stopStreaming();
+  content = "";
+  cursor = 0;
+  chunks = 0;
+  lastChunk = "";
+  paused = false;
+  scheduleTick();
+  cel.render();
+}
+
+function selectSample(delta: number) {
+  sampleIndex = (sampleIndex + delta + SAMPLES.length) % SAMPLES.length;
+  resetCurrentSample();
+}
+
+function toggleTheme() {
+  themeIndex = (themeIndex + 1) % THEME_OPTIONS.length;
+  cel.render();
+}
+
+function togglePause() {
+  paused = !paused;
+  scheduleTick();
+  cel.render();
+}
+
+function previewChunk(chunk: string, max = 24): string {
+  return chunk.length > max ? `${chunk.slice(0, max - 1)}…` : chunk;
+}
+
+function progressLine(sample: DemoSample): string {
+  return `${String(cursor).padStart(String(sample.source.length).length)}/${sample.source.length} chars`;
+}
+
+function tick() {
+  const sample = currentSample();
+  if (cursor >= sample.source.length) {
+    stopStreaming();
+    cel.render();
+    return;
+  }
+
+  const nextCursor = Math.min(sample.source.length, cursor + sample.chunkSize);
+  lastChunk = sample.source.slice(cursor, nextCursor);
+  content += lastChunk;
+  cursor = nextCursor;
+  chunks += 1;
+
+  scheduleTick();
+  cel.render();
 }
 
 function quit() {
@@ -284,236 +314,91 @@ function quit() {
   process.exit(0);
 }
 
-function stopStreaming() {
-  if (streamTimer) {
-    clearTimeout(streamTimer);
-    streamTimer = null;
-  }
-}
-
-function isStreamDone(state: DemoStreamState): boolean {
-  return state.content.length >= state.sample.source.length;
-}
-
-function isDone(): boolean {
-  return streams.every(isStreamDone);
-}
-
-function startStreaming() {
-  stopStreaming();
-  if (paused || isDone()) {
-    return;
-  }
-  streamTimer = setTimeout(streamNext, TICK_MS);
-}
-
-function applyTelemetry(
-  state: DemoStreamState,
-  chunk: string,
-  update: StreamUpdate,
-): void {
-  state.content += chunk;
-  state.chunks += 1;
-  state.lastChunk = chunk;
-  state.lastUpdate = {
-    recall: update.recall,
-    stable: update.stable.length,
-    unstable: update.unstable.length,
-  };
-}
-
-function streamNext() {
-  if (paused || isDone()) {
-    streamTimer = null;
-    cel.render();
-    return;
-  }
-
-  for (const state of streams) {
-    if (isStreamDone(state)) {
-      continue;
-    }
-
-    const nextLength = Math.min(
-      state.sample.source.length,
-      state.content.length + state.sample.chunkSize,
-    );
-    const chunk = state.sample.source.slice(state.content.length, nextLength);
-    if (chunk.length === 0) {
-      continue;
-    }
-
-    const update = state.stream.write(chunk);
-    applyTelemetry(state, chunk, update);
-  }
-
-  cel.render();
-
-  if (isDone()) {
-    streamTimer = null;
-    return;
-  }
-
-  streamTimer = setTimeout(streamNext, TICK_MS);
-}
-
-function restart() {
-  streams = createStreams();
-  paused = false;
-  startStreaming();
-  cel.render();
-}
-
-function togglePause() {
-  if (isDone()) {
-    return;
-  }
-
-  paused = !paused;
-  if (paused) {
-    stopStreaming();
-  } else {
-    startStreaming();
-  }
-  cel.render();
-}
-
-function toggleTheme() {
-  themeIndex = (themeIndex + 1) % THEME_OPTIONS.length;
-  cel.render();
-}
-
-function cycleSelection(delta: number) {
-  selectedIndex =
-    (selectedIndex + delta + streams.length) % Math.max(1, streams.length);
-  cel.render();
-}
-
-function currentTheme() {
-  return THEME_OPTIONS[themeIndex]!;
-}
-
-function globalStatus(): "done" | "paused" | "streaming" {
-  if (isDone()) {
+function statusText(sample: DemoSample): string {
+  if (cursor >= sample.source.length) {
     return "done";
   }
-  if (paused) {
-    return "paused";
-  }
-  return "streaming";
+  return paused ? "paused" : "streaming";
 }
 
-function streamStatus(state: DemoStreamState): "done" | "paused" | "streaming" {
-  if (isStreamDone(state)) {
-    return "done";
-  }
-  if (paused) {
-    return "paused";
-  }
-  return "streaming";
-}
-
-function statusColor(status: "done" | "paused" | "streaming") {
-  if (status === "done") {
-    return "color02";
-  }
-  if (status === "paused") {
-    return "color03";
-  }
-  return "color06";
-}
-
-function percentComplete(state: DemoStreamState): number {
-  return Math.round((state.content.length / state.sample.source.length) * 100);
-}
-
-function previewChunk(chunk: string, maxLength = 24): string {
-  if (chunk.length === 0) {
-    return "waiting";
-  }
-
-  const escaped = chunk
-    .replaceAll("\\", "\\\\")
-    .replaceAll("\n", "\\n")
-    .replaceAll("\t", "\\t")
-    .replaceAll('"', '\\"');
-
-  if (escaped.length <= maxLength) {
-    return escaped;
-  }
-
-  return `${escaped.slice(0, maxLength - 3)}...`;
-}
-
-function keycap(label: string) {
-  return Text(` ${label} `, {
-    fgColor: "color07",
-    bgColor: "color08",
-    bold: true,
+function sampleChip(sample: DemoSample, index: number) {
+  const selected = index === sampleIndex;
+  return Text(` ${sample.language} `, {
+    fgColor: selected ? "color15" : "color08",
+    bgColor: selected ? "color06" : undefined,
+    bold: selected || undefined,
   });
 }
 
-function languageChip(state: DemoStreamState, index: number) {
-  const selected = index === selectedIndex;
-  const status = streamStatus(state);
-  const bgColor = selected
-    ? "color06"
-    : status === "done"
-      ? "color10"
-      : "color08";
-  const fgColor = selected || status === "done" ? "color00" : "color07";
+function infoPane() {
+  const sample = currentSample();
+  const theme = currentTheme();
 
-  return Text(` ${state.sample.language} `, {
-    fgColor,
-    bgColor,
-    bold: true,
-  });
-}
-
-function detailPane(theme?: SyntaxHighlightTheme) {
-  const selected = streams[selectedIndex]!;
-  const status = streamStatus(selected);
-
-  return VStack({ flex: 1 }, [
-    HStack(
+  return VStack({ padding: { x: 1 }, gap: 1 }, [
+    Text("SyntaxHighlight component demo", {
+      bold: true,
+      fgColor: "color06",
+    }),
+    Text(
+      "This example only uses SyntaxHighlight(content, language, { theme }).",
       {
-        height: 1,
-        padding: { x: 1 },
-        gap: 1,
-        bgColor: "color08",
-      },
-      [
-        Text(`${selected.sample.title} (${selected.sample.language})`, {
-          bold: true,
-          fgColor: "color06",
-        }),
-        Spacer(),
-        Text(`${selected.content.length}/${selected.sample.source.length}`, {
-          fgColor: "color15",
-        }),
-        Text(status, {
-          fgColor: statusColor(status),
-          bold: true,
-        }),
-      ],
-    ),
-    VStack({ padding: { x: 1 } }, [
-      Text(selected.sample.description, {
         fgColor: "color08",
         italic: true,
-      }),
-      Text(`aliases: ${selected.sample.aliases.join(", ")}`, {
+      },
+    ),
+    Text(
+      "Append-only chunks are streamed into the component; backend details stay internal.",
+      {
         fgColor: "color08",
-      }),
-      Text(
-        `append-only: ${selected.sample.chunkSize} chars/tick | last delta r${selected.lastUpdate.recall} s${selected.lastUpdate.stable} u${selected.lastUpdate.unstable}`,
-        {
-          fgColor: "color08",
-        },
-      ),
-      Text(`last chunk: "${previewChunk(selected.lastChunk, 30)}"`, {
-        fgColor: "color08",
-      }),
+        italic: true,
+      },
+    ),
+    Divider({ fgColor: "color08" }),
+    Text(`${sample.title} (${sample.language})`, {
+      bold: true,
+      fgColor: "color03",
+    }),
+    Text(sample.description, { fgColor: "color08" }),
+    Text(`aliases: ${sample.aliases.join(", ")}`, { fgColor: "color08" }),
+    Text(`theme: ${theme.label}`, { fgColor: "color08" }),
+    Text(`status: ${statusText(sample)}`, { fgColor: "color08" }),
+    Text(`progress: ${progressLine(sample)} | ${chunks} chunks`, {
+      fgColor: "color08",
+    }),
+    Text(`last chunk: "${previewChunk(lastChunk)}"`, { fgColor: "color08" }),
+    Divider({ fgColor: "color08" }),
+    Text("Component call", { bold: true, fgColor: "color06" }),
+    Text(`SyntaxHighlight(content, "${sample.language}", {`, {
+      fgColor: "color07",
+    }),
+    Text(
+      `  theme: ${typeof theme.theme === "string" ? JSON.stringify(theme.theme) : theme.theme ? "<custom theme>" : "undefined"}`,
+      { fgColor: "color07" },
+    ),
+    Text("})", { fgColor: "color07" }),
+    Divider({ fgColor: "color08" }),
+    Text("Controls", { bold: true, fgColor: "color06" }),
+    Text("Left/Right or Tab/Shift+Tab  switch sample", { fgColor: "color08" }),
+    Text("Ctrl+T                       cycle theme", { fgColor: "color08" }),
+    Text("Space                        pause/resume stream", {
+      fgColor: "color08",
+    }),
+    Text("Ctrl+R                       restart current sample", {
+      fgColor: "color08",
+    }),
+    Text("Ctrl+Q                       quit", { fgColor: "color08" }),
+  ]);
+}
+
+function highlightPane() {
+  const sample = currentSample();
+  const theme = currentTheme();
+
+  return VStack({ flex: 1 }, [
+    HStack({ padding: { x: 1 }, gap: 1 }, [
+      Text(sample.title, { bold: true, fgColor: "color06" }),
+      Spacer(),
+      Text(theme.help, { fgColor: "color08" }),
     ]),
     Divider({ fgColor: "color08" }),
     VStack(
@@ -523,112 +408,35 @@ function detailPane(theme?: SyntaxHighlightTheme) {
         scrollbar: true,
         padding: { x: 1 },
       },
-      [SyntaxHighlight(selected.content, selected.sample.language, { theme })],
+      [SyntaxHighlight(content, sample.language, { theme: theme.theme })],
     ),
   ]);
 }
 
-function streamRow(state: DemoStreamState, index: number) {
-  const selected = index === selectedIndex;
-  const status = streamStatus(state);
+function mainView(cols: number) {
+  const wide = cols >= SIDE_BY_SIDE_MIN_COLS;
 
-  return VStack(
-    {
-      padding: { x: 1 },
-      bgColor: selected ? "color08" : undefined,
-    },
-    [
-      HStack({ gap: 1 }, [
-        Text(selected ? ">" : " ", {
-          fgColor: selected ? "color15" : "color08",
-          bold: selected || undefined,
-        }),
-        Text(state.sample.title, {
-          fgColor: selected ? "color15" : "color06",
-          bold: true,
-        }),
-        Spacer(),
-        Text(`${percentComplete(state)}%`, {
-          fgColor: "color08",
-        }),
-        Text(status, {
-          fgColor: statusColor(status),
-          bold: true,
-        }),
-      ]),
-      HStack({ gap: 1 }, [
-        Text(`+"${previewChunk(state.lastChunk, 18)}"`, {
-          fgColor: "color08",
-        }),
-        Spacer(),
-        Text(`r${state.lastUpdate.recall}`, { fgColor: "color01" }),
-        Text(`s${state.lastUpdate.stable}`, { fgColor: "color02" }),
-        Text(`u${state.lastUpdate.unstable}`, { fgColor: "color03" }),
-        Text(`c${state.chunks}`, { fgColor: "color06" }),
-      ]),
-    ],
-  );
-}
-
-function streamBoard() {
-  const status = globalStatus();
+  if (wide) {
+    return HStack({ flex: 1 }, [
+      VStack({ width: 42, overflow: "scroll", scrollbar: true }, [infoPane()]),
+      VDivider({ fgColor: "color08" }),
+      highlightPane(),
+    ]);
+  }
 
   return VStack({ flex: 1 }, [
-    HStack(
-      {
-        height: 1,
-        padding: { x: 1 },
-        bgColor: "color08",
-      },
-      [
-        Text("Live stream board", {
-          bold: true,
-          fgColor: "color06",
-        }),
-        Spacer(),
-        Text(status, {
-          fgColor: statusColor(status),
-          bold: true,
-        }),
-      ],
-    ),
-    VStack({ padding: { x: 1 } }, [
-      Text("Parallel lowlight.stream(..., { allowRecalls: true }).", {
-        fgColor: "color08",
-        italic: true,
-      }),
-      Text("Each row shows the last chunk plus r/s/u counts.", {
-        fgColor: "color08",
-        italic: true,
-      }),
-    ]),
+    infoPane(),
     Divider({ fgColor: "color08" }),
-    VStack(
-      {
-        flex: 1,
-        overflow: "hidden",
-      },
-      streams.flatMap((state, index) => [
-        streamRow(state, index),
-        ...(index < streams.length - 1
-          ? [Divider({ fgColor: "color08" })]
-          : []),
-      ]),
-    ),
+    highlightPane(),
   ]);
 }
-
-startStreaming();
 
 cel.init(new ProcessTerminal());
 cel.viewport(() => {
   const cols = process.stdout.columns || 80;
   const rows = process.stdout.rows || 24;
-  const useSideBySide = cols >= SIDE_BY_SIDE_MIN_COLS;
-  const minRows = useSideBySide ? MIN_ROWS : STACKED_MIN_ROWS;
-  const theme = currentTheme();
 
-  if (cols < MIN_COLS || rows < minRows) {
+  if (cols < MIN_COLS || rows < MIN_ROWS) {
     return VStack(
       {
         height: "100%",
@@ -644,8 +452,8 @@ cel.viewport(() => {
         ...warningBox([
           "  Terminal too small :(",
           "",
-          "  Please resize to at least",
-          `  ${String(MIN_COLS).padStart(3)}x${String(minRows).padStart(2)} characters.`,
+          "  Please resize to at",
+          `  least ${String(MIN_COLS).padStart(3)}×${String(MIN_ROWS).padStart(2)} chars.`,
           "",
           "  Ctrl+Q to quit",
         ]),
@@ -653,98 +461,45 @@ cel.viewport(() => {
     );
   }
 
-  const mainPane = useSideBySide
-    ? HStack({ flex: 1 }, [
-        detailPane(theme.theme),
-        VDivider({ fgColor: "color08" }),
-        streamBoard(),
-      ])
-    : VStack({ flex: 1 }, [
-        detailPane(theme.theme),
-        Divider({ fgColor: "color08" }),
-        streamBoard(),
-      ]);
-
   return VStack(
     {
       height: "100%",
+      overflow: "scroll",
       onKeyPress: (key) => {
         if (key === "ctrl+q" || key === "ctrl+c") {
           quit();
         }
         if (key === "ctrl+r") {
-          restart();
-        }
-        if (key === "ctrl+p") {
-          togglePause();
+          resetCurrentSample();
         }
         if (key === "ctrl+t") {
           toggleTheme();
         }
+        if (key === "space") {
+          togglePause();
+        }
         if (key === "left" || key === "shift+tab") {
-          cycleSelection(-1);
+          selectSample(-1);
         }
         if (key === "right" || key === "tab") {
-          cycleSelection(1);
+          selectSample(1);
         }
       },
     },
     [
       HStack({ padding: { x: 1 }, gap: 2 }, [
-        Text("SyntaxHighlight streaming demo", {
-          bold: true,
-          fgColor: "color06",
-        }),
+        Text("SyntaxHighlight example", { bold: true, fgColor: "color06" }),
         Spacer(),
-        Text(`theme: ${theme.label}`, { fgColor: "color03" }),
-        Text(`built-ins: ${DEMO_SAMPLES.length}`, { fgColor: "color08" }),
+        Text(`theme: ${currentTheme().label}`, { fgColor: "color03" }),
       ]),
       Divider({ fgColor: "color08" }),
-      VStack({ padding: { x: 1 } }, [
-        Text(
-          "All registered lextide built-ins feed SyntaxHighlight append-only chunks.",
-          {
-            fgColor: "color08",
-            italic: true,
-          },
-        ),
-        Text(
-          "The large pane renders SyntaxHighlight(); the board shows the matching lowlight.stream(...) deltas.",
-          {
-            fgColor: "color08",
-            italic: true,
-          },
-        ),
-        Text(theme.help, {
-          fgColor: "color08",
-        }),
-      ]),
       HStack({ padding: { x: 1 }, gap: 1, flexWrap: "wrap" }, [
-        ...streams.map(languageChip),
+        ...SAMPLES.map(sampleChip),
       ]),
       Divider({ fgColor: "color08" }),
-      mainPane,
-      Divider({ fgColor: "color08" }),
-      VStack({ padding: { x: 1 } }, [
-        HStack({ gap: 1, flexWrap: "wrap" }, [
-          keycap("Left/Right"),
-          Text("select language", { fgColor: "color08" }),
-          keycap("Ctrl+P"),
-          Text("pause", { fgColor: "color08" }),
-          keycap("Ctrl+R"),
-          Text("restart", { fgColor: "color08" }),
-          keycap("Ctrl+T"),
-          Text("theme", { fgColor: "color08" }),
-          keycap("Ctrl+Q"),
-          Text("quit", { fgColor: "color08" }),
-        ]),
-        Text(
-          "Restarting rebuilds each sample from empty so you can compare the same chunk sequence again.",
-          {
-            fgColor: "color08",
-          },
-        ),
-      ]),
+      mainView(cols),
     ],
   );
 });
+
+resetCurrentSample();

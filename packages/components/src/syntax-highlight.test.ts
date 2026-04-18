@@ -107,7 +107,7 @@ describe("SyntaxHighlight", () => {
     expect(hasStyledText(node)).toBe(false);
   });
 
-  test("highlights javascript synchronously", () => {
+  test("highlights javascript synchronously through clew", () => {
     const node = render("const value = 42", "javascript");
 
     expect(node.type).toBe("vstack");
@@ -120,12 +120,52 @@ describe("SyntaxHighlight", () => {
     expect(firstToken.props.fgColor).toBeDefined();
   });
 
-  test("supports shell alias highlighting", () => {
-    const node = render('if true; then echo "$HOME"; fi', "shell");
+  test("highlights python decorators, types, builtins, and strings", () => {
+    const node = render(
+      '@dataclass\nclass Job:\n    def render(self):\n        print("hi")',
+      "python",
+    );
+
+    expect(findText(node, "@dataclass").props.fgColor).toBe("color06");
+    expect(findText(node, "class").props.fgColor).toBe("color05");
+    expect(findText(node, "Job").props.fgColor).toBe("color06");
+    expect(findText(node, "render").props.fgColor).toBe("color04");
+    expect(findText(node, "print").props.fgColor).toBe("color06");
+    expect(findText(node, '"hi"').props.fgColor).toBe("color02");
+  });
+
+  test("highlights bash keywords and builtins", () => {
+    const node = render('if true; then echo "$HOME"; fi', "bash");
 
     expect(findText(node, "if").props.fgColor).toBeDefined();
     expect(findText(node, "then").props.fgColor).toBeDefined();
     expect(findText(node, "fi").props.fgColor).toBeDefined();
+    expect(findText(node, "echo").props.fgColor).toBeDefined();
+    expect(findText(node, "$HOME").props.fgColor).toBeUndefined();
+  });
+
+  test("highlights json properties and literals", () => {
+    const node = render('{"name":"cel","ok":true,"count":2}', "json");
+
+    expect(findText(node, '"name"').props.fgColor).toBe("color06");
+    expect(findText(node, '"cel"').props.fgColor).toBe("color02");
+    expect(findText(node, "true").props.fgColor).toBe("color05");
+    expect(findText(node, "2").props.fgColor).toBe("color03");
+  });
+
+  test("highlights markdown headings, lists, code, and links", () => {
+    const node = render(
+      "# Title\n- item with `code`\n> quote [link](https://example.com)",
+      "markdown",
+    );
+
+    expect(findText(node, "Title").props.bold).toBe(true);
+    expect(findText(node, "Title").props.fgColor).toBe("color06");
+    expect(findText(node, "-").props.fgColor).toBe("color03");
+    expect(findText(node, "`code`").props.fgColor).toBe("color02");
+    expect(findText(node, "[link](https://example.com)").props.underline).toBe(
+      true,
+    );
   });
 
   test("wraps plain fallback content by default", () => {
@@ -146,7 +186,7 @@ describe("SyntaxHighlight", () => {
     expect(measureContentHeight(node, { width: 12 })).toBeGreaterThan(1);
   });
 
-  test("default ansi16 theme uses terminal defaults for base text", () => {
+  test("default ansi16 theme uses terminal defaults for base identifiers", () => {
     const node = render("let value = 42", "javascript");
 
     expect(findText(node, "let").props.fgColor).toBe("color05");
@@ -154,16 +194,16 @@ describe("SyntaxHighlight", () => {
     expect(findText(node, "42").props.fgColor).toBe("color03");
   });
 
-  test("default ansi16 theme styles markdown code blocks from direct lextide classes", () => {
-    const node = render("# title\n\n```ts\nconst value = 1\n```", "markdown");
+  test("default ansi16 theme styles bash heredocs as strings", () => {
+    const node = render("cat <<EOF\nhello\nEOF", "bash");
 
-    expect(findText(node, "#").props.fgColor).toBeDefined();
-    expect(findText(node, "```ts").props.fgColor).toBeDefined();
-    expect(findText(node, "const").props.fgColor).toBeDefined();
+    expect(findText(node, "cat").props.fgColor).toBe("color04");
+    expect(findText(node, "hello").props.fgColor).toBe("color02");
+    expect(findText(node, "EOF").props.fgColor).toBe("color02");
   });
 
-  test("custom theme object matches bare lextide class names directly", () => {
-    const node = render("class Derived extends Base {}", "typescript", {
+  test("custom theme object matches direct clew scopes for typescript", () => {
+    const node = render('type Phase = "idle"', "typescript", {
       theme: {
         name: "syntax-highlight-test-theme",
         type: "dark",
@@ -172,35 +212,44 @@ describe("SyntaxHighlight", () => {
         tokenColors: [
           { settings: { foreground: "#e5e5e5" } },
           {
-            scope: ["class_", "inherited__"],
+            scope: ["keyword", "string"],
             settings: { foreground: "#cd3131" },
           },
         ],
       },
     });
 
-    expect(findText(node, "Derived").props.fgColor).toBe("color01");
-    expect(findText(node, "Base").props.fgColor).toBe("color01");
-    expect(findText(node, "class").props.fgColor).toBe("color05");
+    expect(findText(node, "type").props.fgColor).toBe("color01");
+    expect(findText(node, '"idle"').props.fgColor).toBe("color01");
+    expect(findText(node, "Phase").props.fgColor).toBe("color07");
   });
 
-  test("custom theme object matches prefixed hljs class names directly", () => {
-    const node = render("# title\n\n```ts\nconst value = 1\n```", "markdown", {
+  test("custom theme object matches direct clew scopes for bash", () => {
+    const node = render('name="hi"\necho $(pwd) "$name"', "bash", {
       theme: {
-        name: "syntax-highlight-prefixed-class-theme",
+        name: "syntax-highlight-bash-scope-theme",
         type: "dark",
         fg: "#e5e5e5",
         bg: "#000000",
         tokenColors: [
           { settings: { foreground: "#e5e5e5" } },
-          { scope: "hljs-code", settings: { foreground: "#0dbc79" } },
+          {
+            scope: ["command", "builtin"],
+            settings: { foreground: "#0dbc79" },
+          },
+          { scope: "variable", settings: { foreground: "#cd3131" } },
+          {
+            scope: "meta.substitution.command",
+            settings: { foreground: "#bc3fbc" },
+          },
         ],
       },
     });
 
-    expect(findText(node, "```ts").props.fgColor).toBe("color02");
-    expect(findText(node, "const").props.fgColor).toBe("color02");
-    expect(findText(node, "#").props.fgColor).toBe("color09");
+    expect(findText(node, "name").props.fgColor).toBe("color01");
+    expect(findText(node, "echo").props.fgColor).toBe("color02");
+    expect(findText(node, "$(pwd)").props.fgColor).toBe("color05");
+    expect(findText(node, "$name").props.fgColor).toBe("color01");
   });
 
   test("named theme presets are accepted", () => {
@@ -231,7 +280,7 @@ describe("SyntaxHighlight", () => {
   test("produces the same final highlight regardless of append chunk boundaries", () => {
     const firstChunk = "t";
     const secondChunk = "ype Foo<T extends string | number> = { value: T };\n";
-    const finalContent = `${firstChunk}${secondChunk}const x: Foo<string> = { value: \"a\" };\n`;
+    const finalContent = `${firstChunk}${secondChunk}const x: Foo<string> = { value: "a" };\n`;
     const streamedTheme = {
       name: "syntax-highlight-streamed-boundary-regression",
       tokenColors: [],
@@ -258,29 +307,16 @@ describe("SyntaxHighlight", () => {
     );
   });
 
-  test("preserves highlighting across appended multiline comment", () => {
-    render("/* hello", "javascript");
-    const node = render("/* hello\nworld */", "javascript");
+  test("preserves highlighting across appended bash heredoc lines", () => {
+    render("cat <<EOF\nhello", "bash");
+    const node = render("cat <<EOF\nhello\nEOF", "bash");
 
-    expect(node.children).toHaveLength(2);
-    expect(lineText(item(node.children, 0))).toBe("/* hello");
-    expect(lineText(item(node.children, 1))).toBe("world */");
-
-    const firstLine = firstText(item(node.children, 0));
-    const secondLine = firstText(item(node.children, 1));
-    expect(firstLine.props.fgColor).toBeDefined();
-    expect(secondLine.props.fgColor).toBe(firstLine.props.fgColor);
-  });
-
-  test("template substitutions reset back to base text style", () => {
-    const interpolation = `${"$"}{name}`;
-    const node = render(`\`hi ${interpolation}\``, "javascript");
-
-    expect(findText(node, "`hi").props.fgColor).toBe("color02");
-    expect(findText(node, " ").props.fgColor).toBe("color02");
-    expect(
-      findTextContaining(node, interpolation).props.fgColor,
-    ).toBeUndefined();
+    expect(node.children).toHaveLength(3);
+    expect(lineText(item(node.children, 0))).toBe("cat <<EOF");
+    expect(lineText(item(node.children, 1))).toBe("hello");
+    expect(lineText(item(node.children, 2))).toBe("EOF");
+    expect(findText(node, "hello").props.fgColor).toBe("color02");
+    expect(findText(node, "EOF").props.fgColor).toBe("color02");
   });
 
   test("falls back to full rehighlight on non-append edits", () => {

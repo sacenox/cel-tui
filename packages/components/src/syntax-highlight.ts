@@ -1,13 +1,12 @@
+import {
+  type ClewOutput,
+  type ClewStream,
+  type ClewToken,
+  clew,
+  clewSupportsLanguage,
+} from "@cel-tui/clew";
 import { HStack, Text, VStack } from "@cel-tui/core";
 import type { Color, ContainerNode, Node, StyleProps } from "@cel-tui/types";
-import {
-  all,
-  createLowlight,
-  type Element,
-  type ElementContent,
-} from "lextide";
-
-const lowlight = createLowlight(all);
 
 const DEFAULT_THEME_NAME = "cel-ansi16";
 const MAX_STATES_PER_KEY = 4;
@@ -33,7 +32,7 @@ const ANSI_SLOT_HEX: ReadonlyArray<readonly [Color, string]> = [
 
 /** A best-effort token color override entry. */
 export interface SyntaxHighlightThemeTokenColor {
-  /** Target lextide / highlight.js classes, with or without the `hljs-` prefix. */
+  /** Target canonical `clew` scopes emitted by this component. */
   scope?: string | readonly string[];
   /** Style settings for the matched scopes. */
   settings: {
@@ -72,7 +71,7 @@ export interface SyntaxHighlightProps {
    *
    * Built-in presets currently include `"default"` and `"dark-plus"`.
    * Theme registration objects are applied as best-effort overrides onto the
-   * lextide / highlight.js classes emitted by this component.
+   * canonical `clew` scopes emitted by this component.
    */
   theme?: SyntaxHighlightTheme;
 }
@@ -82,30 +81,73 @@ interface HighlightRun {
   style: StyleProps;
 }
 
-interface ResolvedClassStyle {
-  resetToBase?: boolean;
+interface ResolvedScopeStyle {
   style: StyleProps;
 }
 
 interface ResolvedSyntaxHighlightTheme {
   baseStyle: StyleProps;
   cacheKey: string;
-  classStyles: ReadonlyMap<string, ResolvedClassStyle>;
+  scopeStyles: ReadonlyMap<string, ResolvedScopeStyle>;
 }
 
-interface SyntaxHighlightState {
-  children: HighlightNode[];
+interface ClewSyntaxHighlightState {
   lastContent: string;
   lastNode: ContainerNode | null;
+  output: ClewOutput;
+  stream: ClewStream;
   theme: ResolvedSyntaxHighlightTheme;
 }
 
-type HighlightElementNode = Element;
-type HighlightNode = ElementContent;
-
 const rgbCache = new Map<string, readonly [number, number, number]>();
 const colorSlotCache = new Map<string, Color>();
-const statesByKey = new Map<string, SyntaxHighlightState[]>();
+const statesByKey = new Map<string, ClewSyntaxHighlightState[]>();
+
+type ScopeStyleRecord = Readonly<Record<string, ResolvedScopeStyle>>;
+
+const DEFAULT_SCOPE_STYLES: ScopeStyleRecord = {
+  builtin: { style: { fgColor: "color06" } },
+  command: { style: { fgColor: "color04" } },
+  comment: { style: { fgColor: "color08", italic: true } },
+  escape: { style: { fgColor: "color03" } },
+  function: { style: { fgColor: "color04" } },
+  keyword: { style: { fgColor: "color05" } },
+  link: { style: { fgColor: "color04", underline: true } },
+  meta: { style: { fgColor: "color06" } },
+  "markup.code": { style: { fgColor: "color02" } },
+  "markup.heading": { style: { fgColor: "color06", bold: true } },
+  "markup.list": { style: { fgColor: "color03", bold: true } },
+  "markup.quote": { style: { fgColor: "color02", italic: true } },
+  number: { style: { fgColor: "color03" } },
+  operator: { style: { fgColor: "color05" } },
+  property: { style: { fgColor: "color06" } },
+  regexp: { style: { fgColor: "color01" } },
+  string: { style: { fgColor: "color02" } },
+  type: { style: { fgColor: "color06" } },
+  variable: { style: {} },
+};
+
+const DARK_PLUS_SCOPE_STYLE_OVERRIDES: Readonly<Record<string, StyleProps>> = {
+  builtin: { fgColor: "color06" },
+  command: { fgColor: "color11" },
+  comment: { fgColor: "color08", italic: true },
+  function: { fgColor: "color11" },
+  keyword: { fgColor: "color12" },
+  link: { fgColor: "color14", underline: true },
+  meta: { fgColor: "color08" },
+  "markup.code": { fgColor: "color09" },
+  "markup.heading": { fgColor: "color12", bold: true },
+  "markup.list": { fgColor: "color10", bold: true },
+  "markup.quote": { fgColor: "color08", italic: true },
+  number: { fgColor: "color10" },
+  property: { fgColor: "color07" },
+  regexp: { fgColor: "color09" },
+  string: { fgColor: "color09" },
+  type: { fgColor: "color06" },
+  variable: { fgColor: "color07" },
+};
+
+const DEFAULT_RESOLVED_THEME = buildResolvedTheme(DEFAULT_THEME_NAME, {});
 
 function requiredAt<T>(
   items: readonly T[],
@@ -118,69 +160,6 @@ function requiredAt<T>(
   }
   return item;
 }
-
-type ClassStyleRecord = Readonly<Record<string, ResolvedClassStyle>>;
-
-const DEFAULT_CLASS_STYLES: ClassStyleRecord = {
-  addition: { style: { fgColor: "color02" } },
-  attr: { style: { fgColor: "color06" } },
-  attribute: { style: { fgColor: "color06" } },
-  bullet: { style: { fgColor: "color03" } },
-  built_in: { style: { fgColor: "color06" } },
-  class_: { style: { fgColor: "color06" } },
-  code: { style: { fgColor: "color02" } },
-  comment: { style: { fgColor: "color08", italic: true } },
-  deletion: { style: { fgColor: "color01" } },
-  doctag: { style: { fgColor: "color08", italic: true } },
-  emphasis: { style: { italic: true } },
-  escape: { style: { fgColor: "color03" } },
-  function_: { style: { fgColor: "color04" } },
-  inherited__: { style: { fgColor: "color06" } },
-  keyword: { style: { fgColor: "color05" } },
-  link: { style: { fgColor: "color04", underline: true } },
-  literal: { style: { fgColor: "color03" } },
-  meta: { style: { fgColor: "color09", bold: true } },
-  name: { style: { fgColor: "color01" } },
-  number: { style: { fgColor: "color03" } },
-  operator: { style: { fgColor: "color05" } },
-  params: { style: { fgColor: "color11" } },
-  property: { style: { fgColor: "color06" } },
-  quote: { style: { fgColor: "color08", italic: true } },
-  regexp: { style: { fgColor: "color01" } },
-  section: { style: { fgColor: "color09", bold: true } },
-  "selector-attr": { style: { fgColor: "color06" } },
-  "selector-class": { style: { fgColor: "color06" } },
-  "selector-id": { style: { fgColor: "color06" } },
-  "selector-pseudo": { style: { fgColor: "color05" } },
-  "selector-tag": { style: { fgColor: "color01" } },
-  string: { style: { fgColor: "color02" } },
-  strong: { style: { bold: true } },
-  subst: { resetToBase: true, style: {} },
-  symbol: { style: { fgColor: "color03" } },
-  tag: { style: { fgColor: "color01" } },
-  title: { style: { fgColor: "color04" } },
-  type: { style: { fgColor: "color06" } },
-  variable: { style: {} },
-};
-
-const DARK_PLUS_CLASS_STYLE_OVERRIDES: Readonly<Record<string, StyleProps>> = {
-  code: { fgColor: "color09" },
-  comment: { fgColor: "color08", italic: true },
-  function_: { fgColor: "color11" },
-  keyword: { fgColor: "color12" },
-  meta: { fgColor: "color08" },
-  name: { fgColor: "color09" },
-  number: { fgColor: "color10" },
-  property: { fgColor: "color07" },
-  regexp: { fgColor: "color09" },
-  section: { fgColor: "color08" },
-  string: { fgColor: "color09" },
-  tag: { fgColor: "color09" },
-  title: { fgColor: "color11" },
-  type: { fgColor: "color06" },
-};
-
-const DEFAULT_RESOLVED_THEME = buildResolvedTheme(DEFAULT_THEME_NAME, {});
 
 function hashString(input: string): string {
   let hash = 2166136261;
@@ -291,41 +270,34 @@ function themeSettingsToStyle(settings: {
   };
 }
 
-function normalizeClassName(className: string): string {
-  return className.startsWith("hljs-") ? className.slice(5) : className;
-}
+function cloneScopeStyles(
+  source: ScopeStyleRecord,
+): Map<string, ResolvedScopeStyle> {
+  const scopeStyles = new Map<string, ResolvedScopeStyle>();
 
-function cloneClassStyles(
-  source: ClassStyleRecord,
-): Map<string, ResolvedClassStyle> {
-  const classStyles = new Map<string, ResolvedClassStyle>();
-
-  for (const [className, resolved] of Object.entries(source)) {
-    classStyles.set(normalizeClassName(className), {
-      resetToBase: resolved.resetToBase,
+  for (const [scope, resolved] of Object.entries(source)) {
+    scopeStyles.set(scope, {
       style: { ...resolved.style },
     });
   }
 
-  return classStyles;
+  return scopeStyles;
 }
 
-function applyClassStyleOverride(
-  classStyles: Map<string, ResolvedClassStyle>,
-  className: string,
+function applyScopeStyleOverride(
+  scopeStyles: Map<string, ResolvedScopeStyle>,
+  scope: string,
   style: StyleProps,
 ): void {
-  const normalized = normalizeClassName(className);
-  const current = classStyles.get(normalized);
+  const current = scopeStyles.get(scope);
 
-  classStyles.set(normalized, {
-    resetToBase: current?.resetToBase,
+  scopeStyles.set(scope, {
     style: mergeStyles(current?.style ?? {}, style),
   });
 }
 
 function applyThemeTokenColors(
-  classStyles: Map<string, ResolvedClassStyle>,
+  scopeStyles: Map<string, ResolvedScopeStyle>,
   tokenColors: readonly SyntaxHighlightThemeTokenColor[] | undefined,
   baseStyle: StyleProps,
 ): void {
@@ -343,7 +315,7 @@ function applyThemeTokenColors(
     }
 
     for (const scope of scopes) {
-      applyClassStyleOverride(classStyles, scope, style);
+      applyScopeStyleOverride(scopeStyles, scope, style);
     }
   }
 }
@@ -351,18 +323,18 @@ function applyThemeTokenColors(
 function buildResolvedTheme(
   cacheKey: string,
   baseStyle: StyleProps,
-  classStyleOverrides?: Readonly<Record<string, StyleProps>>,
+  scopeStyleOverrides?: Readonly<Record<string, StyleProps>>,
 ): ResolvedSyntaxHighlightTheme {
-  const classStyles = cloneClassStyles(DEFAULT_CLASS_STYLES);
+  const scopeStyles = cloneScopeStyles(DEFAULT_SCOPE_STYLES);
 
-  for (const [className, style] of Object.entries(classStyleOverrides ?? {})) {
-    applyClassStyleOverride(classStyles, className, style);
+  for (const [scope, style] of Object.entries(scopeStyleOverrides ?? {})) {
+    applyScopeStyleOverride(scopeStyles, scope, style);
   }
 
   return {
     baseStyle,
     cacheKey,
-    classStyles,
+    scopeStyles,
   };
 }
 
@@ -381,7 +353,7 @@ function resolveTheme(
     return buildResolvedTheme(
       "preset:dark-plus",
       { fgColor: "color07" },
-      DARK_PLUS_CLASS_STYLE_OVERRIDES,
+      DARK_PLUS_SCOPE_STYLE_OVERRIDES,
     );
   }
 
@@ -391,14 +363,14 @@ function resolveTheme(
     background: theme.bg,
     foreground: theme.fg,
   });
-  const classStyles = cloneClassStyles(DEFAULT_CLASS_STYLES);
+  const scopeStyles = cloneScopeStyles(DEFAULT_SCOPE_STYLES);
 
-  applyThemeTokenColors(classStyles, theme.tokenColors, baseStyle);
+  applyThemeTokenColors(scopeStyles, theme.tokenColors, baseStyle);
 
   return {
     baseStyle,
     cacheKey: `custom:${cacheHash}`,
-    classStyles,
+    scopeStyles,
   };
 }
 
@@ -409,17 +381,21 @@ function stateKey(
   return `${language}\u0000${theme.cacheKey}`;
 }
 
-function getStates(key: string): SyntaxHighlightState[] {
-  let states = statesByKey.get(key);
+function getStateBucket<T>(map: Map<string, T[]>, key: string): T[] {
+  let states = map.get(key);
   if (!states) {
     states = [];
-    statesByKey.set(key, states);
+    map.set(key, states);
   }
   return states;
 }
 
-function touchState(key: string, state: SyntaxHighlightState): void {
-  const states = getStates(key);
+function touchCachedState<T>(
+  map: Map<string, T[]>,
+  key: string,
+  state: T,
+): void {
+  const states = getStateBucket(map, key);
   const index = states.indexOf(state);
   if (index !== -1) {
     states.splice(index, 1);
@@ -431,31 +407,27 @@ function touchState(key: string, state: SyntaxHighlightState): void {
   }
 }
 
-function findState(
+function findClewState(
   key: string,
   content: string,
-): SyntaxHighlightState | undefined {
-  const states = getStates(key);
+): ClewSyntaxHighlightState | undefined {
+  const states = getStateBucket(statesByKey, key);
+  let bestPrefix: ClewSyntaxHighlightState | undefined;
 
   for (let i = states.length - 1; i >= 0; i--) {
     const state = requiredAt(states, i, "syntax highlight state");
     if (state.lastContent === content) {
       return state;
     }
+    if (
+      content.startsWith(state.lastContent) &&
+      (!bestPrefix || state.lastContent.length > bestPrefix.lastContent.length)
+    ) {
+      bestPrefix = state;
+    }
   }
 
-  return undefined;
-}
-
-function createState(
-  theme: ResolvedSyntaxHighlightTheme,
-): SyntaxHighlightState {
-  return {
-    children: [],
-    lastContent: "",
-    lastNode: null,
-    theme,
-  };
+  return bestPrefix;
 }
 
 function pushRun(
@@ -476,26 +448,19 @@ function pushRun(
   line.push({ content, style });
 }
 
-function getClassNames(node: HighlightElementNode): readonly string[] {
-  return node.properties.className;
-}
-
-function resolveNodeStyle(
-  inherited: StyleProps,
-  classNames: readonly string[],
+function resolveTokenStyle(
+  token: ClewToken,
   theme: ResolvedSyntaxHighlightTheme,
 ): StyleProps {
-  let style = inherited;
+  let style = theme.baseStyle;
+  const scopes = token.scopes ?? [token.type];
 
-  for (const className of classNames) {
-    const classStyle = theme.classStyles.get(normalizeClassName(className));
-    if (!classStyle) {
+  for (const scope of scopes) {
+    const scopeStyle = theme.scopeStyles.get(scope);
+    if (!scopeStyle) {
       continue;
     }
-
-    style = classStyle.resetToBase
-      ? mergeStyles(theme.baseStyle, classStyle.style)
-      : mergeStyles(style, classStyle.style);
+    style = mergeStyles(style, scopeStyle.style);
   }
 
   return style;
@@ -520,50 +485,6 @@ function pushText(
   }
 }
 
-function pushHighlightNode(
-  lines: HighlightRun[][],
-  node: HighlightNode,
-  inheritedStyle: StyleProps,
-  theme: ResolvedSyntaxHighlightTheme,
-): void {
-  if (node.type === "text") {
-    pushText(lines, node.value, inheritedStyle);
-    return;
-  }
-
-  const style = resolveNodeStyle(inheritedStyle, getClassNames(node), theme);
-  for (const child of node.children) {
-    pushHighlightNode(lines, child, style, theme);
-  }
-}
-
-function highlightChildrenToLines(
-  children: readonly HighlightNode[],
-  theme: ResolvedSyntaxHighlightTheme,
-): HighlightRun[][] {
-  const lines: HighlightRun[][] = [[]];
-
-  for (const child of children) {
-    pushHighlightNode(lines, child, theme.baseStyle, theme);
-  }
-
-  return lines;
-}
-
-function updateState(
-  state: SyntaxHighlightState,
-  language: string,
-  content: string,
-): void {
-  if (content === state.lastContent) {
-    return;
-  }
-
-  state.children = lowlight.highlight(language, content).children;
-  state.lastContent = content;
-  state.lastNode = null;
-}
-
 function runToNodes(run: HighlightRun): Node[] {
   const pieces = run.content.match(/\S+|\s+/g);
   if (!pieces) {
@@ -582,6 +503,59 @@ function lineToNode(line: HighlightRun[]): Node {
   );
 }
 
+function highlightOutputToLines(
+  output: ClewOutput,
+  theme: ResolvedSyntaxHighlightTheme,
+): HighlightRun[][] {
+  const lines: HighlightRun[][] = [[]];
+
+  for (const token of output.tokens) {
+    pushText(lines, token.text, resolveTokenStyle(token, theme));
+  }
+
+  return lines;
+}
+
+function createState(
+  theme: ResolvedSyntaxHighlightTheme,
+  language: string,
+): ClewSyntaxHighlightState {
+  const stream = clew("", { lang: language, stability: "eager" });
+  return {
+    lastContent: "",
+    lastNode: null,
+    output: stream.snapshot(),
+    stream,
+    theme,
+  };
+}
+
+function updateState(
+  state: ClewSyntaxHighlightState,
+  language: string,
+  content: string,
+): void {
+  if (content === state.lastContent) {
+    return;
+  }
+
+  if (content.startsWith(state.lastContent)) {
+    const appended = content.slice(state.lastContent.length);
+    if (appended.length > 0) {
+      state.stream.write(appended);
+    }
+  } else {
+    state.stream = clew("", { lang: language, stability: "eager" });
+    if (content.length > 0) {
+      state.stream.write(content);
+    }
+  }
+
+  state.output = state.stream.snapshot();
+  state.lastContent = content;
+  state.lastNode = null;
+}
+
 function renderPlainContent(content: string): ContainerNode {
   const lines = content.split("\n");
   return VStack(
@@ -592,12 +566,14 @@ function renderPlainContent(content: string): ContainerNode {
   );
 }
 
-function renderHighlightedState(state: SyntaxHighlightState): ContainerNode {
+function renderHighlightedState(
+  state: ClewSyntaxHighlightState,
+): ContainerNode {
   if (state.lastNode) {
     return state.lastNode;
   }
 
-  const lines = highlightChildrenToLines(state.children, state.theme);
+  const lines = highlightOutputToLines(state.output, state.theme);
   state.lastNode = VStack({}, lines.map(lineToNode));
   return state.lastNode;
 }
@@ -605,16 +581,16 @@ function renderHighlightedState(state: SyntaxHighlightState): ContainerNode {
 /**
  * Render syntax-highlighted code as cel-tui primitives.
  *
- * Re-highlights the full snippet whenever the content changes so the final
- * output stays deterministic regardless of how streamed chunks were split.
- * Repeated renders with identical content reuse the cached rendered tree.
+ * The component is synchronous to call, but append-only updates reuse a cached
+ * `clew` stream so final output stays deterministic across chunk boundaries.
+ * Non-append edits reset the stream and replay the full snippet.
  *
  * Unknown languages render as plain text. The default theme is terminal-friendly
- * and maps lextide's emitted highlight.js classes onto cel's ANSI palette slots
- * while leaving base text on terminal defaults.
+ * and maps canonical `clew` scopes onto cel's ANSI palette slots while leaving
+ * base text on terminal defaults.
  *
  * @param content - Source code to render.
- * @param language - Registered lextide language id or alias.
+ * @param language - Registered `clew` language id.
  * @param props - Optional theme override.
  * @returns A `VStack` containing one highlighted line per child.
  */
@@ -623,15 +599,14 @@ export function SyntaxHighlight(
   language: string,
   props?: SyntaxHighlightProps,
 ): ContainerNode {
-  const theme = resolveTheme(props?.theme);
-
-  if (!lowlight.registered(language)) {
+  if (!clewSupportsLanguage(language)) {
     return renderPlainContent(content);
   }
 
+  const theme = resolveTheme(props?.theme);
   const key = stateKey(language, theme);
-  const state = findState(key, content) ?? createState(theme);
+  const state = findClewState(key, content) ?? createState(theme, language);
   updateState(state, language, content);
-  touchState(key, state);
+  touchCachedState(statesByKey, key, state);
   return renderHighlightedState(state);
 }

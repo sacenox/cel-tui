@@ -3,6 +3,7 @@
   "entryPoints": [
     "packages/types/src/index.ts",
     "packages/core/src/index.ts",
+    "packages/clew/src/index.ts",
     "packages/components/src/index.ts"
   ],
   "tsconfig": "tsconfig.json",

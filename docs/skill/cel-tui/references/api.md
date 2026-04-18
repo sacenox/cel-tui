@@ -308,11 +308,11 @@ SyntaxHighlight(code, "javascript", { theme: "dark-plus" });
 ```
 
 - Signature: `SyntaxHighlight(content, language, props?)`
-- `language` accepts registered lextide language ids and aliases
-- `props.theme` accepts the built-in presets (`"default"`, `"dark-plus"`) or a best-effort token theme registration object
+- `language` accepts registered `clew` language ids (`typescript` / `javascript` families plus `python` / `py`, `bash`, `json`, and `markdown` right now)
+- `props.theme` accepts the built-in presets (`"default"`, `"dark-plus"`) or a best-effort token theme registration object targeting canonical `clew` scopes
 - Uses a terminal-friendly ANSI 16 fallback theme by default
 - Highlighting is synchronous at the component boundary; unsupported languages render plain text
-- Content changes re-highlight the full snippet so final output stays stable across streamed chunk boundaries
+- Append-only updates reuse a cached `clew` stream, while non-append edits replay the full snippet so final output stays stable across streamed chunk boundaries
 
 ## Theme
 

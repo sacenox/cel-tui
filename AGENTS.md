@@ -6,16 +6,17 @@ cel-tui is a TypeScript TUI framework built around a declarative functional API,
 
 ## Project Structure
 
-Bun monorepo with three packages:
+Bun monorepo with four packages:
 
 ```
 packages/
   types/        — Shared type definitions (Color, ContainerProps, TextProps, Node, etc.)
   core/         — Framework engine (primitives, layout, rendering, input handling)
-  components/   — Pre-made components built with core (Button, Spacer, Divider, etc.)
+  clew/         — Stream-first syntax tokenization library
+  components/   — Pre-made components built with core + clew (Button, Spacer, Divider, etc.)
 ```
 
-Dependency chain: `components → core → types`
+Dependency graph: `core → types`, `components → core`, `components → types`, `components → @cel-tui/clew`
 
 ## Key Design Decisions
 
@@ -251,10 +252,10 @@ Packages are published to the `@cel-tui` npm org (owner: `xonecas`). They ship T
 
 ### Version bump
 
-All three packages share the same version. Bump all together:
+All four packages share the same version. Bump all together:
 
 ```bash
-# In packages/types/package.json, packages/core/package.json, packages/components/package.json
+# In packages/types/package.json, packages/core/package.json, packages/clew/package.json, packages/components/package.json
 # Update "version" to the new value
 ```
 
@@ -270,11 +271,12 @@ rm bun.lock && bun install
 
 ### Publish order
 
-Must publish in dependency order — types first, then core, then components:
+Must publish in dependency order — types first, then core, then `@cel-tui/clew`, then components:
 
 ```bash
 cd packages/types && bun publish --access public
 cd ../core && bun publish --access public
+cd ../clew && bun publish --access public
 cd ../components && bun publish --access public
 ```
 
@@ -289,14 +291,16 @@ Before every release, run a full alignment audit across all documentation surfac
 1. `packages/types/src/index.ts` — the canonical type definitions and their JSDocs
 2. `packages/core/src/*.ts` — implementation (public function signatures, behavior, exports)
 3. `packages/core/src/index.ts` — what's actually exported to consumers
-4. `packages/components/src/*.ts` — component implementations and JSDocs
-5. `spec.md` — design spec (API tables, prop types, behavior descriptions)
-6. `AGENTS.md` — architecture notes, module descriptions, conventions
-7. `README.md` — user-facing overview and feature claims
-8. `docs/skill/cel-tui/SKILL.md` — agent skill (version, compatibility, patterns, gotchas)
-9. `docs/skill/cel-tui/references/*.md` — API reference and composing guide
-10. `TODO.md` — verify listed bugs/violations are still present or mark resolved
-11. `package.json` files — versions, descriptions, dependency declarations
+4. `packages/clew/src/*.ts` — tokenizer implementation, streaming behavior, exports, and JSDocs
+5. `packages/clew/src/index.ts` — what's actually exported from `@cel-tui/clew`
+6. `packages/components/src/*.ts` — component implementations and JSDocs
+7. `spec.md` — design spec (API tables, prop types, behavior descriptions)
+8. `AGENTS.md` — architecture notes, module descriptions, conventions
+9. `README.md` — user-facing overview and feature claims
+10. `docs/skill/cel-tui/SKILL.md` — agent skill (version, compatibility, patterns, gotchas)
+11. `docs/skill/cel-tui/references/*.md` — API reference and composing guide
+12. `TODO.md` — verify listed bugs/violations are still present or mark resolved
+13. `package.json` files — versions, descriptions, dependency declarations
 
 **What to check at each layer:**
 
@@ -322,11 +326,11 @@ bun run typecheck && bun test && bun run check && bun run format
 2. All tests pass: `bun test`
 3. Types clean: `bun run typecheck`
 4. Lint/format clean: `bun run check && bun run format`
-5. Version bumped in all three `package.json` files
+5. Version bumped in all four `package.json` files
 6. Lockfile regenerated: `rm bun.lock && bun install`
 7. **Pre-publish check passes: `bun run prepublish-check`** (verifies lockfile versions match package.json)
 8. Changes committed and pushed
-9. After publishing, **verify on npm**: `npm view @cel-tui/core@<version> dependencies --json`
+9. After publishing, **verify on npm**: `npm view @cel-tui/clew@<version> dependencies --json` and `npm view @cel-tui/components@<version> dependencies --json`
 
 ### How it works
 

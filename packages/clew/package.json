@@ -1,7 +1,7 @@
 {
-  "name": "@cel-tui/components",
+  "name": "@cel-tui/clew",
   "version": "0.7.2",
-  "description": "Pre-made components for cel-tui — Button, Spacer, Divider, VDivider, Select, Markdown, SyntaxHighlight",
+  "description": "Stream-first syntax tokenization library",
   "type": "module",
   "module": "src/index.ts",
   "types": "./src/index.ts",
@@ -20,23 +20,16 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/sacenox/cel-tui",
-    "directory": "packages/components"
+    "directory": "packages/clew"
   },
   "homepage": "https://github.com/sacenox/cel-tui#readme",
   "keywords": [
-    "tui",
-    "terminal",
-    "components",
-    "button",
-    "markdown",
+    "syntax",
+    "highlighting",
+    "tokenizer",
+    "streaming",
     "typescript"
   ],
-  "dependencies": {
-    "@cel-tui/clew": "workspace:*",
-    "@cel-tui/core": "workspace:*",
-    "@cel-tui/types": "workspace:*",
-    "yoctomarkdown": "^0.1.0"
-  },
   "peerDependencies": {
     "typescript": ">=5.0.0"
   }

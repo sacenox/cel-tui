@@ -10,7 +10,8 @@
     "paths": {
       "@cel-tui/types": ["./packages/types/src/index.ts"],
       "@cel-tui/core": ["./packages/core/src/index.ts"],
-      "@cel-tui/components": ["./packages/components/src/index.ts"]
+      "@cel-tui/components": ["./packages/components/src/index.ts"],
+      "@cel-tui/clew": ["./packages/clew/src/index.ts"]
     }
   },
   "include": ["packages/*/src/**/*.ts", "examples/**/*.ts"]

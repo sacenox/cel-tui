@@ -86,6 +86,7 @@ Some historical legacy collisions remain impossible to recover once a host has a
 | --------------------- | ------------------------------------------------------------------------------------------ |
 | `@cel-tui/types`      | Shared type definitions                                                                    |
 | `@cel-tui/core`       | Framework engine and primitives                                                            |
+| `@cel-tui/clew`       | Stream-first syntax tokenization library                                                   |
 | `@cel-tui/components` | Pre-made components (Button, Spacer, Divider, VDivider, Select, Markdown, SyntaxHighlight) |
 
 ## Documentation
