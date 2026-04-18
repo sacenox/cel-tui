@@ -1,17 +1,12 @@
 /**
  * cel-tui: Agentic Chat UI
  *
- * A simulated agentic chat interface showcasing the full API:
- * - Markdown rendering in streamed agent responses
- * - TextInput with controlled focus
- * - Scrollable message history
- * - Button with focusStyle
- * - Divider, Spacer components
- * - Key bindings (Ctrl+Q quit, Escape/Tab focus traversal)
- *
- * The agent responses are simulated — characters stream in one by
- * one with a small delay, exercising the Markdown component's
- * streaming behavior.
+ * A polished chat demo showing:
+ * - Scrollable message history with sticky-bottom behavior
+ * - Streaming markdown responses
+ * - Controlled TextInput focus
+ * - Buttons, starter prompts, and keyboard shortcuts
+ * - Explicit external state with a small render tree
  *
  * Run: bun run examples/chat.ts
  */
@@ -25,61 +20,73 @@ import {
   ProcessTerminal,
 } from "@cel-tui/core";
 import { Button, Divider, Markdown, Spacer } from "@cel-tui/components";
+import { warningBox } from "./warning-box";
 
-// ─── Simulated Agent Responses ──────────────────────────────────
+const MIN_COLS = 56;
+const MIN_ROWS = 18;
 
 const RESPONSES = [
-  `I'll check that for you.
+  `Here’s the high-level layout model.
 
-\`\`\`
-$ ls -la
-file1.ts
-file2.ts
-README.md
-\`\`\`
+## cel-tui in one screen
 
-Found **3 files** in the current directory.`,
+- **VStack** lays children out top-to-bottom
+- **HStack** lays children out left-to-right
+- **Text** is a pure leaf node
+- **TextInput** is an editable container
 
-  `Here's a quick overview:
+\`flex\`, fixed sizes, padding, and gap work together to make terminal layout feel predictable.`,
 
-## Project Structure
+  `A good focus + scroll pattern usually looks like this:
 
-- **file1.ts** — Main entry point
-- **file2.ts** — Utility functions
-- **README.md** — Project documentation
+1. Let the framework manage focus by default
+2. Only control focus when app logic genuinely needs it
+3. Use \`scrollOffset: Infinity\` for sticky-bottom UIs
+4. Keep state outside the framework, then call \`cel.render()\`
 
-> All files were last modified today.`,
+> The framework owns rendering. Your app owns state.`,
 
-  `Sure, I can help with that. Here's a code snippet:
+  `Markdown is a fun fit for chat UIs because it makes streamed responses feel richer.
 
 \`\`\`ts
-function greet(name: string): string {
-  return \`Hello, \${name}!\`;
-}
-
-console.log(greet("world"));
+const history = VStack(
+  { flex: 1, overflow: "scroll", scrollbar: true },
+  messages.flatMap(renderMessage)
+);
 \`\`\`
 
-This defines a simple \`greet\` function that returns a formatted string.
+That lets you mix **lists**, *emphasis*, code fences, and quotes without building a separate renderer.`,
+
+  `If you want the app to feel polished, focus on a few small UX details:
+
+- starter actions when the screen is empty
+- clear keyboard hints
+- sticky scroll when new content arrives
+- buttons that still work well with Tab + Enter
 
 ---
 
-Let me know if you need anything else!`,
-
-  `Here's what I found:
-
-### Summary
-
-1. The project uses **TypeScript** with strict mode
-2. Dependencies are managed via \`bun\`
-3. Tests use the built-in \`bun test\` runner
-
-> The codebase follows conventional commits and has pre-commit hooks.
-
-Everything looks good!`,
+That’s the kind of “boring but good” structure cel-tui is great at.`,
 ];
 
-// ─── State ──────────────────────────────────────────────────────
+const STARTER_PROMPTS = [
+  {
+    label: "layout",
+    prompt: "Explain cel-tui's layout model in one screen.",
+  },
+  {
+    label: "focus + scroll",
+    prompt: "What focus and scroll patterns work well in cel-tui?",
+  },
+  {
+    label: "markdown",
+    prompt: "Why does markdown work nicely for terminal chat demos?",
+  },
+  {
+    label: "ux tips",
+    prompt: "Give me a few concrete UX tips for a cel-tui app.",
+  },
+] as const;
 
 interface Message {
   role: "user" | "agent";
@@ -96,8 +103,6 @@ let streamSource = "";
 let streamPos = 0;
 let scrollOffset = 0;
 let stickToBottom = true;
-
-// ─── Helpers ────────────────────────────────────────────────────
 
 const spinnerFrames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 let spinnerTick = 0;
@@ -118,47 +123,63 @@ function stopSpinner() {
   }
 }
 
+function stopStreaming() {
+  if (streamTimer) {
+    clearTimeout(streamTimer);
+    streamTimer = null;
+  }
+  stopSpinner();
+}
+
 function isStreaming(): boolean {
   return streamTimer !== null;
 }
 
-function streamNextChar() {
-  const agentMsg = messages[messages.length - 1];
-  if (!agentMsg || agentMsg.role !== "agent") return;
-
-  if (streamPos < streamSource.length) {
-    // Stream a few characters at a time for speed
-    const chunk = streamSource.slice(streamPos, streamPos + 3);
-    streamPos += chunk.length;
-    agentMsg.content = streamSource.slice(0, streamPos);
-    cel.render();
-    streamTimer = setTimeout(streamNextChar, 15);
-  } else {
-    // Done streaming
-    agentMsg.streaming = false;
-    streamTimer = null;
-    stopSpinner();
-    cel.render();
-  }
+function canSend(text = input): boolean {
+  return text.trim().length > 0 && !isStreaming();
 }
 
-function handleSend() {
-  const text = input.trim();
-  if (text.length === 0 || isStreaming()) return;
+function streamNextChar() {
+  const agentMessage = messages[messages.length - 1];
+  if (!agentMessage || agentMessage.role !== "agent") {
+    stopStreaming();
+    return;
+  }
 
-  // Add user message
+  if (streamPos < streamSource.length) {
+    const chunk = streamSource.slice(streamPos, streamPos + 4);
+    streamPos += chunk.length;
+    agentMessage.content = streamSource.slice(0, streamPos);
+    cel.render();
+    streamTimer = setTimeout(streamNextChar, 14);
+    return;
+  }
+
+  agentMessage.streaming = false;
+  streamTimer = null;
+  stopSpinner();
+  cel.render();
+}
+
+function queueResponse(response: string) {
+  streamSource = response;
+  streamPos = 0;
+  messages.push({ role: "agent", content: "", streaming: true });
+  startSpinner();
+  streamTimer = setTimeout(streamNextChar, 240);
+}
+
+function handleSend(nextText = input) {
+  const text = nextText.trim();
+  if (!canSend(nextText)) return;
+
   messages.push({ role: "user", content: text });
   input = "";
   stickToBottom = true;
 
-  // Pick a response and start streaming
-  streamSource = RESPONSES[responseIndex % RESPONSES.length]!;
+  const response = RESPONSES[responseIndex % RESPONSES.length]!;
   responseIndex++;
-  streamPos = 0;
-  messages.push({ role: "agent", content: "", streaming: true });
-
-  startSpinner();
-  streamTimer = setTimeout(streamNextChar, 300);
+  queueResponse(response);
   cel.render();
 }
 
@@ -167,64 +188,185 @@ function handleChange(value: string) {
   cel.render();
 }
 
+function resetChat() {
+  stopStreaming();
+  messages = [];
+  input = "";
+  responseIndex = 0;
+  streamSource = "";
+  streamPos = 0;
+  scrollOffset = 0;
+  stickToBottom = true;
+  inputFocused = true;
+  cel.render();
+}
+
 function quit() {
-  stopSpinner();
-  if (streamTimer) clearTimeout(streamTimer);
+  stopStreaming();
   cel.stop();
   process.exit(0);
 }
 
-// ─── Message Rendering ──────────────────────────────────────────
-
-function renderMessage(msg: Message, idx: number) {
-  const isUser = msg.role === "user";
-  const icon = isUser ? "▶" : "▷";
-  const label = isUser ? "You" : "Agent";
-  const color = isUser ? "color04" : "color02";
-
-  const spinner =
-    msg.streaming && msg.content.length > 0
-      ? ` ${spinnerFrames[spinnerTick % spinnerFrames.length]}`
-      : "";
-
-  return VStack({ gap: 0 }, [
-    // Role header
-    HStack({ gap: 1 }, [
-      Text(`${icon} ${label}${spinner}`, { bold: true, fgColor: color }),
-    ]),
-
-    // Content
-    ...(isUser
-      ? [Text(`  ${msg.content}`, { wrap: "word" })]
-      : msg.content.length > 0
-        ? Markdown(msg.content).map((node) => {
-            // Indent agent content by wrapping in a padded container
-            if (node.type === "text" && node.content === "") return node;
-            return HStack({}, [Text("  "), VStack({ flex: 1 }, [node])]);
-          })
-        : [
-            Text(
-              `  ${spinnerFrames[spinnerTick % spinnerFrames.length]} thinking...`,
-              { fgColor: "color08", italic: true },
-            ),
-          ]),
-  ]);
+function currentSpinner(): string {
+  return spinnerFrames[spinnerTick % spinnerFrames.length]!;
 }
 
-// ─── UI ─────────────────────────────────────────────────────────
+function renderMarkdownNode(node: ReturnType<typeof Markdown>[number]) {
+  if (node.type === "text" && node.content === "") return node;
+  return HStack({}, [Text("  "), VStack({ flex: 1 }, [node])]);
+}
+
+function renderMessage(message: Message) {
+  const isUser = message.role === "user";
+  const accent = isUser ? "color04" : "color02";
+  const label = isUser ? "You" : "Demo Agent";
+  const icon = isUser ? "▶" : "✦";
+  const spinner = message.streaming ? ` ${currentSpinner()}` : "";
+
+  return VStack(
+    {
+      gap: 0,
+      padding: { x: 1 },
+      bgColor: isUser ? "color08" : undefined,
+    },
+    [
+      Text(`${icon} ${label}${spinner}`, {
+        bold: true,
+        fgColor: accent,
+      }),
+      ...(isUser
+        ? [Text(message.content, { wrap: "word" })]
+        : message.content.length > 0
+          ? Markdown(message.content).map(renderMarkdownNode)
+          : [
+              Text(`  ${currentSpinner()} thinking...`, {
+                fgColor: "color08",
+                italic: true,
+              }),
+            ]),
+    ],
+  );
+}
+
+function renderStarterPrompts() {
+  return HStack(
+    { flexWrap: "wrap", gap: 1, justifyContent: "center" },
+    STARTER_PROMPTS.map((starter) =>
+      Button(` ${starter.label} `, {
+        onClick: () => handleSend(starter.prompt),
+        fgColor: "color06",
+        bold: true,
+        focusStyle: { bgColor: "color06", fgColor: "color00" },
+      }),
+    ),
+  );
+}
+
+function emptyState(compact = false) {
+  const intro = VStack({ alignItems: "center", gap: 1, padding: { x: 2 } }, [
+    Text("Ask the demo agent about cel-tui", {
+      bold: true,
+      fgColor: "color06",
+    }),
+    Text("Starter prompts stream markdown replies.", {
+      fgColor: "color08",
+    }),
+    ...(compact
+      ? []
+      : [
+          Text("They also keep the first screen from feeling empty.", {
+            fgColor: "color08",
+          }),
+          Text("Try one of these:", { fgColor: "color08", italic: true }),
+        ]),
+    renderStarterPrompts(),
+  ]);
+
+  return compact ? [intro] : [Spacer(), intro, Spacer()];
+}
 
 cel.init(new ProcessTerminal());
+cel.viewport(() => {
+  const cols = process.stdout.columns || 80;
+  const rows = process.stdout.rows || 24;
+  const compact = cols < 70;
+  const sendLabel = isStreaming() ? " Wait " : " Send ";
+  const sendColor = canSend() ? "color06" : "color08";
+  const placeholderText = compact
+    ? "ask about layout or ux..."
+    : "ask about layout, focus, markdown, or UX...";
 
-cel.viewport(() =>
-  VStack(
+  const composerInput = TextInput({
+    flex: 1,
+    maxHeight: 5,
+    value: input,
+    onChange: handleChange,
+    placeholder: Text(placeholderText, {
+      fgColor: "color08",
+    }),
+    onKeyPress: (key) => {
+      if (key === "enter") {
+        handleSend();
+        return false;
+      }
+    },
+    focused: inputFocused,
+    onFocus: () => {
+      inputFocused = true;
+      cel.render();
+    },
+    onBlur: () => {
+      inputFocused = false;
+      cel.render();
+    },
+  });
+
+  const clearButton = Button(" Clear ", {
+    onClick: resetChat,
+    fgColor: "color08",
+    focusStyle: { bgColor: "color08", fgColor: "color00" },
+  });
+
+  const sendButton = Button(sendLabel, {
+    onClick: () => handleSend(),
+    bgColor: sendColor,
+    fgColor: "color00",
+    bold: true,
+    focusStyle: { bgColor: "color06", fgColor: "color00" },
+  });
+
+  if (cols < MIN_COLS || rows < MIN_ROWS) {
+    return VStack(
+      {
+        height: "100%",
+        justifyContent: "center",
+        alignItems: "center",
+        onKeyPress: (key) => {
+          if (key === "ctrl+q" || key === "ctrl+c") quit();
+        },
+      },
+      [
+        ...warningBox([
+          "  Terminal too small :(",
+          "",
+          "  Please resize to at",
+          `  least ${String(MIN_COLS).padStart(3)}×${String(MIN_ROWS).padStart(2)} chars.`,
+          "",
+          "  Ctrl+Q to quit",
+        ]),
+      ],
+    );
+  }
+
+  return VStack(
     {
       height: "100%",
       onKeyPress: (key) => {
         if (key === "ctrl+q" || key === "ctrl+c") quit();
+        if (key === "ctrl+l") resetChat();
       },
     },
     [
-      // ── Header ──
       HStack(
         {
           height: 1,
@@ -232,17 +374,35 @@ cel.viewport(() =>
           bgColor: "color04",
           fgColor: "color07",
         },
-        [Text(" Agent ", { bold: true }), Spacer(), Text("model: gpt-4")],
+        [
+          Text(" Demo Agent ", { bold: true }),
+          Spacer(),
+          Text(isStreaming() ? `${currentSpinner()} streaming` : "ready"),
+          Text("  "),
+          Text(`${messages.length} msgs`, { fgColor: "color15" }),
+        ],
       ),
+      compact
+        ? HStack({ padding: { x: 1 } }, [
+            Text("Starter prompts, markdown streaming, sticky scroll.", {
+              fgColor: "color08",
+            }),
+          ])
+        : HStack({ padding: { x: 1 }, gap: 2 }, [
+            Text("Simulated replies with markdown streaming.", {
+              fgColor: "color08",
+            }),
+            Spacer(),
+            Text("Ctrl+L clear", { fgColor: "color08" }),
+          ]),
       Divider({ fgColor: "color08" }),
-
-      // ── Message History ──
       VStack(
         {
           flex: 1,
           overflow: "scroll",
           scrollbar: true,
-          padding: { x: 1 },
+          padding: { x: 1, y: 1 },
+          gap: 1,
           scrollOffset: stickToBottom ? Infinity : scrollOffset,
           onScroll: (offset, maxOffset) => {
             scrollOffset = offset;
@@ -250,60 +410,49 @@ cel.viewport(() =>
             cel.render();
           },
         },
-        messages.length > 0
-          ? messages.flatMap((msg, i) => [
-              ...(i > 0 ? [Text("")] : []),
-              renderMessage(msg, i),
-            ])
-          : [
-              Spacer(),
-              VStack({ alignItems: "center" }, [
-                Text("No messages yet.", {
-                  fgColor: "color08",
-                  italic: true,
-                }),
-                Text("Type a message below to start.", {
-                  fgColor: "color08",
-                }),
-              ]),
-              Spacer(),
-            ],
+        messages.length > 0 ? messages.map(renderMessage) : emptyState(compact),
       ),
-
-      // ── Input Area ──
       Divider({ fgColor: "color08" }),
-      HStack({ padding: { x: 1 }, gap: 1 }, [
-        Text(">", { fgColor: "color06", bold: true }),
-        TextInput({
-          flex: 1,
-          maxHeight: 5,
-          value: input,
-          onChange: handleChange,
-          placeholder: Text("type a message...", { fgColor: "color08" }),
-          onKeyPress: (key) => {
-            if (key === "enter") {
-              handleSend();
-              return false;
-            }
-          },
-          focused: inputFocused,
-          onFocus: () => {
-            inputFocused = true;
-            cel.render();
-          },
-          onBlur: () => {
-            inputFocused = false;
-            cel.render();
-          },
-        }),
-        Button(" Send ", {
-          onClick: handleSend,
-          bgColor: "color08",
-          fgColor: "color00",
-          bold: true,
-          focusStyle: { bgColor: "color06", fgColor: "color00" },
-        }),
+      ...(compact
+        ? [
+            VStack({ padding: { x: 1 }, gap: 1 }, [
+              HStack({ gap: 1 }, [
+                Text(">", {
+                  fgColor: canSend() ? "color06" : "color08",
+                  bold: true,
+                }),
+                composerInput,
+              ]),
+              HStack({ justifyContent: "end", gap: 1 }, [
+                clearButton,
+                sendButton,
+              ]),
+            ]),
+          ]
+        : [
+            HStack({ padding: { x: 1 }, gap: 1 }, [
+              Text(">", {
+                fgColor: canSend() ? "color06" : "color08",
+                bold: true,
+              }),
+              composerInput,
+              clearButton,
+              sendButton,
+            ]),
+          ]),
+      HStack({ padding: { x: 1 }, gap: 1, flexWrap: "wrap" }, [
+        Text("Enter", { fgColor: "color08", bold: true }),
+        Text("send", { fgColor: "color08" }),
+        Text("·", { fgColor: "color08" }),
+        Text("Tab", { fgColor: "color08", bold: true }),
+        Text("move focus", { fgColor: "color08" }),
+        Text("·", { fgColor: "color08" }),
+        Text("Esc", { fgColor: "color08", bold: true }),
+        Text("blur", { fgColor: "color08" }),
+        Text("·", { fgColor: "color08" }),
+        Text("Ctrl+Q", { fgColor: "color08", bold: true }),
+        Text("quit", { fgColor: "color08" }),
       ]),
     ],
-  ),
-);
+  );
+});

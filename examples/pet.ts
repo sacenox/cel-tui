@@ -197,7 +197,7 @@ let screen: Screen = "create";
 // -- Creation state --
 let petName = "";
 let selectedKind = 0;
-let nameInputFocused = false; // only TextInput needs controlled focus (arrow key routing)
+let nameInputFocused = true; // only TextInput needs controlled focus (arrow key routing)
 
 // -- Pet state --
 let pet: PetDef | null = null;
@@ -232,13 +232,15 @@ function addLog(msg: string) {
 
 function startGame() {
   pet = PETS[selectedKind]!;
-  if (!petName.trim()) petName = pet.kind;
+  petName = petName.trim() || pet.kind;
   health = 100;
   hunger = 0;
   happiness = 100;
   anim = "idle";
   frame = 0;
   log = [];
+  showLog = false;
+  nameInputFocused = false;
   screen = "main";
 
   addLog(`${petName} the ${pet.kind} was born!`);
@@ -313,8 +315,10 @@ function restart() {
   pet = null;
   petName = "";
   selectedKind = 0;
+  nameInputFocused = true;
   screen = "create";
   log = [];
+  logScroll = 0;
   showLog = false;
   cel.render();
 }
@@ -484,8 +488,7 @@ function createView() {
           },
           onKeyPress: (key) => {
             if (key === "enter") {
-              nameInputFocused = false;
-              cel.render();
+              startGame();
               return false;
             }
           },
@@ -546,6 +549,10 @@ function createView() {
 
         // Hints — wrapping for narrow terminals
         HStack({ justifyContent: "center", flexWrap: "wrap", gap: 1 }, [
+          HStack({}, [
+            Text("Enter", { fgColor: "color08", bold: true }),
+            Text(" create", { fgColor: "color08" }),
+          ]),
           HStack({}, [
             Text("Tab", { fgColor: "color08", bold: true }),
             Text(" navigate", { fgColor: "color08" }),
