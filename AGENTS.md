@@ -25,7 +25,7 @@ Dependency graph: `core → types`, `components → core`, `components → types
 - **Uncontrolled by default, controlled opt-in:** Focus and scroll are framework-managed by default. Providing `focused` or `scrollOffset` explicitly switches to controlled mode (app owns the state). Value (`value`/`onChange`) on TextInput is always controlled.
 - **Style inheritance:** Containers propagate style props (fgColor, bgColor, bold, italic, underline) to descendants. Explicit props on a node always override inherited values. Container `bgColor` fills the rect with opaque background before painting children.
 - **focusStyle:** Containers accept `focusStyle: StyleProps` — style overrides applied when focused, participating in inheritance.
-- **TextInput is a container:** Accepts sizing props (flex, width, height, padding, min/max constraints) but has no children — its content is the `value` prop. Scroll is always framework-managed (follows cursor + responds to mouse wheel).
+- **TextInput is a container:** Accepts sizing props (flex, width, height, padding, min/max constraints) but has no children — its content is the `value` prop. Scroll is always framework-managed: the stored offset is clamped every render, mouse wheel input adjusts it, and focused inputs further adjust only as needed to keep the cursor visible.
 - **Text is a pure leaf:** No sizing props, no children. Parent controls the box. Height is intrinsic (from content + wrapping).
 - **Cell buffer rendering:** Layout writes to a 2D grid of styled cells, not raw strings. Clipping and layer compositing are cell writes. Diff against previous buffer for minimal terminal output.
 - **Reactive rendering:** `cel.render()` batches via `process.nextTick()`. No fixed FPS.

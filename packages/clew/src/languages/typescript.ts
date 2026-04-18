@@ -659,18 +659,7 @@ function tokenizeTypescript(content: string): ClewOutput {
 }
 
 export const typescriptLanguageSupport: ClewLanguageSupport = {
-  ids: [
-    "typescript",
-    "ts",
-    "tsx",
-    "mts",
-    "cts",
-    "javascript",
-    "js",
-    "jsx",
-    "mjs",
-    "cjs",
-  ],
+  ids: ["typescript", "ts", "mts", "cts", "javascript", "js", "mjs", "cjs"],
   stableBoundary: stableLineBoundary,
   tokenize: tokenizeTypescript,
 };

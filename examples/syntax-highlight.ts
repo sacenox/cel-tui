@@ -103,7 +103,7 @@ const SAMPLES: readonly DemoSample[] = [
   {
     title: "TypeScript",
     language: "typescript",
-    aliases: ["ts", "tsx", "mts", "cts"],
+    aliases: ["ts", "mts", "cts"],
     description:
       "Shows the current clew-backed path: keywords, strings, comments, and append-only updates.",
     chunkSize: 4,
@@ -129,7 +129,7 @@ const SAMPLES: readonly DemoSample[] = [
   {
     title: "JavaScript",
     language: "javascript",
-    aliases: ["js", "jsx", "mjs", "cjs"],
+    aliases: ["js", "mjs", "cjs"],
     description: "Async code, destructuring, and a template literal.",
     chunkSize: 5,
     source: [

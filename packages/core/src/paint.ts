@@ -429,6 +429,31 @@ function paintText(
   }
 }
 
+function resolveTextInputScrollOffset(
+  props: TextInputProps,
+  lineCount: number,
+  viewportHeight: number,
+  cursorLine: number,
+): number {
+  const maxOffset = Math.max(0, lineCount - viewportHeight);
+  let scrollOffset = Math.max(
+    0,
+    Math.min(getTextInputScroll(props), maxOffset),
+  );
+
+  if (props.focused) {
+    if (cursorLine >= scrollOffset + viewportHeight) {
+      scrollOffset = cursorLine - viewportHeight + 1;
+    }
+    if (cursorLine < scrollOffset) {
+      scrollOffset = cursorLine;
+    }
+  }
+
+  setTextInputScroll(props, scrollOffset);
+  return scrollOffset;
+}
+
 function paintTextInput(
   props: TextInputProps,
   rect: Rect,
@@ -482,23 +507,14 @@ function paintTextInput(
   }
 
   const textLayout = layoutText(value, cw, "word");
-
-  // Framework-managed scroll: auto-scroll to keep cursor visible
-  let scrollOffset = getTextInputScroll(props);
-
-  if (props.focused) {
-    const cursorOffset = getTextInputCursor(props);
-    const cursorPos = textLayout.offsetToPosition(cursorOffset);
-    // Scroll down if cursor is below viewport
-    if (cursorPos.line >= scrollOffset + ch) {
-      scrollOffset = cursorPos.line - ch + 1;
-    }
-    // Scroll up if cursor is above viewport
-    if (cursorPos.line < scrollOffset) {
-      scrollOffset = cursorPos.line;
-    }
-    setTextInputScroll(props, scrollOffset);
-  }
+  const cursorOffset = getTextInputCursor(props);
+  const cursorPos = textLayout.offsetToPosition(cursorOffset);
+  const scrollOffset = resolveTextInputScrollOffset(
+    props,
+    textLayout.lineCount,
+    ch,
+    cursorPos.line,
+  );
 
   // Paint visible lines (grapheme-aware) in content area
   for (let row = 0; row < ch; row++) {
@@ -516,11 +532,9 @@ function paintTextInput(
   // framework also positions the native terminal cursor here (in cel.ts)
   // for blinking.
   if (props.focused) {
-    const cursorOffset = getTextInputCursor(props);
-    const pos = textLayout.offsetToPosition(cursorOffset);
-    const screenRow = pos.line - scrollOffset;
-    if (screenRow >= 0 && screenRow < ch && pos.col < cw) {
-      const absX = cx + pos.col;
+    const screenRow = cursorPos.line - scrollOffset;
+    if (screenRow >= 0 && screenRow < ch && cursorPos.col < cw) {
+      const absX = cx + cursorPos.col;
       const absY = cy + screenRow;
       if (
         absX >= clipRect.x &&
@@ -568,6 +582,8 @@ export function getTextInputCursorScreenPos(
   props: TextInputProps,
   rect: Rect,
 ): { x: number; y: number } | null {
+  if (!props.focused) return null;
+
   const { x, y, width: w, height: h } = rect;
   if (w <= 0 || h <= 0) return null;
 
@@ -582,7 +598,12 @@ export function getTextInputCursorScreenPos(
   const cursorOffset = getTextInputCursor(props);
   const textLayout = layoutText(props.value, cw, "word");
   const pos = textLayout.offsetToPosition(cursorOffset);
-  const scrollOffset = getTextInputScroll(props);
+  const scrollOffset = resolveTextInputScrollOffset(
+    props,
+    textLayout.lineCount,
+    ch,
+    pos.line,
+  );
   const screenRow = pos.line - scrollOffset;
 
   if (screenRow >= 0 && screenRow < ch && pos.col < cw) {

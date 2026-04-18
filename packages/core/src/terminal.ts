@@ -41,6 +41,8 @@ export class ProcessTerminal implements Terminal {
   private resizeHandler?: () => void;
   private inputHandler?: (data: string) => void;
   private cleanupBound?: () => void;
+  private uncaughtExceptionHandler?: (err: unknown) => void;
+  private unhandledRejectionHandler?: (err: unknown) => void;
   private stopped = false;
 
   get columns(): number {
@@ -85,19 +87,22 @@ export class ProcessTerminal implements Terminal {
 
     // Register cleanup handlers for crash/exit scenarios
     this.cleanupBound = () => this.cleanup();
+    this.uncaughtExceptionHandler = (err) => {
+      this.cleanup();
+      console.error(err);
+      process.exit(1);
+    };
+    this.unhandledRejectionHandler = (err) => {
+      this.cleanup();
+      console.error(err);
+      process.exit(1);
+    };
+
     process.on("exit", this.cleanupBound);
     process.on("SIGINT", this.cleanupBound);
     process.on("SIGTERM", this.cleanupBound);
-    process.on("uncaughtException", (err) => {
-      this.cleanup();
-      console.error(err);
-      process.exit(1);
-    });
-    process.on("unhandledRejection", (err) => {
-      this.cleanup();
-      console.error(err);
-      process.exit(1);
-    });
+    process.on("uncaughtException", this.uncaughtExceptionHandler);
+    process.on("unhandledRejection", this.unhandledRejectionHandler);
   }
 
   stop(): void {
@@ -138,6 +143,18 @@ export class ProcessTerminal implements Terminal {
       process.removeListener("exit", this.cleanupBound);
       process.removeListener("SIGINT", this.cleanupBound);
       process.removeListener("SIGTERM", this.cleanupBound);
+    }
+    if (this.uncaughtExceptionHandler) {
+      process.removeListener(
+        "uncaughtException",
+        this.uncaughtExceptionHandler,
+      );
+    }
+    if (this.unhandledRejectionHandler) {
+      process.removeListener(
+        "unhandledRejection",
+        this.unhandledRejectionHandler,
+      );
     }
   }
 

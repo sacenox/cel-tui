@@ -24,9 +24,9 @@ export interface ButtonProps extends StyleProps {
    */
   focused?: boolean;
   /** Called when the button receives focus. */
-  onFocus?: () => void;
+  onFocus?: ContainerProps["onFocus"];
   /** Called when the button loses focus. */
-  onBlur?: () => void;
+  onBlur?: ContainerProps["onBlur"];
   /**
    * Style overrides applied when focused. Overridden values
    * participate in inheritance — the label text sees the

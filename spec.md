@@ -94,32 +94,32 @@ HStack(props, children);
 
 Shared by both VStack and HStack. Containers also accept styling props (see [Styling](#styling)).
 
-| Prop             | Type                                          | Description                                         |
-| ---------------- | --------------------------------------------- | --------------------------------------------------- |
-| `width`          | `number \| string`                            | Fixed cells or percentage (`"50%"`)                 |
-| `height`         | `number \| string`                            | Fixed cells or percentage (`"100%"`)                |
-| `flex`           | `number`                                      | Flex grow factor, proportional to siblings          |
-| `minWidth`       | `number`                                      | Minimum width constraint                            |
-| `maxWidth`       | `number`                                      | Maximum width constraint                            |
-| `minHeight`      | `number`                                      | Minimum height constraint                           |
-| `maxHeight`      | `number`                                      | Maximum height constraint                           |
-| `padding`        | `{ x?: number, y?: number }`                  | Internal padding (cells)                            |
-| `gap`            | `number`                                      | Spacing between children (cells)                    |
-| `justifyContent` | `string`                                      | Distribute children along the main axis             |
-| `alignItems`     | `string`                                      | Align children along the cross axis                 |
-| `flexWrap`       | `"nowrap" \| "wrap"`                          | Wrap children to next line (HStack only)            |
-| `overflow`       | `"hidden" \| "scroll"`                        | Content overflow behavior (default: `"hidden"`)     |
-| `scrollbar`      | `boolean`                                     | Show scrollbar indicator                            |
-| `scrollStep`     | `number`                                      | Mouse wheel step in cells (default: adaptive)       |
-| `scrollOffset`   | `number`                                      | Scroll position in cells (controlled)               |
-| `onScroll`       | `(offset: number, maxOffset: number) => void` | Called on scroll input                              |
-| `onClick`        | `() => void`                                  | Called on mouse click or Enter when focused         |
-| `focusable`      | `boolean`                                     | Opt out of focus (default: `true` if `onClick`)     |
-| `focused`        | `boolean`                                     | Whether this element is focused (controlled)        |
-| `onFocus`        | `() => void`                                  | Called when element receives focus                  |
-| `onBlur`         | `() => void`                                  | Called when element loses focus                     |
-| `focusStyle`     | `StyleProps`                                  | Style overrides applied when focused                |
-| `onKeyPress`     | `(key: string) => boolean \| void`            | Key event handler. Return `false` to keep bubbling. |
+| Prop             | Type                                                                       | Description                                         |
+| ---------------- | -------------------------------------------------------------------------- | --------------------------------------------------- |
+| `width`          | `number \| string`                                                         | Fixed cells or percentage (`"50%"`)                 |
+| `height`         | `number \| string`                                                         | Fixed cells or percentage (`"100%"`)                |
+| `flex`           | `number`                                                                   | Flex grow factor, proportional to siblings          |
+| `minWidth`       | `number`                                                                   | Minimum width constraint                            |
+| `maxWidth`       | `number`                                                                   | Maximum width constraint                            |
+| `minHeight`      | `number`                                                                   | Minimum height constraint                           |
+| `maxHeight`      | `number`                                                                   | Maximum height constraint                           |
+| `padding`        | `{ x?: number, y?: number }`                                               | Internal padding (cells)                            |
+| `gap`            | `number`                                                                   | Spacing between children (cells)                    |
+| `justifyContent` | `string`                                                                   | Distribute children along the main axis             |
+| `alignItems`     | `string`                                                                   | Align children along the cross axis                 |
+| `flexWrap`       | `"nowrap" \| "wrap"`                                                       | Wrap children to next line (HStack only)            |
+| `overflow`       | `"hidden" \| "scroll"`                                                     | Content overflow behavior (default: `"hidden"`)     |
+| `scrollbar`      | `boolean`                                                                  | Show scrollbar indicator                            |
+| `scrollStep`     | `number`                                                                   | Mouse wheel step in cells (default: adaptive)       |
+| `scrollOffset`   | `number`                                                                   | Scroll position in cells (controlled)               |
+| `onScroll`       | `(offset: number, maxOffset: number) => void`                              | Called on scroll input                              |
+| `onClick`        | `() => void`                                                               | Called on mouse click or Enter when focused         |
+| `focusable`      | `boolean`                                                                  | Opt out of focus (default: `true` if `onClick`)     |
+| `focused`        | `boolean`                                                                  | Whether this element is focused (controlled)        |
+| `onFocus`        | `(event: { reason: "tab" \| "shift+tab" \| "click" \| "escape" }) => void` | Called when element receives focus                  |
+| `onBlur`         | `(event: { reason: "tab" \| "shift+tab" \| "click" \| "escape" }) => void` | Called when element loses focus                     |
+| `focusStyle`     | `StyleProps`                                                               | Style overrides applied when focused                |
+| `onKeyPress`     | `(key: string) => boolean \| void`                                         | Key event handler. Return `false` to keep bubbling. |
 
 ### Sizing
 
@@ -277,7 +277,7 @@ Examples:
 
 This applies to both controlled and uncontrolled scrollable containers, and to `TextInput` mouse wheel scrolling. It affects **mouse wheel input only** — not programmatic `scrollOffset` updates or TextInput cursor-follow behavior.
 
-Values exceeding the maximum scroll offset are clamped during rendering — passing `Infinity` means "scroll to the end". This enables patterns like sticky-bottom scroll:
+Values exceeding the maximum scroll offset are clamped during rendering and hit testing — passing `Infinity` means "scroll to the end". This enables patterns like sticky-bottom scroll:
 
 ```ts
 let offset = 0;
@@ -371,14 +371,14 @@ When a TextInput is focused, insertable text and text-editing keys go to the inp
 HStack({ onClick: handleAction }, [Text("[ Action ]", { bold: true })]);
 ```
 
-The framework tracks which element is focused. `onFocus` and `onBlur` are optional notification callbacks — they fire when focus changes but are not required for focus to work:
+The framework tracks which element is focused. `onFocus` and `onBlur` are optional notification callbacks — they fire when focus changes, include a `{ reason }` object (`"tab" | "shift+tab" | "click" | "escape"`), and are not required for focus to work:
 
 ```ts
 HStack(
   {
     onClick: handleAction,
-    onFocus: () => addLog("button focused"),
-    onBlur: () => addLog("button blurred"),
+    onFocus: ({ reason }) => addLog(`button focused via ${reason}`),
+    onBlur: ({ reason }) => addLog(`button blurred via ${reason}`),
   },
   [Text("[ Action ]", { bold: true })],
 );
@@ -386,17 +386,19 @@ HStack(
 
 ### Controlled Focus
 
-**Controlled** — when `focused` is explicitly provided, the app owns the focus state. The framework calls `onFocus` and `onBlur` but does not move focus until the app updates `focused`:
+**Controlled** — when `focused` is explicitly provided, the app owns the focus state. The framework calls `onFocus` and `onBlur` with a `{ reason }` object, but does not move focus until the app updates `focused`:
 
 ```ts
 TextInput({
   value: text,
   onChange: handleChange,
   focused: isEditorFocused,
-  onFocus: () => {
+  onFocus: ({ reason }) => {
+    addLog(`focused via ${reason}`);
     isEditorFocused = true;
   },
-  onBlur: () => {
+  onBlur: ({ reason }) => {
+    addLog(`blurred via ${reason}`);
     isEditorFocused = false;
   },
 });
@@ -634,7 +636,7 @@ Whitespace is always preserved. `\n` in content produces explicit line breaks.
 
 ### TextInput
 
-Multi-line editable text container. Accepts container props and styling props but has no children — its content is the editable `value`. Scroll is always uncontrolled (framework-managed: follows cursor and responds to mouse wheel).
+Multi-line editable text container. Accepts container props and styling props but has no children — its content is the editable `value`. Scroll is always uncontrolled (framework-managed): the stored offset is clamped every render, mouse wheel input adjusts it, and focused inputs further adjust only as needed to keep the cursor visible.
 
 ```ts
 TextInput(props: TextInputProps)
@@ -651,7 +653,7 @@ Container sizing props (`width`, `height`, `flex`, `min*`, `max*`, `padding`), f
 | `onKeyPress`  | `(key: string) => boolean \| void` | Key handler, fires before editing. Receives normalized semantic key strings. Return `false` to prevent the default TextInput action for that key. |
 | `placeholder` | `TextNode`                         | Text node shown when value is empty (pass a `Text()` call)                                                                                        |
 
-Word-wrap is always on. Cursor position is framework-managed. Supported editing shortcuts include `ctrl+a` / `ctrl+e`, `alt+b` / `alt+f`, `ctrl+left` / `ctrl+right`, `ctrl+w`, and `alt+d`; word movement and deletion use whitespace-delimited boundaries, and `up` / `down` navigate visual wrapped lines. In bracketed paste mode, pasted text is inserted literally at the cursor as one batch edit: one `onChange`, no `onKeyPress`, newlines and tabs preserved.
+Word-wrap is always on. Cursor position is framework-managed. TextInput scroll follows one rule: clamp the stored offset every render, then if the input is focused, adjust further only as needed to keep the cursor visible after edits, cursor movement, mouse wheel scrolling, or reflow/resize. Supported editing shortcuts include `ctrl+a` / `ctrl+e`, `alt+b` / `alt+f`, `ctrl+left` / `ctrl+right`, `ctrl+w`, and `alt+d`; word movement and deletion use whitespace-delimited boundaries, and `up` / `down` navigate visual wrapped lines. In bracketed paste mode, pasted text is inserted literally at the cursor as one batch edit: one `onChange`, no `onKeyPress`, newlines and tabs preserved.
 
 #### Growing / Shrinking Pattern
 
@@ -1037,10 +1039,12 @@ cel.viewport(() =>
           value: activeFile.content,
           onChange: handleEdit,
           focused: editorFocused,
-          onFocus: () => {
+          onFocus: ({ reason }) => {
+            addLog(`editor focused via ${reason}`);
             editorFocused = true;
           },
-          onBlur: () => {
+          onBlur: ({ reason }) => {
+            addLog(`editor blurred via ${reason}`);
             editorFocused = false;
           },
         }),

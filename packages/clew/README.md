@@ -122,8 +122,8 @@ const output = clew(content, {
 The current implementation ships a small internal language registry with:
 
 - **TypeScript / JavaScript ids**
-  - `typescript`, `ts`, `tsx`, `mts`, `cts`
-  - `javascript`, `js`, `jsx`, `mjs`, `cjs`
+  - `typescript`, `ts`, `mts`, `cts`
+  - `javascript`, `js`, `mjs`, `cjs`
 - **Python**
   - `python`, `py`
 - **Bash**

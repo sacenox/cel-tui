@@ -3,8 +3,10 @@ import { CellBuffer } from "./cell-buffer.js";
 import { layout } from "./layout.js";
 import {
   getTextInputCursorScreenPos,
+  getTextInputScroll,
   paint,
   setTextInputCursor,
+  setTextInputScroll,
 } from "./paint.js";
 import { HStack, VStack } from "./primitives/stacks.js";
 import { Text } from "./primitives/text.js";
@@ -139,6 +141,40 @@ describe("paint", () => {
         getTextInputCursorScreenPos(props, { x: 0, y: 0, width: 6, height: 3 }),
       ).toEqual({ x: 1, y: 1 });
     });
+
+    test("focused TextInput clamps stale scroll before projecting the cursor", () => {
+      const onChange = () => {};
+      const props = {
+        value: "foo bar baz",
+        onChange,
+        focused: true,
+      };
+
+      setTextInputCursor(props, 5);
+      setTextInputScroll(props, 99);
+
+      expect(
+        getTextInputCursorScreenPos(props, { x: 0, y: 0, width: 6, height: 3 }),
+      ).toEqual({ x: 1, y: 1 });
+      expect(getTextInputScroll(props)).toBe(0);
+    });
+
+    test("unfocused TextInput clamps stale scroll during paint", () => {
+      const onChange = () => {};
+      const props = {
+        value: "line1\nline2",
+        onChange,
+        height: 2,
+      };
+      setTextInputScroll(props, 99);
+
+      const node = VStack({ width: 6, height: 2 }, [TextInput(props)]);
+      const ln = layout(node, 6, 2);
+      const buf = new CellBuffer(6, 2);
+      paint(ln, buf);
+
+      expect(getTextInputScroll(props)).toBe(0);
+    });
   });
 
   describe("layout-driven positioning", () => {
@@ -175,6 +211,18 @@ describe("paint", () => {
       paint(ln, buf);
       expect(buf.get(0, 0).char).toBe("A");
       expect(buf.get(5, 0).char).toBe("B");
+    });
+
+    test("repeat fill renders inside HStack", () => {
+      const node = HStack({ width: 10, height: 1 }, [
+        Text("A"),
+        Text("-", { repeat: "fill" }),
+        Text("B"),
+      ]);
+      const ln = layout(node, 10, 1);
+      const buf = new CellBuffer(10, 1);
+      paint(ln, buf);
+      expect(readRawRow(buf, 0)).toBe("A--------B");
     });
 
     test("padding offsets children", () => {

@@ -539,6 +539,7 @@ describe("cel end-to-end", () => {
     test("Tab moves focus to next focusable element", async () => {
       const term = setup(20, 5);
       const focused: string[] = [];
+      const blurred: string[] = [];
       let focus1 = false;
       let focus2 = false;
 
@@ -548,13 +549,14 @@ describe("cel end-to-end", () => {
             {
               onClick: () => {},
               focused: focus1,
-              onFocus: () => {
+              onFocus: (event) => {
                 focus1 = true;
                 focus2 = false;
-                focused.push("btn1");
+                focused.push(`btn1:${event.reason}`);
               },
-              onBlur: () => {
+              onBlur: (event) => {
                 focus1 = false;
+                blurred.push(`btn1:${event.reason}`);
               },
             },
             [Text("Btn1")],
@@ -563,13 +565,14 @@ describe("cel end-to-end", () => {
             {
               onClick: () => {},
               focused: focus2,
-              onFocus: () => {
+              onFocus: (event) => {
                 focus2 = true;
                 focus1 = false;
-                focused.push("btn2");
+                focused.push(`btn2:${event.reason}`);
               },
-              onBlur: () => {
+              onBlur: (event) => {
                 focus2 = false;
+                blurred.push(`btn2:${event.reason}`);
               },
             },
             [Text("Btn2")],
@@ -581,12 +584,14 @@ describe("cel end-to-end", () => {
       // Tab to focus first element
       term.sendInput(TAB);
       await waitForRender();
-      expect(focused).toEqual(["btn1"]);
+      expect(focused).toEqual(["btn1:tab"]);
+      expect(blurred).toEqual([]);
 
       // Tab to focus second element
       term.sendInput(TAB);
       await waitForRender();
-      expect(focused).toEqual(["btn1", "btn2"]);
+      expect(focused).toEqual(["btn1:tab", "btn2:tab"]);
+      expect(blurred).toEqual(["btn1:tab"]);
     });
 
     test("Shift+Tab moves focus backwards", async () => {
@@ -594,6 +599,7 @@ describe("cel end-to-end", () => {
       let focus1 = false;
       let focus2 = true;
       const focused: string[] = [];
+      const blurred: string[] = [];
 
       cel.viewport(() =>
         VStack({ width: 20, height: 5 }, [
@@ -601,13 +607,14 @@ describe("cel end-to-end", () => {
             {
               onClick: () => {},
               focused: focus1,
-              onFocus: () => {
+              onFocus: (event) => {
                 focus1 = true;
                 focus2 = false;
-                focused.push("btn1");
+                focused.push(`btn1:${event.reason}`);
               },
-              onBlur: () => {
+              onBlur: (event) => {
                 focus1 = false;
+                blurred.push(`btn1:${event.reason}`);
               },
             },
             [Text("Btn1")],
@@ -616,13 +623,14 @@ describe("cel end-to-end", () => {
             {
               onClick: () => {},
               focused: focus2,
-              onFocus: () => {
+              onFocus: (event) => {
                 focus2 = true;
                 focus1 = false;
-                focused.push("btn2");
+                focused.push(`btn2:${event.reason}`);
               },
-              onBlur: () => {
+              onBlur: (event) => {
                 focus2 = false;
+                blurred.push(`btn2:${event.reason}`);
               },
             },
             [Text("Btn2")],
@@ -634,12 +642,13 @@ describe("cel end-to-end", () => {
       // Shift+Tab from btn2 should focus btn1
       term.sendInput(SHIFT_TAB);
       await waitForRender();
-      expect(focused).toEqual(["btn1"]);
+      expect(focused).toEqual(["btn1:shift+tab"]);
+      expect(blurred).toEqual(["btn2:shift+tab"]);
     });
 
     test("Escape unfocuses the current element", async () => {
       const term = setup(20, 5);
-      let blurred = false;
+      let blurReason = "";
       let btnFocused = true;
 
       cel.viewport(() =>
@@ -648,8 +657,8 @@ describe("cel end-to-end", () => {
             {
               onClick: () => {},
               focused: btnFocused,
-              onBlur: () => {
-                blurred = true;
+              onBlur: (event) => {
+                blurReason = event.reason;
                 btnFocused = false;
               },
             },
@@ -661,7 +670,7 @@ describe("cel end-to-end", () => {
 
       term.sendInput(ESCAPE);
       await waitForRender();
-      expect(blurred).toBe(true);
+      expect(blurReason).toBe("escape");
     });
 
     test("Enter activates focused clickable container", async () => {
@@ -691,6 +700,7 @@ describe("cel end-to-end", () => {
     test("mouse click on focusable element fires onFocus", async () => {
       const term = setup(20, 5);
       let btnFocused = false;
+      let focusReason = "";
 
       cel.viewport(() =>
         VStack({ width: 20, height: 5 }, [
@@ -698,8 +708,9 @@ describe("cel end-to-end", () => {
             {
               onClick: () => {},
               focused: btnFocused,
-              onFocus: () => {
+              onFocus: (event) => {
                 btnFocused = true;
+                focusReason = event.reason;
               },
             },
             [Text("Btn")],
@@ -712,6 +723,7 @@ describe("cel end-to-end", () => {
       term.sendInput("\x1b[<0;2;1m");
       await waitForRender();
       expect(btnFocused).toBe(true);
+      expect(focusReason).toBe("click");
     });
 
     test("Tab wraps around to first element", async () => {
@@ -1837,6 +1849,29 @@ describe("cel end-to-end", () => {
       term.sendInput("x");
       await waitForRender();
       expect(value).toBe("x");
+    });
+
+    test("Tab focusing an uncontrolled TextInput shows the native cursor", async () => {
+      const term = setup(20, 5);
+      let value = "";
+
+      cel.viewport(() =>
+        VStack({ width: 20, height: 5 }, [
+          TextInput({
+            value,
+            onChange: (v) => {
+              value = v;
+            },
+          }),
+        ]),
+      );
+      await waitForRender();
+
+      term.clearOutput();
+      term.sendInput(TAB);
+      await waitForRender();
+
+      expect(term.output).toContain("\x1b[?25h");
     });
 
     test("Tab wraps from last to first element", async () => {

@@ -46,8 +46,8 @@ All props accepted by `VStack` and `HStack`:
   onClick,                // () => void
   focusable,              // boolean (default true if onClick set, or set true explicitly)
   focused,                // boolean (controlled — omit for uncontrolled)
-  onFocus,                // () => void
-  onBlur,                 // () => void
+  onFocus,                // ({ reason }) => void — reason is "tab" | "shift+tab" | "click" | "escape"
+  onBlur,                 // ({ reason }) => void — reason is "tab" | "shift+tab" | "click" | "escape"
   onKeyPress,             // (key: string) => boolean | void — normalized semantic key string; return false to keep bubbling
 }
 ```
@@ -101,7 +101,7 @@ VStack(
 - Scroll is pointer-driven (mouse wheel), not focus-driven. A user can type in a focused widget while scrolling a different container.
 - Mouse wheel scrolling uses an adaptive default step based on the scroll target's visible main-axis viewport size: `floor(viewportMainAxis / 3)`, clamped to `3..8`.
 - Set `scrollStep` to override the mouse wheel step for a specific scrollable or `TextInput`.
-- In controlled mode, the UI only moves when the app passes the updated `scrollOffset` back. `onScroll` fires with the clamped new offset and the maximum offset (content size minus viewport size). Pass `Infinity` as `scrollOffset` to mean "scroll to end" (clamped during rendering). `scrollStep` affects mouse wheel input only.
+- In controlled mode, the UI only moves when the app passes the updated `scrollOffset` back. `onScroll` fires with the clamped new offset and the maximum offset (content size minus viewport size). Pass `Infinity` as `scrollOffset` to mean "scroll to end" (clamped during rendering and hit testing). `scrollStep` affects mouse wheel input only.
 
 ## Text Props
 
@@ -147,7 +147,7 @@ TextInput({
 });
 ```
 
-When focused, TextInput consumes insertable text plus editing/navigation keys, including readline-style shortcuts: `ctrl+a` / `ctrl+e`, `alt+b` / `alt+f`, `ctrl+left` / `ctrl+right`, `ctrl+w`, and `alt+d`. Word movement and deletion are whitespace-delimited, and `up` / `down` navigate visual wrapped lines. Other modifier combos and non-insertable control keys bubble. Key strings are semantic identifiers for handlers, not necessarily the exact inserted text — uppercase `A` normalizes to key `"a"` while still inserting `"A"`.
+When focused, TextInput consumes insertable text plus editing/navigation keys, including readline-style shortcuts: `ctrl+a` / `ctrl+e`, `alt+b` / `alt+f`, `ctrl+left` / `ctrl+right`, `ctrl+w`, and `alt+d`. Word movement and deletion are whitespace-delimited, and `up` / `down` navigate visual wrapped lines. The stored scroll offset is clamped every render; when focused, the viewport adjusts further only as needed to keep the cursor visible after edits, cursor movement, mouse wheel scrolling, or reflow/resize. Other modifier combos and non-insertable control keys bubble. Key strings are semantic identifiers for handlers, not necessarily the exact inserted text — uppercase `A` normalizes to key `"a"` while still inserting `"A"`.
 
 ## Sizing Strategies
 

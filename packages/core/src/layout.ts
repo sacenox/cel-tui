@@ -52,6 +52,22 @@ function getProps(node: Node): ContainerProps | null {
   return node.props;
 }
 
+function getNodeFlex(node: Node, isVertical: boolean): number {
+  const explicitFlex = getProps(node)?.flex;
+  if (explicitFlex && explicitFlex > 0) {
+    return explicitFlex;
+  }
+  if (
+    !isVertical &&
+    node.type === "text" &&
+    node.props.repeat === "fill" &&
+    visibleWidth(node.content) > 0
+  ) {
+    return 1;
+  }
+  return 0;
+}
+
 function requiredAt<T>(
   items: readonly T[],
   index: number,
@@ -297,6 +313,100 @@ function largestRemainder(fractions: number[], total: number): number[] {
   return floored;
 }
 
+interface FlexAllocationItem {
+  flex: number;
+  min: number;
+  max: number;
+}
+
+function allocateFlexSizes(
+  items: readonly FlexAllocationItem[],
+  total: number,
+): number[] {
+  const sizes = Array.from({ length: items.length }, () => 0);
+  let remainingIndices = items.map((_, index) => index);
+  let remainingSpace = total;
+  let remainingFlex = items.reduce((sum, item) => sum + item.flex, 0);
+
+  while (remainingIndices.length > 0 && remainingFlex > 0) {
+    const rawSizes = remainingIndices.map((index) => {
+      const item = requiredAt(items, index, "flex allocation item");
+      return (item.flex / remainingFlex) * remainingSpace;
+    });
+
+    const minClamped = new Set<number>();
+
+    for (let i = 0; i < remainingIndices.length; i++) {
+      const index = requiredAt(remainingIndices, i, "flex allocation index");
+      const rawSize = requiredAt(rawSizes, i, "raw flex size");
+      const item = requiredAt(items, index, "flex allocation item");
+
+      if (rawSize < item.min) {
+        sizes[index] = item.min;
+        remainingSpace -= item.min;
+        remainingFlex -= item.flex;
+        minClamped.add(index);
+      }
+    }
+
+    if (minClamped.size === 0) {
+      const rounded = largestRemainder(rawSizes, remainingSpace);
+      for (let i = 0; i < remainingIndices.length; i++) {
+        const index = requiredAt(remainingIndices, i, "flex allocation index");
+        sizes[index] = requiredAt(rounded, i, "rounded flex size");
+      }
+      break;
+    }
+
+    remainingIndices = remainingIndices.filter(
+      (index) => !minClamped.has(index),
+    );
+  }
+
+  let activeIndices = items.map((_, index) => index);
+  let activeFlex = items.reduce((sum, item) => sum + item.flex, 0);
+
+  while (activeIndices.length > 0 && activeFlex > 0) {
+    let excess = 0;
+    const maxClamped = new Set<number>();
+
+    for (const index of activeIndices) {
+      const item = requiredAt(items, index, "flex allocation item");
+      const max = Math.max(item.min, item.max);
+      const size = requiredAt(sizes, index, "allocated flex size");
+
+      if (size > max) {
+        sizes[index] = max;
+        excess += size - max;
+        activeFlex -= item.flex;
+        maxClamped.add(index);
+      }
+    }
+
+    if (maxClamped.size === 0) {
+      return sizes;
+    }
+
+    activeIndices = activeIndices.filter((index) => !maxClamped.has(index));
+    if (activeIndices.length === 0 || activeFlex <= 0 || excess <= 0) {
+      return sizes;
+    }
+
+    const rawExtras = activeIndices.map((index) => {
+      const item = requiredAt(items, index, "flex allocation item");
+      return (item.flex / activeFlex) * excess;
+    });
+    const rounded = largestRemainder(rawExtras, excess);
+
+    for (let i = 0; i < activeIndices.length; i++) {
+      const index = requiredAt(activeIndices, i, "flex allocation index");
+      sizes[index] += requiredAt(rounded, i, "rounded flex size");
+    }
+  }
+
+  return sizes;
+}
+
 // --- Main layout ---
 
 /**
@@ -384,7 +494,7 @@ function layoutWrapHStack(
 
   for (const child of children) {
     const cProps = getProps(child);
-    const flex = cProps?.flex ?? 0;
+    const flex = getNodeFlex(child, false);
     flexValues.push(flex);
 
     let baseW: number;
@@ -448,24 +558,23 @@ function layoutWrapHStack(
           flexPositions.push(ci);
         }
       }
-      const rawSizes = flexPositions.map((ci) => {
-        const rowIndex = requiredAt(rowIdx, ci, "wrap row index");
-        return (
-          (requiredAt(flexValues, rowIndex, "flex value") / totalFlex) *
-          flexSpace
-        );
-      });
-      const rounded = largestRemainder(rawSizes, flexSpace);
+
+      const allocated = allocateFlexSizes(
+        flexPositions.map((ci) => {
+          const rowIndex = requiredAt(rowIdx, ci, "wrap row index");
+          const cProps = getProps(requiredAt(children, rowIndex, "child node"));
+          return {
+            flex: requiredAt(flexValues, rowIndex, "flex value"),
+            min: cProps?.minWidth ?? 0,
+            max: cProps?.maxWidth ?? Infinity,
+          };
+        }),
+        flexSpace,
+      );
 
       for (let fi = 0; fi < flexPositions.length; fi++) {
         const ci = requiredAt(flexPositions, fi, "flex position");
-        let size = requiredAt(rounded, fi, "rounded flex size");
-        const rowIndex = requiredAt(rowIdx, ci, "wrap row index");
-        const cProps = getProps(requiredAt(children, rowIndex, "child node"));
-        if (cProps) {
-          size = clamp(size, cProps.minWidth ?? 0, cProps.maxWidth ?? Infinity);
-        }
-        childWidths[ci] = size;
+        childWidths[ci] = requiredAt(allocated, fi, "allocated flex size");
       }
     }
 
@@ -638,7 +747,7 @@ function layoutNode(
 
   for (const child of children) {
     const cProps = getProps(child);
-    const flex = cProps?.flex ?? 0;
+    const flex = getNodeFlex(child, isVertical);
 
     if (flex > 0) {
       totalFlex += flex;
@@ -719,23 +828,26 @@ function layoutNode(
 
   if (totalFlex > 0) {
     const flexInfos = infos.filter((c) => c.flex > 0);
-    const rawSizes = flexInfos.map((c) => (c.flex / totalFlex) * flexSpace);
-    const rounded = largestRemainder(rawSizes, flexSpace);
+    const allocated = allocateFlexSizes(
+      flexInfos.map((info) => {
+        const cProps = getProps(info.node);
+        return {
+          flex: info.flex,
+          min: isVertical ? (cProps?.minHeight ?? 0) : (cProps?.minWidth ?? 0),
+          max: isVertical
+            ? (cProps?.maxHeight ?? Infinity)
+            : (cProps?.maxWidth ?? Infinity),
+        };
+      }),
+      flexSpace,
+    );
 
     for (let i = 0; i < flexInfos.length; i++) {
-      let size = requiredAt(rounded, i, "rounded flex size");
-      const flexInfo = requiredAt(flexInfos, i, "flex child info");
-      const cProps = getProps(flexInfo.node);
-      if (cProps) {
-        const minMain = isVertical
-          ? (cProps.minHeight ?? 0)
-          : (cProps.minWidth ?? 0);
-        const maxMain = isVertical
-          ? (cProps.maxHeight ?? Infinity)
-          : (cProps.maxWidth ?? Infinity);
-        size = clamp(size, minMain, maxMain);
-      }
-      flexInfo.mainSize = size;
+      requiredAt(flexInfos, i, "flex child info").mainSize = requiredAt(
+        allocated,
+        i,
+        "allocated flex size",
+      );
     }
   }
 

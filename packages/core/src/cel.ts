@@ -1,4 +1,5 @@
 import type {
+  FocusChangeReason,
   Node,
   TextInputNode,
   TextInputProps,
@@ -23,7 +24,11 @@ import {
   setTextInputCursor,
   setTextInputScroll,
 } from "./paint.js";
-import { getMaxScrollOffset, getScrollStep } from "./scroll.js";
+import {
+  clampScrollOffset,
+  getMaxScrollOffset,
+  getScrollStep,
+} from "./scroll.js";
 import type { Terminal } from "./terminal.js";
 import {
   deleteBackward,
@@ -134,11 +139,11 @@ function doRender(): void {
     paint(layoutTree, currentBuffer);
   }
 
+  const nextCursor = getDesiredTerminalCursor();
+
   // Unstamp after paint so input handlers see clean props
   unstampUncontrolledFocus();
   unstampUncontrolledScroll();
-
-  const nextCursor = getDesiredTerminalCursor();
 
   // Emit to terminal — differential when possible
   if (prevBuffer) {
@@ -623,8 +628,12 @@ function unstampUncontrolledScroll(): void {
  * Manages both controlled (via onFocus/onBlur callbacks) and
  * uncontrolled (via frameworkFocusIndex) focus.
  */
-function changeFocus(target: LayoutNode | null): void {
+function changeFocus(
+  target: LayoutNode | null,
+  reason: FocusChangeReason,
+): void {
   const current = findFocusedElement();
+  const event = { reason };
 
   // Blur current — save position for Tab/Shift+Tab continuity
   if (current && current !== target) {
@@ -645,7 +654,7 @@ function changeFocus(target: LayoutNode | null): void {
           ? current.node.props
           : null;
     if (props && "onBlur" in props && props.onBlur) {
-      props.onBlur();
+      props.onBlur(event);
     }
   }
 
@@ -669,7 +678,7 @@ function changeFocus(target: LayoutNode | null): void {
           ? target.node.props
           : null;
     if (props && "onFocus" in props && props.onFocus) {
-      props.onFocus();
+      props.onFocus(event);
     }
   }
 }
@@ -682,11 +691,13 @@ function resolveScrollOffset(ln: import("./layout.js").LayoutNode): number {
   const node = ln.node;
   if (node.type === "text") return 0;
   const props = node.props;
-  if (props.scrollOffset !== undefined) return props.scrollOffset;
+  if (props.scrollOffset !== undefined) {
+    return clampScrollOffset(ln, props.scrollOffset);
+  }
   // Check uncontrolled map
   const pathKey = getScrollPathKey(ln);
   if (pathKey !== null) {
-    return uncontrolledScrollOffsets.get(pathKey) ?? 0;
+    return clampScrollOffset(ln, uncontrolledScrollOffsets.get(pathKey) ?? 0);
   }
   return 0;
 }
@@ -702,7 +713,7 @@ function handleMouseEvent(event: MouseEvent): void {
       // Find and focus the focusable element at click position
       const focusable = findClickFocusTarget(path);
       if (focusable) {
-        changeFocus(focusable);
+        changeFocus(focusable, "click");
       }
 
       const click = findClickHandler(path);
@@ -822,11 +833,11 @@ function handleBracketedPaste(text: string): void {
   commitTextInputEdit(props, editState, nextState);
 }
 
-function blurFocusedElement(): boolean {
+function blurFocusedElement(reason: FocusChangeReason = "escape"): boolean {
   const current = findFocusedElement();
   if (!current) return false;
 
-  changeFocus(null);
+  changeFocus(null, reason);
   cel.render();
   return true;
 }
@@ -877,7 +888,10 @@ function handleKeyEvent(event: KeyInput): void {
             : (currentIdx - 1 + focusables.length) % focusables.length;
       }
 
-      changeFocus(requiredAt(focusables, nextIdx, "focusable node"));
+      changeFocus(
+        requiredAt(focusables, nextIdx, "focusable node"),
+        key === "tab" ? "tab" : "shift+tab",
+      );
       cel.render();
       return;
     } // end: not a focused TextInput

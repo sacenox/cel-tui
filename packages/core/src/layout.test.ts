@@ -190,6 +190,20 @@ describe("layout", () => {
         { x: 0, y: 23, width: 80, height: 1 },
       ]);
     });
+
+    test("repeat fill claims remaining width in HStack", () => {
+      const node = HStack({ width: 10, height: 1 }, [
+        Text("A"),
+        Text("-", { repeat: "fill" }),
+        Text("B"),
+      ]);
+      const result = layout(node, 10, 1);
+      expect(childRects(result)).toEqual([
+        { x: 0, y: 0, width: 1, height: 1 },
+        { x: 1, y: 0, width: 8, height: 1 },
+        { x: 9, y: 0, width: 1, height: 1 },
+      ]);
+    });
   });
 
   describe("percentage sizing", () => {
@@ -226,22 +240,37 @@ describe("layout", () => {
   });
 
   describe("constraints", () => {
-    test("minWidth prevents shrinking below minimum", () => {
+    test("minWidth redistributes the remaining flex width", () => {
       const node = HStack({ width: 80, height: 24 }, [
-        VStack({ flex: 1, minWidth: 30 }, []),
+        VStack({ flex: 1, minWidth: 60 }, []),
         VStack({ flex: 1 }, []),
       ]);
       const result = layout(node, 80, 24);
-      expect(item(childRects(result), 0).width).toBeGreaterThanOrEqual(30);
+      const widths = childRects(result).map((child) => child.width);
+      expect(widths).toEqual([60, 20]);
+      expect(widths.reduce((sum, width) => sum + width, 0)).toBe(80);
     });
 
-    test("maxHeight caps growth", () => {
+    test("maxHeight redistributes the remaining flex height", () => {
       const node = VStack({ width: 80, height: 24 }, [
         VStack({ flex: 1, maxHeight: 10 }, []),
         VStack({ flex: 1 }, []),
       ]);
       const result = layout(node, 80, 24);
-      expect(item(childRects(result), 0).height).toBeLessThanOrEqual(10);
+      const heights = childRects(result).map((child) => child.height);
+      expect(heights).toEqual([10, 14]);
+      expect(heights.reduce((sum, height) => sum + height, 0)).toBe(24);
+    });
+
+    test("mixed minWidth and maxWidth constraints keep redistributing flex width", () => {
+      const node = HStack({ width: 100, height: 24 }, [
+        VStack({ flex: 1, minWidth: 80 }, []),
+        VStack({ flex: 1, maxWidth: 10 }, []),
+      ]);
+      const result = layout(node, 100, 24);
+      const widths = childRects(result).map((child) => child.width);
+      expect(widths).toEqual([90, 10]);
+      expect(widths.reduce((sum, width) => sum + width, 0)).toBe(100);
     });
   });
 
@@ -836,6 +865,41 @@ describe("layout", () => {
       expect(rects[0]).toEqual({ x: 0, y: 0, width: 20, height: 3 });
       expect(rects[1]).toEqual({ x: 20, y: 0, width: 30, height: 3 });
       expect(rects[2]).toEqual({ x: 50, y: 0, width: 30, height: 3 });
+    });
+
+    test("row flex redistribution honors minWidth after clamping", () => {
+      const node = HStack({ width: 80, height: 24, flexWrap: "wrap" }, [
+        VStack({ width: 20, height: 3 }, []),
+        VStack({ flex: 1, minWidth: 40, height: 3 }, []),
+        VStack({ flex: 1, height: 3 }, []),
+      ]);
+      const result = layout(node, 80, 24);
+      const widths = childRects(result).map((child) => child.width);
+      expect(widths).toEqual([20, 40, 20]);
+      expect(widths.reduce((sum, width) => sum + width, 0)).toBe(80);
+    });
+
+    test("row flex redistribution honors maxWidth after clamping", () => {
+      const node = HStack({ width: 80, height: 24, flexWrap: "wrap" }, [
+        VStack({ width: 20, height: 3 }, []),
+        VStack({ flex: 1, maxWidth: 10, height: 3 }, []),
+        VStack({ flex: 1, height: 3 }, []),
+      ]);
+      const result = layout(node, 80, 24);
+      const widths = childRects(result).map((child) => child.width);
+      expect(widths).toEqual([20, 10, 50]);
+      expect(widths.reduce((sum, width) => sum + width, 0)).toBe(80);
+    });
+
+    test("row flex redistribution keeps going after mixed minWidth and maxWidth clamps", () => {
+      const node = HStack({ width: 100, height: 24, flexWrap: "wrap" }, [
+        VStack({ flex: 1, minWidth: 80, height: 3 }, []),
+        VStack({ flex: 1, maxWidth: 10, height: 3 }, []),
+      ]);
+      const result = layout(node, 100, 24);
+      const widths = childRects(result).map((child) => child.width);
+      expect(widths).toEqual([90, 10]);
+      expect(widths.reduce((sum, width) => sum + width, 0)).toBe(100);
     });
 
     test("padding reduces available width for wrapping", () => {

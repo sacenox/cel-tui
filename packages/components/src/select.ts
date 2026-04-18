@@ -18,13 +18,13 @@ import type {
  * // Simple string item
  * "apple"
  *
- * // Rich item with ANSI-colored label
+ * // Rich item with explicit display and filter text
  * { label: "claude-sonnet-4  (free)", value: "anthropic/claude-sonnet-4", filterText: "claude-sonnet-4" }
  */
 export type SelectItem =
   | string
   | {
-      /** Displayed text (can include ANSI styling). */
+      /** Displayed text. */
       label: string;
       /** Value returned on selection. */
       value: string;
@@ -92,9 +92,9 @@ export interface SelectProps {
    */
   focusable?: boolean;
   /** Called when the select receives focus. */
-  onFocus?: () => void;
+  onFocus?: ContainerProps["onFocus"];
   /** Called when the select loses focus. */
-  onBlur?: () => void;
+  onBlur?: ContainerProps["onBlur"];
   /** Style overrides applied when focused. */
   focusStyle?: StyleProps;
 }

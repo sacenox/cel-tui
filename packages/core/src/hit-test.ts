@@ -1,5 +1,6 @@
 import type { ContainerProps } from "@cel-tui/types";
 import type { LayoutNode, Rect } from "./layout.js";
+import { clampScrollOffset } from "./scroll.js";
 
 /**
  * Test if a point is inside a rect.
@@ -77,7 +78,7 @@ export function hitTest(
     // Check if current node is scrollable — if so, adjust coordinates
     const props = getProps(current);
     if (props?.overflow === "scroll" || current.node.type === "textinput") {
-      const offset = resolver(current);
+      const offset = clampScrollOffset(current, resolver(current));
       if (offset !== 0) {
         const isVertical =
           current.node.type === "vstack" || current.node.type === "textinput";

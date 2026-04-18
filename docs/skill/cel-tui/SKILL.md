@@ -198,7 +198,8 @@ TextInput({
   value,
   onChange,
   focused: isFocused,
-  onFocus: () => {
+  onFocus: ({ reason }) => {
+    addLog(`focused via ${reason}`);
     isFocused = true;
     cel.render();
   },
@@ -274,7 +275,6 @@ SyntaxHighlight(source, "javascript", { theme: "dark-plus" });
 - **Mouse wheel step is adaptive by default** — scrollable containers and `TextInput` use `floor(viewportMainAxis / 3)`, clamped to `3..8`. Set `scrollStep` to override it for a specific view.
 - **Container `bgColor`** fills the rect with opaque background before painting children. Always pair `bgColor` with `fgColor` for contrast — terminal default fg is designed for the terminal default bg, not for arbitrary palette backgrounds.
 - **Colors are numbered slots** (`"color00"`–`"color15"`), not names. The default theme maps to ANSI 16. Omit `fgColor`/`bgColor` for terminal defaults (guaranteed readable across themes).
-- **`repeat: "fill"` in HStack** gets width 0 (intrinsic width is 0). Workaround: wrap in `VStack({ flex: 1 }, [Text(" ", { repeat: "fill" })])`.
 - **Crash cleanup** — terminal state is restored on SIGINT, SIGTERM, uncaughtException.
 - **Always call `cel.stop()` before `process.exit()`** — restores raw mode, mouse tracking, and alternate screen.
 - **Kitty-first keyboard input** — the framework enables Kitty level 1 and gets full modifier fidelity when the host preserves it (`alt+x`, `ctrl+plus`, `shift+enter`, etc.). It also normalizes recoverable legacy encodings so common shortcuts keep working in tmux. For best results, use a Kitty-compatible terminal or `tmux` with `set -s extended-keys on`. On older legacy hosts, historically ambiguous collisions such as `ctrl+i` vs `tab` or `ctrl+m` vs `enter` cannot be recovered once the host collapses them.

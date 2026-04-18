@@ -132,6 +132,41 @@ describe("hitTest", () => {
     expect(textContent(last(path))).toBe("b");
   });
 
+  test("clamps vertical scroll offset before hit testing", () => {
+    const node = VStack(
+      { width: 20, height: 3, overflow: "scroll", scrollOffset: Infinity },
+      [
+        Text("line 0"),
+        Text("line 1"),
+        Text("line 2"),
+        Text("line 3"),
+        Text("line 4"),
+      ],
+    );
+    const ln = layout(node, 20, 3);
+
+    const topPath = hitTest(ln, 3, 0);
+    expect(textContent(last(topPath))).toBe("line 2");
+
+    const bottomPath = hitTest(ln, 3, 2);
+    expect(textContent(last(bottomPath))).toBe("line 4");
+  });
+
+  test("clamps horizontal over-max scroll offset before hit testing", () => {
+    const node = HStack(
+      { width: 10, height: 3, overflow: "scroll", scrollOffset: 999 },
+      [
+        VStack({ width: 5 }, [Text("a")]),
+        VStack({ width: 5 }, [Text("b")]),
+        VStack({ width: 5 }, [Text("c")]),
+      ],
+    );
+    const ln = layout(node, 10, 3);
+
+    const path = hitTest(ln, 0, 0);
+    expect(textContent(last(path))).toBe("b");
+  });
+
   test("no scroll adjustment without overflow scroll", () => {
     const node = VStack({ width: 20, height: 3 }, [
       Text("line 0"),

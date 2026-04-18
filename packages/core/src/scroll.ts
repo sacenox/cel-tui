@@ -79,3 +79,14 @@ export function getMaxScrollOffset(target: LayoutNode): number {
   }
   return Math.max(0, contentWidth + padX - rect.width);
 }
+
+/**
+ * Clamp a scroll offset to the target's valid visible range.
+ * Accepts large values such as `Infinity` for sticky-bottom patterns.
+ */
+export function clampScrollOffset(target: LayoutNode, offset: number): number {
+  if (Number.isNaN(offset)) {
+    return 0;
+  }
+  return Math.max(0, Math.min(offset, getMaxScrollOffset(target)));
+}

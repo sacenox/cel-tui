@@ -100,6 +100,18 @@ export type SizeValue = number | `${number}%`;
 // biome-ignore lint/suspicious/noConfusingVoidType: public callback contract intentionally accepts void-returning handlers.
 export type KeyPressHandler = (key: string) => boolean | void;
 
+/** Why a focus change callback fired. */
+export type FocusChangeReason = "tab" | "shift+tab" | "click" | "escape";
+
+/** Metadata for {@link ContainerProps.onFocus} / {@link ContainerProps.onBlur}. */
+export interface FocusChangeEvent {
+  /** What caused the focus transition. */
+  reason: FocusChangeReason;
+}
+
+/** Focus change notification callback. */
+export type FocusChangeHandler = (event: FocusChangeEvent) => void;
+
 export interface ContainerProps extends StyleProps {
   /**
    * Fixed width in cells, or percentage of parent width.
@@ -233,18 +245,20 @@ export interface ContainerProps extends StyleProps {
   focused?: boolean;
 
   /**
-   * Called when this container receives focus (Tab, Shift+Tab, or mouse click).
+   * Called when this container receives focus.
+   * The event includes the transition reason (`tab`, `shift+tab`, `click`, or `escape`).
    * In uncontrolled mode, this is a notification callback.
    * In controlled mode, update {@link focused} here.
    */
-  onFocus?: () => void;
+  onFocus?: FocusChangeHandler;
 
   /**
    * Called when this container loses focus.
+   * The event includes the transition reason (`tab`, `shift+tab`, `click`, or `escape`).
    * In uncontrolled mode, this is a notification callback.
    * In controlled mode, update {@link focused} here.
    */
-  onBlur?: () => void;
+  onBlur?: FocusChangeHandler;
 
   /**
    * Style overrides applied when this element is focused.
@@ -314,7 +328,9 @@ export interface TextProps extends StyleProps {
  *
  * TextInput is a multi-line editable text container. It accepts container
  * sizing props but has no children — its content is the `value` prop.
- * Scroll is always framework-managed (follows cursor and responds to mouse wheel).
+ * Scroll is always framework-managed: the stored offset is clamped every render,
+ * mouse wheel input adjusts it, and focused inputs further adjust only as needed
+ * to keep the cursor visible after edits, cursor movement, or reflow.
  * Word-wrap is always on.
  *
  * When focused, TextInput consumes insertable text plus editing/navigation

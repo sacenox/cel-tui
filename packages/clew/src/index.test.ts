@@ -72,6 +72,8 @@ describe("clew", () => {
     expect(clewSupportsLanguage("bash")).toBe(true);
     expect(clewSupportsLanguage("json")).toBe(true);
     expect(clewSupportsLanguage("markdown")).toBe(true);
+    expect(clewSupportsLanguage("tsx")).toBe(false);
+    expect(clewSupportsLanguage("jsx")).toBe(false);
     expect(clewSupportsLanguage("shell")).toBe(false);
     expect(clewSupportsLanguage("zsh")).toBe(false);
     expect(clewSupportsLanguage("md")).toBe(false);
