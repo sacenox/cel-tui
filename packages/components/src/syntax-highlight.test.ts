@@ -134,6 +134,43 @@ describe("SyntaxHighlight", () => {
     expect(findText(node, '"hi"').props.fgColor).toBe("color02");
   });
 
+  test("highlights richer TypeScript scopes through clew", () => {
+    const node = render(
+      [
+        "@sealed",
+        "interface Job {",
+        "  status: Phase;",
+        "}",
+        'type Phase = "idle";',
+        "const render = (job: Job) => console.log(job.status, config.port);",
+        "const config = { port: 3000 };",
+      ].join("\n"),
+      "typescript",
+      {
+        theme: {
+          name: "syntax-highlight-typescript-semantics",
+          type: "dark",
+          fg: "#e5e5e5",
+          bg: "#000000",
+          tokenColors: [
+            { settings: { foreground: "#e5e5e5" } },
+            { scope: "meta", settings: { foreground: "#e5e510" } },
+            { scope: "type", settings: { foreground: "#2472c8" } },
+            { scope: "property", settings: { foreground: "#0dbc79" } },
+            { scope: "function", settings: { foreground: "#cd3131" } },
+            { scope: "builtin", settings: { foreground: "#bc3fbc" } },
+          ],
+        },
+      },
+    );
+
+    expect(findText(node, "sealed").props.fgColor).toBe("color03");
+    expect(findText(node, "Job").props.fgColor).toBe("color04");
+    expect(findText(node, "status").props.fgColor).toBe("color02");
+    expect(findText(node, "render").props.fgColor).toBe("color01");
+    expect(findText(node, "console").props.fgColor).toBe("color05");
+  });
+
   test("highlights bash keywords and builtins", () => {
     const node = render('if true; then echo "$HOME"; fi', "bash");
 
@@ -221,7 +258,7 @@ describe("SyntaxHighlight", () => {
 
     expect(findText(node, "type").props.fgColor).toBe("color01");
     expect(findText(node, '"idle"').props.fgColor).toBe("color01");
-    expect(findText(node, "Phase").props.fgColor).toBe("color07");
+    expect(findText(node, "Phase").props.fgColor).toBe("color06");
   });
 
   test("custom theme object matches direct clew scopes for bash", () => {

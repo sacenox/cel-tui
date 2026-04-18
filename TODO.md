@@ -18,6 +18,10 @@ Remaining work, known bugs, and planned improvements.
 
 - ❌ **`repeat: "fill"` should claim flex space in HStack** — `Text(" ", { repeat: "fill" })` inside an HStack gets width 0 because its intrinsic width is 0 and no flex distributes remaining space. The workaround is `VStack({ flex: 1 }, [Text(" ", { repeat: "fill" })])`, which is non-obvious. Fix: either make `repeat: "fill"` imply flex behavior in the layout engine, or document the workaround prominently. The former is preferred.
 
+## Syntax Highlighting
+
+- 🔧 **`clew` over-claims `tsx` / `jsx` support** — `tsx` and `jsx` are currently listed as supported TypeScript-family ids, but JSX tokenization is still wrong in real cases (for example, tag boundaries and closing tags get misclassified as operators / regexp-like tokens). Fix: make the TypeScript tokenizer variant-aware for JSX/TSX, or remove those ids until the support is real.
+
 ## Not Yet Implemented
 
 - ❌ **Markdown heading inline styling** — Headings (`#`, `##`, `###`) still strip inline formatting to plain text. Since headings are short and single-line, this is low priority. Paragraphs, list items, and blockquotes now render inline formatting via wrapping HStack.

@@ -95,16 +95,71 @@ describe("clew", () => {
     );
   });
 
-  test("tokenizes TypeScript and JavaScript scopes", () => {
-    const source = 'type Phase = "idle"\nconst value = 1n';
+  test("tokenizes richer TypeScript declaration, property, function, and literal scopes", () => {
+    const source = [
+      "@sealed",
+      'type Phase = "idle" | "running";',
+      "interface Job {",
+      "  status: Phase;",
+      "  execute(input: string): Promise<void>;",
+      "}",
+      "class Runner<T> {",
+      "  constructor(private value: T) {}",
+      "  get current(): T { return this.value; }",
+      "}",
+      "const render = (job: Job) => console.log(job.status, config.port);",
+      'const config = { port: 3000, "display-name": "cel", ok: true };',
+      "const count = 1n;",
+      "const empty = null;",
+      'enum Mode { Idle = "idle" }',
+    ].join("\n");
 
     expectTokenType("typescript", source, "type", "keyword");
     expectTokenType("typescript", source, '"idle"', "string");
-    expectTokenScopes("typescript", source, "Phase", [
-      "identifier",
+    expectTokenScopes("typescript", source, "sealed", [
+      "meta",
+      "meta.decorator",
+    ]);
+    expectTokenScopes("typescript", source, "Phase", ["type", "type.alias"]);
+    expectTokenScopes("typescript", source, "Job", ["type", "type.interface"]);
+    expectTokenScopes("typescript", source, "status", ["property"]);
+    expectTokenScopes("typescript", source, "execute", ["function"]);
+    expectTokenScopes("typescript", source, "input", [
       "variable",
+      "variable.parameter",
+    ]);
+    expectTokenScopes("typescript", source, "string", [
+      "type",
+      "type.primitive",
+    ]);
+    expectTokenScopes("typescript", source, "Promise", ["type"]);
+    expectTokenScopes("typescript", source, "void", ["type", "type.primitive"]);
+    expectTokenScopes("typescript", source, "Runner", ["type", "type.class"]);
+    expectTokenScopes("typescript", source, "T", ["type", "type.parameter"]);
+    expectTokenScopes("typescript", source, "value", ["property"]);
+    expectTokenScopes("typescript", source, "current", ["property"]);
+    expectTokenType("typescript", source, "render", "function");
+    expectTokenType("typescript", source, "console", "builtin");
+    expectTokenType("typescript", source, "log", "function");
+    expectTokenScopes("typescript", source, "port", ["property"]);
+    expectTokenScopes("typescript", source, '"display-name"', [
+      "string",
+      "property",
+    ]);
+    expectTokenScopes("typescript", source, "true", [
+      "keyword",
+      "constant.boolean",
     ]);
     expectTokenScopes("typescript", source, "1n", ["number", "number.bigint"]);
+    expectTokenScopes("typescript", source, "null", [
+      "keyword",
+      "constant.null",
+    ]);
+    expectTokenScopes("typescript", source, "Mode", ["type", "type.enum"]);
+    expectTokenScopes("typescript", source, "Idle", [
+      "property",
+      "constant.enum",
+    ]);
   });
 
   test("tokenizes python decorators, definitions, builtins, and properties", () => {

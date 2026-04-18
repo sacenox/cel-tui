@@ -296,6 +296,7 @@ The current shape is intentionally simple:
   - optional `stableBoundary(content, ended)`
 - `SyntaxHighlight` is now a **`clew` renderer only**
 - old `lowlight` / `lextide` fallback logic has been removed from `SyntaxHighlight`
+- the TypeScript / JavaScript path now starts with the TypeScript lexical classifier and layers AST-based semantic overlays on top
 
 Current `clew` source layout:
 
@@ -304,6 +305,7 @@ Current `clew` source layout:
 - `src/registry.ts`
 - `src/stream.ts`
 - `src/languages/typescript.ts`
+- `src/languages/python.ts`
 - `src/languages/bash.ts`
 - `src/languages/json.ts`
 - `src/languages/markdown.ts`
@@ -349,6 +351,11 @@ That is a much better long-term contract than `hljs-*` or other backend-shaped n
 - `jsx`
 - `mjs`
 - `cjs`
+
+### Python
+
+- `python`
+- `py`
 
 ### Bash
 
@@ -403,6 +410,8 @@ These verify:
 - theme-to-scope mapping
 - line preservation and wrapping behavior
 - append-only stability through the component
+- TypeScript semantic scope rendering
+- Python decorator / builtin / property rendering
 - Bash rendering cases like heredocs and substitutions
 - JSON property/value styling
 - Markdown heading, list, code, and link styling
@@ -421,7 +430,8 @@ What exists now:
 - `packages/clew/src/index.ts` exposes the public API
 - `packages/clew/src/registry.ts` provides language lookup
 - `packages/clew/src/stream.ts` implements the shared streaming / diff / correction layer
-- `packages/clew/src/languages/typescript.ts` implements the TypeScript / JavaScript tokenizer path
+- `packages/clew/src/languages/typescript.ts` implements the TypeScript / JavaScript tokenizer path with AST-based semantic overlays
+- `packages/clew/src/languages/python.ts` implements the Python tokenizer path
 - `packages/clew/src/languages/bash.ts` implements the Bash tokenizer path
 - `packages/clew/src/languages/json.ts` implements the JSON tokenizer path
 - `packages/clew/src/languages/markdown.ts` implements the Markdown tokenizer path
@@ -429,6 +439,26 @@ What exists now:
 - `@cel-tui/components` no longer depends on `lextide`
 - `examples/syntax-highlight.ts` is now a component-focused demo built around the real public API
 - the example currently cycles real TypeScript, JavaScript, Python, Bash, JSON, and Markdown samples through `SyntaxHighlight`
+
+TypeScript / JavaScript support currently covers a richer semantic slice:
+
+- type aliases, interfaces, classes, enums, and type parameters
+- primitive type keywords and type references
+- function declarations, methods, and arrow-function bindings
+- object properties and property access
+- decorators
+- parameters
+- booleans and null
+- bigint literals
+
+Python support currently covers a meaningful first slice:
+
+- decorators
+- class and def declarations
+- builtin calls
+- property access
+- booleans
+- type-ish names like builtins and class names
 
 Bash support currently covers a meaningful first slice:
 
@@ -460,13 +490,12 @@ Markdown support currently covers:
 - horizontal rules
 - escapes
 
-Verified right now:
+Verified in this session:
 
 - `bun test`
 - `bun run typecheck`
 - `bun run check`
 - `bun run format`
-- tmux smoke test on `examples/syntax-highlight.ts`, including navigation to the JSON and Markdown samples
 
 ## Example status
 
@@ -497,9 +526,8 @@ That makes it a much better verification target for real users of the component.
 
 Important remaining work:
 
-- broader language coverage beyond TypeScript / JavaScript, Bash, JSON, and Markdown
+- broader language coverage beyond TypeScript / JavaScript, Python, Bash, JSON, and Markdown
 - stronger corpus / fixture coverage against real language manuals and specs
-- richer TypeScript semantics beyond the current classifier-based path
 - deeper Bash coverage for more edge cases
 - a clearer long-term decision on which future backends should be tokenizer-only, parser-backed, TextMate-backed, or mixed
 
