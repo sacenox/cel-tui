@@ -570,8 +570,79 @@ function paintTextInput(
  * each frame.
  */
 type OnChangeFn = (value: string) => void;
-const textInputCursors = new WeakMap<OnChangeFn, number>();
+type TextInputState = { value: string; cursor: number };
+const textInputStates = new WeakMap<OnChangeFn, TextInputState>();
 const textInputScrolls = new WeakMap<OnChangeFn, number>();
+
+function clampCursor(cursor: number, value: string): number {
+  return Math.max(0, Math.min(cursor, value.length));
+}
+
+/**
+ * Remap a stored cursor through an external value change by anchoring it to the
+ * unchanged prefix/suffix around the edit. Insertions at the cursor land after
+ * the inserted text; edits strictly after the cursor leave it untouched.
+ */
+function remapCursorOffset(
+  previousValue: string,
+  previousCursor: number,
+  nextValue: string,
+): number {
+  const cursor = clampCursor(previousCursor, previousValue);
+  if (previousValue === nextValue) return clampCursor(cursor, nextValue);
+
+  let prefix = 0;
+  const maxPrefix = Math.min(previousValue.length, nextValue.length);
+  while (
+    prefix < maxPrefix &&
+    previousValue.charCodeAt(prefix) === nextValue.charCodeAt(prefix)
+  ) {
+    prefix++;
+  }
+
+  let previousEnd = previousValue.length;
+  let nextEnd = nextValue.length;
+  while (
+    previousEnd > prefix &&
+    nextEnd > prefix &&
+    previousValue.charCodeAt(previousEnd - 1) ===
+      nextValue.charCodeAt(nextEnd - 1)
+  ) {
+    previousEnd--;
+    nextEnd--;
+  }
+
+  if (cursor < prefix) return cursor;
+  if (cursor > previousEnd) {
+    return clampCursor(cursor + (nextEnd - previousEnd), nextValue);
+  }
+  return nextEnd;
+}
+
+function getTextInputState(props: TextInputProps): TextInputState {
+  const stored = textInputStates.get(props.onChange);
+  if (stored === undefined) {
+    const initial = { value: props.value, cursor: props.value.length };
+    textInputStates.set(props.onChange, initial);
+    return initial;
+  }
+
+  if (stored.value === props.value) {
+    const clampedCursor = clampCursor(stored.cursor, props.value);
+    if (clampedCursor === stored.cursor) return stored;
+
+    const clampedState = { value: props.value, cursor: clampedCursor };
+    textInputStates.set(props.onChange, clampedState);
+    return clampedState;
+  }
+
+  const syncedState = {
+    value: props.value,
+    cursor: remapCursorOffset(stored.value, stored.cursor, props.value),
+  };
+  textInputStates.set(props.onChange, syncedState);
+  return syncedState;
+}
 
 /**
  * Compute the screen position of the cursor for a focused TextInput.
@@ -614,19 +685,19 @@ export function getTextInputCursorScreenPos(
 
 /** Get the cursor offset for a TextInput (framework-managed). */
 export function getTextInputCursor(props: TextInputProps): number {
-  const stored = textInputCursors.get(props.onChange);
-  if (stored === undefined) return props.value.length;
-  // Clamp to value length — the app may have cleared or shortened the value
-  // externally (e.g. after submit) while the WeakMap still holds the old cursor.
-  return Math.min(stored, props.value.length);
+  return getTextInputState(props).cursor;
 }
 
 /** Set the cursor offset for a TextInput. */
 export function setTextInputCursor(
   props: TextInputProps,
   cursor: number,
+  value = props.value,
 ): void {
-  textInputCursors.set(props.onChange, cursor);
+  textInputStates.set(props.onChange, {
+    value,
+    cursor: clampCursor(cursor, value),
+  });
 }
 
 /** Get the scroll offset for a TextInput (framework-managed). */

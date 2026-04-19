@@ -814,7 +814,7 @@ function commitTextInputEdit(
   nextState: EditState,
 ): void {
   batchTextInputEdits?.set(props, nextState);
-  setTextInputCursor(props, nextState.cursor);
+  setTextInputCursor(props, nextState.cursor, nextState.value);
   if (nextState.value !== previousState.value) {
     props.onChange(nextState.value);
   }

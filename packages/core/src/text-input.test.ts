@@ -1042,6 +1042,40 @@ describe("TextInput integration", () => {
     expect(found).toBe(true);
   });
 
+  test("programmatic insert at the cursor advances the cursor", async () => {
+    const term = setup(30, 3);
+    let value = "abcd";
+    const onChange = (v: string) => {
+      value = v;
+      cel.render();
+    };
+
+    cel.viewport(() =>
+      VStack({}, [
+        TextInput({
+          value,
+          focused: true,
+          onChange,
+        }),
+      ]),
+    );
+    await waitForRender();
+
+    term.sendInput(LEFT);
+    await waitForRender();
+    term.sendInput(LEFT);
+    await waitForRender();
+
+    value = "abXcd";
+    cel.render();
+    await waitForRender();
+
+    term.sendInput("!");
+    await waitForRender();
+
+    expect(value).toBe("abX!cd");
+  });
+
   test("padding affects intrinsic height", async () => {
     setup(20, 10);
     let value = "line1";
