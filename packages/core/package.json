@@ -1,6 +1,6 @@
 {
   "name": "@cel-tui/core",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "description": "Core framework engine for cel-tui — primitives, layout, rendering, input",
   "type": "module",
   "module": "src/index.ts",
