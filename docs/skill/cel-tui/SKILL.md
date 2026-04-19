@@ -5,7 +5,7 @@ license: MIT
 compatibility: Requires Bun runtime. Best experience on Kitty-compatible terminals and in tmux with `set -s extended-keys on`; uses SGR mouse mode and accepts recoverable legacy key encodings when hosts do not preserve a pure Kitty stream.
 metadata:
   author: sacenox
-  version: "0.7.2"
+  version: "0.8.0"
 ---
 
 # Building TUIs with cel-tui
@@ -26,6 +26,8 @@ cel-tui enables Kitty level 1 for full modifier fidelity, but it also accepts re
 bun add @cel-tui/core
 # Optional pre-made components
 bun add @cel-tui/components
+# Optional stream-first syntax tokenization
+bun add @cel-tui/clew
 ```
 
 ## Core Pattern
