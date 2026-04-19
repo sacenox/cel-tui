@@ -38,6 +38,18 @@ describe("text-layout", () => {
     expect(result.offsetToPosition(2)).toEqual({ line: 1, col: 0 });
   });
 
+  test("wraps tabs using visual tab-stop width", () => {
+    const result = layoutText("\tfoo", 6, "word");
+
+    expect(
+      result.lines.map((line) => ({ text: line.text, width: line.width })),
+    ).toEqual([
+      { text: "\t", width: 4 },
+      { text: "foo", width: 3 },
+    ]);
+    expect(result.offsetToPosition(1)).toEqual({ line: 1, col: 0 });
+  });
+
   test("wraps unbroken wide graphemes by grapheme boundaries", () => {
     const result = layoutText("世界世界", 5, "word");
 

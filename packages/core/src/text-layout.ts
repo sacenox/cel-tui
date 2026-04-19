@@ -1,4 +1,4 @@
-import { visibleWidth } from "./width.js";
+import { visibleWidthFromColumn } from "./width.js";
 
 const segmenter = new Intl.Segmenter(undefined, { granularity: "grapheme" });
 
@@ -118,16 +118,19 @@ function segmentLine(
   const graphemes: GraphemeInfo[] = [];
   const text = value.slice(start, end);
   let offset = start;
+  let col = 0;
 
   for (const { segment } of segmenter.segment(text)) {
+    const width = visibleWidthFromColumn(segment, col);
     graphemes.push({
       text: segment,
       startOffset: offset,
       endOffset: offset + segment.length,
-      width: visibleWidth(segment),
+      width,
       isWhitespace: /^\s+$/u.test(segment),
     });
     offset += segment.length;
+    col += width;
   }
 
   return graphemes;

@@ -223,6 +223,13 @@ describe("SyntaxHighlight", () => {
     expect(measureContentHeight(node, { width: 12 })).toBeGreaterThan(1);
   });
 
+  test("expands tabs before laying out wrapped highlight lines", () => {
+    const node = render("const\tvalue = 42", "javascript");
+
+    expect(lineText(item(node.children, 0))).toBe("const   value = 42");
+    expect(measureContentHeight(node, { width: 10 })).toBeGreaterThan(1);
+  });
+
   test("default ansi16 theme uses terminal defaults for base identifiers", () => {
     const node = render("let value = 42", "javascript");
 

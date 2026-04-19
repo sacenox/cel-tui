@@ -121,8 +121,74 @@ function isPrintableAscii(str: string): boolean {
 
 // --- Cache ---
 
+const TAB_STOP = 4;
 const WIDTH_CACHE_SIZE = 512;
 const widthCache = new Map<string, number>();
+
+function tabWidthAtColumn(column: number): number {
+  return TAB_STOP - (column % TAB_STOP);
+}
+
+function stripAnsi(str: string): string {
+  if (!str.includes("\x1b")) {
+    return str;
+  }
+
+  let stripped = "";
+  let i = 0;
+  while (i < str.length) {
+    const ansi = extractAnsiCode(str, i);
+    if (ansi) {
+      i += ansi.length;
+      continue;
+    }
+    stripped += str[i];
+    i++;
+  }
+
+  return stripped;
+}
+
+/**
+ * Calculate the visible width of a string in terminal columns starting from a
+ * specific visual column. This only changes behavior for tab expansion.
+ */
+export function visibleWidthFromColumn(
+  str: string,
+  startColumn: number,
+): number {
+  if (str.length === 0) return 0;
+
+  if (startColumn === 0 && isPrintableAscii(str)) {
+    return str.length;
+  }
+
+  if (startColumn === 0) {
+    const cached = widthCache.get(str);
+    if (cached !== undefined) return cached;
+  }
+
+  const clean = stripAnsi(str);
+  let width = 0;
+
+  for (const { segment } of segmenter.segment(clean)) {
+    if (segment === "\t") {
+      width += tabWidthAtColumn(startColumn + width);
+      continue;
+    }
+    width += graphemeWidth(segment);
+  }
+
+  if (startColumn === 0) {
+    if (widthCache.size >= WIDTH_CACHE_SIZE) {
+      const firstKey = widthCache.keys().next().value;
+      if (firstKey !== undefined) widthCache.delete(firstKey);
+    }
+    widthCache.set(str, width);
+  }
+
+  return width;
+}
 
 // --- Public API ---
 
@@ -130,50 +196,11 @@ const widthCache = new Map<string, number>();
  * Calculate the visible width of a string in terminal columns.
  *
  * Handles ASCII (fast path), East Asian wide characters, emoji,
- * ANSI escape sequences, and zero-width characters.
+ * ANSI escape sequences, zero-width characters, and tab expansion.
  *
  * @param str - The string to measure.
  * @returns Width in terminal columns.
  */
 export function visibleWidth(str: string): number {
-  if (str.length === 0) return 0;
-
-  // Fast path: pure printable ASCII
-  if (isPrintableAscii(str)) return str.length;
-
-  // Check cache
-  const cached = widthCache.get(str);
-  if (cached !== undefined) return cached;
-
-  // Strip ANSI escapes
-  let clean = str;
-  if (clean.includes("\x1b")) {
-    let stripped = "";
-    let i = 0;
-    while (i < clean.length) {
-      const ansi = extractAnsiCode(clean, i);
-      if (ansi) {
-        i += ansi.length;
-        continue;
-      }
-      stripped += clean[i];
-      i++;
-    }
-    clean = stripped;
-  }
-
-  // Sum grapheme widths
-  let width = 0;
-  for (const { segment } of segmenter.segment(clean)) {
-    width += graphemeWidth(segment);
-  }
-
-  // Cache
-  if (widthCache.size >= WIDTH_CACHE_SIZE) {
-    const firstKey = widthCache.keys().next().value;
-    if (firstKey !== undefined) widthCache.delete(firstKey);
-  }
-  widthCache.set(str, width);
-
-  return width;
+  return visibleWidthFromColumn(str, 0);
 }

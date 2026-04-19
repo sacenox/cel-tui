@@ -3,7 +3,7 @@ import type { Cell, CellBuffer } from "./cell-buffer.js";
 import type { LayoutNode, Rect } from "./layout.js";
 import { getMaxScrollOffset } from "./scroll.js";
 import { layoutText } from "./text-layout.js";
-import { visibleWidth } from "./width.js";
+import { visibleWidth, visibleWidthFromColumn } from "./width.js";
 
 const segmenter = new Intl.Segmenter(undefined, { granularity: "grapheme" });
 
@@ -337,8 +337,8 @@ function makeCell(
 
 /**
  * Paint a single line of text into the buffer using grapheme segmentation.
- * Correctly handles wide characters (CJK, emoji) by advancing the column
- * by the grapheme's visible width. Respects the clip rect.
+ * Correctly handles wide characters (CJK, emoji) and tab expansion by
+ * advancing the column by each segment's visible width. Respects the clip rect.
  */
 function paintLineGraphemes(
   line: string,
@@ -361,26 +361,32 @@ function paintLineGraphemes(
 
   let col = 0;
   for (const { segment } of segmenter.segment(line)) {
-    const gw = visibleWidth(segment);
+    const gw = visibleWidthFromColumn(segment, col);
     if (gw === 0) continue;
-    if (col + gw > maxWidth) break; // clip: grapheme doesn't fit in rect
+
     const absX = x + col;
-    if (absX >= clipRight) break; // past clip right edge
+    if (absX >= clipRight) break;
+
+    if (segment === "\t") {
+      const visibleColumns = Math.min(gw, Math.max(0, maxWidth - col));
+      for (let w = 0; w < visibleColumns; w++) {
+        const cx = absX + w;
+        if (cx >= clipLeft && cx < clipRight) {
+          buf.set(cx, y, makeCell(" ", props));
+        }
+      }
+      col += gw;
+      if (col >= maxWidth) break;
+      continue;
+    }
+
+    if (col + gw > maxWidth) break;
     if (absX + gw > clipLeft) {
-      // At least partially visible in clip rect
       buf.set(absX, y, makeCell(segment, props));
-      // Write continuation markers for wide characters (2+ columns)
       for (let w = 1; w < gw; w++) {
         const cx = absX + w;
         if (cx < clipRight) {
-          buf.set(cx, y, {
-            char: "",
-            fgColor: props.fgColor ?? null,
-            bgColor: props.bgColor ?? null,
-            bold: props.bold ?? false,
-            italic: props.italic ?? false,
-            underline: props.underline ?? false,
-          });
+          buf.set(cx, y, makeCell("", props));
         }
       }
     }
@@ -411,7 +417,14 @@ function paintText(
   if (props.repeat === "fill" && content.length > 0) {
     const contentW = visibleWidth(content);
     if (contentW > 0) {
-      text = content.repeat(Math.ceil(w / contentW));
+      if (content.includes("\t")) {
+        text = "";
+        while (visibleWidth(text) < w) {
+          text += content;
+        }
+      } else {
+        text = content.repeat(Math.ceil(w / contentW));
+      }
     }
   } else if (typeof props.repeat === "number" && props.repeat > 0) {
     text = content.repeat(props.repeat);

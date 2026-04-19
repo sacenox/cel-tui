@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { visibleWidth } from "./width.js";
+import { visibleWidth, visibleWidthFromColumn } from "./width.js";
 
 describe("visibleWidth", () => {
   describe("ASCII fast path", () => {
@@ -96,6 +96,17 @@ describe("visibleWidth", () => {
 
     test("zero-width joiner", () => {
       expect(visibleWidth("\u200D")).toBe(0);
+    });
+  });
+
+  describe("tabs", () => {
+    test("expand to the next tab stop from column zero", () => {
+      expect(visibleWidth("\tfoo")).toBe(7);
+    });
+
+    test("expand relative to the current column", () => {
+      expect(visibleWidth("a\tb")).toBe(5);
+      expect(visibleWidthFromColumn("\t", 3)).toBe(1);
     });
   });
 

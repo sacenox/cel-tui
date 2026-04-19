@@ -127,6 +127,18 @@ describe("paint", () => {
       expect(readRawRow(buf, 2)).toBe("baz   ");
     });
 
+    test("tabs paint as spaces instead of disappearing", () => {
+      const node = VStack({ width: 6, height: 2 }, [
+        Text("\tfoo", { wrap: "word" }),
+      ]);
+      const ln = layout(node, 6, 2);
+      const buf = new CellBuffer(6, 2);
+      paint(ln, buf);
+
+      expect(readRawRow(buf, 0)).toBe("      ");
+      expect(readRawRow(buf, 1)).toBe("foo   ");
+    });
+
     test("TextInput cursor screen position follows visual word wrapping", () => {
       const onChange = () => {};
       const props = {

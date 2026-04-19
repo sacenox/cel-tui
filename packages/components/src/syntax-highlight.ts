@@ -5,11 +5,13 @@ import {
   clew,
   clewSupportsLanguage,
 } from "@cel-tui/clew";
-import { HStack, Text, VStack } from "@cel-tui/core";
+import { HStack, Text, VStack, visibleWidth } from "@cel-tui/core";
 import type { Color, ContainerNode, Node, StyleProps } from "@cel-tui/types";
 
 const DEFAULT_THEME_NAME = "cel-ansi16";
 const MAX_STATES_PER_KEY = 4;
+const TAB_STOP = 4;
+const segmenter = new Intl.Segmenter(undefined, { granularity: "grapheme" });
 
 const ANSI_SLOT_HEX: ReadonlyArray<readonly [Color, string]> = [
   ["color00", "#000000"],
@@ -485,17 +487,70 @@ function pushText(
   }
 }
 
-function runToNodes(run: HighlightRun): Node[] {
-  const pieces = run.content.match(/\S+|\s+/g);
-  if (!pieces) {
-    return [];
+function tabWidthAtColumn(column: number): number {
+  return TAB_STOP - (column % TAB_STOP);
+}
+
+// Tabs need to be expanded before splitting a line into separate Text nodes,
+// otherwise each HStack child would measure tab width from column zero.
+function expandTabs(
+  text: string,
+  startColumn: number,
+): { text: string; endColumn: number } {
+  if (!text.includes("\t")) {
+    return { text, endColumn: startColumn + visibleWidth(text) };
   }
 
-  return pieces.map((piece) => Text(piece, run.style));
+  let expanded = "";
+  let column = startColumn;
+
+  for (const { segment } of segmenter.segment(text)) {
+    if (segment === "\t") {
+      const spaces = tabWidthAtColumn(column);
+      expanded += " ".repeat(spaces);
+      column += spaces;
+      continue;
+    }
+
+    expanded += segment;
+    column += visibleWidth(segment);
+  }
+
+  return { text: expanded, endColumn: column };
+}
+
+function runToNodes(
+  run: HighlightRun,
+  startColumn: number,
+): { nodes: Node[]; endColumn: number } {
+  const pieces = run.content.match(/\S+|\s+/g);
+  if (!pieces) {
+    return { nodes: [], endColumn: startColumn };
+  }
+
+  const nodes: Node[] = [];
+  let column = startColumn;
+
+  for (const piece of pieces) {
+    const expanded = expandTabs(piece, column);
+    if (expanded.text.length > 0) {
+      nodes.push(Text(expanded.text, run.style));
+    }
+    column = expanded.endColumn;
+  }
+
+  return { nodes, endColumn: column };
 }
 
 function lineToNode(line: HighlightRun[]): Node {
-  const children = line.flatMap(runToNodes);
+  const children: Node[] = [];
+  let column = 0;
+
+  for (const run of line) {
+    const result = runToNodes(run, column);
+    children.push(...result.nodes);
+    column = result.endColumn;
+  }
 
   return HStack(
     { flexWrap: "wrap" },
