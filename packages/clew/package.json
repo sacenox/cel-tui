@@ -1,6 +1,6 @@
 {
   "name": "@cel-tui/clew",
-  "version": "0.8.1",
+  "version": "0.8.2",
   "description": "Stream-first syntax tokenization library",
   "type": "module",
   "module": "src/index.ts",
