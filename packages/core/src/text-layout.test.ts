@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { layoutText } from "./text-layout.js";
+import { layoutText, measureTextLineCount } from "./text-layout.js";
 
 describe("text-layout", () => {
   test("preserves whitespace at soft wraps and maps offsets using visual lines", () => {
@@ -61,5 +61,27 @@ describe("text-layout", () => {
     ]);
     expect(result.offsetToPosition(2)).toEqual({ line: 1, col: 0 });
     expect(result.positionToOffset(1, 1)).toBe(3);
+  });
+
+  test("measureTextLineCount fast path counts hard lines for wrap none", () => {
+    expect(measureTextLineCount("", 10, "none")).toBe(1);
+    expect(measureTextLineCount("hello", 1, "none")).toBe(1);
+    expect(measureTextLineCount("a\nb\n", 1, "none")).toBe(3);
+  });
+
+  test("measureTextLineCount matches layoutText lineCount for wrapped cases", () => {
+    const cases = [
+      ["foo bar baz", 6],
+      ["a  b ", 3],
+      ["a\n", 10],
+      ["\tfoo", 6],
+      ["世界世界", 5],
+    ] as const;
+
+    for (const [value, width] of cases) {
+      expect(measureTextLineCount(value, width, "word")).toBe(
+        layoutText(value, width, "word").lineCount,
+      );
+    }
   });
 });

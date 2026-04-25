@@ -1,6 +1,10 @@
 import { visibleWidthFromColumn } from "./width.js";
 
 const segmenter = new Intl.Segmenter(undefined, { granularity: "grapheme" });
+const whitespaceRegex = /^\s+$/u;
+const TEXT_LINE_COUNT_CACHE_SIZE = 2048;
+
+type WrapMode = "none" | "word";
 
 export interface VisualLine {
   text: string;
@@ -39,6 +43,18 @@ interface Range {
   end: number;
 }
 
+interface LineCountCacheEntry {
+  none?: number;
+  wordByWidth?: Map<number, number>;
+}
+
+const lineCountCache = new Map<string, LineCountCacheEntry>();
+
+/** Clear text measurement caches. Useful for cold-cache benchmarks. */
+export function clearTextMeasurementCaches(): void {
+  lineCountCache.clear();
+}
+
 function requiredAt<T>(
   items: readonly T[],
   index: number,
@@ -51,10 +67,33 @@ function requiredAt<T>(
   return item;
 }
 
+/**
+ * Measure the number of visual lines a string occupies for the given width and
+ * wrap mode. This avoids constructing the full `TextLayoutResult` when callers
+ * only need line count.
+ */
+export function measureTextLineCount(
+  value: string,
+  width: number,
+  wrap: WrapMode,
+): number {
+  const normalizedWidth = Math.max(1, width);
+  const cached = getCachedLineCount(value, normalizedWidth, wrap);
+  if (cached !== undefined) return cached;
+
+  const lineCount =
+    wrap === "word"
+      ? measureWrappedLineCount(value, normalizedWidth)
+      : countHardLines(value);
+
+  cacheLineCount(value, normalizedWidth, wrap, lineCount);
+  return lineCount;
+}
+
 export function layoutText(
   value: string,
   width: number,
-  wrap: "none" | "word",
+  wrap: WrapMode,
 ): TextLayoutResult {
   const hardLines = splitHardLines(value);
   const lines: VisualLineData[] = [];
@@ -97,6 +136,134 @@ export function layoutText(
   };
 }
 
+function countHardLines(value: string): number {
+  let lineCount = 1;
+  for (let i = 0; i < value.length; i++) {
+    if (value[i] === "\n") {
+      lineCount++;
+    }
+  }
+  return lineCount;
+}
+
+function getCachedLineCount(
+  value: string,
+  width: number,
+  wrap: WrapMode,
+): number | undefined {
+  const entry = lineCountCache.get(value);
+  if (entry === undefined) return undefined;
+  if (wrap === "none") return entry.none;
+  return entry.wordByWidth?.get(width);
+}
+
+function cacheLineCount(
+  value: string,
+  width: number,
+  wrap: WrapMode,
+  lineCount: number,
+): void {
+  let entry = lineCountCache.get(value);
+  if (entry === undefined) {
+    if (lineCountCache.size >= TEXT_LINE_COUNT_CACHE_SIZE) {
+      const firstKey = lineCountCache.keys().next().value;
+      if (firstKey !== undefined) {
+        lineCountCache.delete(firstKey);
+      }
+    }
+    entry = {};
+    lineCountCache.set(value, entry);
+  }
+
+  if (wrap === "none") {
+    entry.none = lineCount;
+    return;
+  }
+
+  if (entry.wordByWidth === undefined) {
+    entry.wordByWidth = new Map();
+  }
+  entry.wordByWidth.set(width, lineCount);
+}
+
+function measureWrappedLineCount(value: string, width: number): number {
+  let lineCount = 0;
+  for (const hardLine of splitHardLines(value)) {
+    lineCount += measureWrappedHardLine(
+      value,
+      hardLine.start,
+      hardLine.end,
+      width,
+    );
+  }
+  return lineCount;
+}
+
+function measureWrappedHardLine(
+  value: string,
+  start: number,
+  end: number,
+  width: number,
+): number {
+  if (start === end) {
+    return 1;
+  }
+
+  const widths: number[] = [];
+  const whitespace: boolean[] = [];
+  const text = value.slice(start, end);
+  let col = 0;
+
+  for (const { segment } of segmenter.segment(text)) {
+    const segmentWidth = visibleWidthFromColumn(segment, col);
+    widths.push(segmentWidth);
+    whitespace.push(whitespaceRegex.test(segment));
+    col += segmentWidth;
+  }
+
+  if (col <= width) {
+    return 1;
+  }
+
+  let lineCount = 0;
+  let lineStart = 0;
+
+  while (lineStart < widths.length) {
+    let lineEnd = lineStart;
+    let lineWidth = 0;
+    let lastBreak = -1;
+
+    while (lineEnd < widths.length) {
+      const segmentWidth = widths[lineEnd];
+      if (segmentWidth === undefined) {
+        break;
+      }
+      const nextWidth = lineWidth + segmentWidth;
+      if (nextWidth > width) break;
+      lineWidth = nextWidth;
+      lineEnd++;
+      if (whitespace[lineEnd - 1]) {
+        lastBreak = lineEnd;
+      }
+    }
+
+    lineCount++;
+
+    if (lineEnd >= widths.length) {
+      break;
+    }
+
+    if (lineEnd === lineStart) {
+      lineStart++;
+      continue;
+    }
+
+    lineStart = lastBreak > lineStart ? lastBreak : lineEnd;
+  }
+
+  return lineCount;
+}
+
 function splitHardLines(value: string): Range[] {
   const lines: Range[] = [];
   let start = 0;
@@ -127,7 +294,7 @@ function segmentLine(
       startOffset: offset,
       endOffset: offset + segment.length,
       width,
-      isWhitespace: /^\s+$/u.test(segment),
+      isWhitespace: whitespaceRegex.test(segment),
     });
     offset += segment.length;
     col += width;

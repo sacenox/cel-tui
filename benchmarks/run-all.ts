@@ -11,6 +11,7 @@
  *   bun run benchmarks/hit-test.bench.ts
  *   bun run benchmarks/keys.bench.ts
  *   bun run benchmarks/e2e.bench.ts
+ *   bun run benchmarks/real-world.bench.ts
  */
 
 import { $ } from "bun";
@@ -23,6 +24,7 @@ const benchmarks = [
   "hit-test",
   "keys",
   "e2e",
+  "real-world",
 ];
 
 console.log("cel-tui benchmark suite");

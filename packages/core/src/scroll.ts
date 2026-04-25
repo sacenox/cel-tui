@@ -1,6 +1,6 @@
 import type { ContainerProps } from "@cel-tui/types";
 import type { LayoutNode } from "./layout.js";
-import { layoutText } from "./text-layout.js";
+import { measureTextLineCount } from "./text-layout.js";
 
 function isVerticalScrollTarget(target: LayoutNode): boolean {
   return target.node.type === "vstack" || target.node.type === "textinput";
@@ -50,11 +50,11 @@ export function getMaxScrollOffset(target: LayoutNode): number {
     const padY = (target.node.props.padding?.y ?? 0) * 2;
     const contentWidth = Math.max(1, rect.width - padX);
     const contentHeight = Math.max(0, rect.height - padY);
-    const lineCount = layoutText(
+    const lineCount = measureTextLineCount(
       target.node.props.value,
       contentWidth,
       "word",
-    ).lineCount;
+    );
     return Math.max(0, lineCount - contentHeight);
   }
 

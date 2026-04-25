@@ -125,6 +125,11 @@ const TAB_STOP = 4;
 const WIDTH_CACHE_SIZE = 512;
 const widthCache = new Map<string, number>();
 
+/** Clear the visible-width cache. Useful for cold-cache benchmarks. */
+export function clearVisibleWidthCache(): void {
+  widthCache.clear();
+}
+
 function tabWidthAtColumn(column: number): number {
   return TAB_STOP - (column % TAB_STOP);
 }

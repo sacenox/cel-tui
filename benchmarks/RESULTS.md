@@ -148,6 +148,60 @@ Differential rendering has near-constant cost regardless of change amount — do
 | Re-render +1 message diff | 248 µs | 4,030       |
 | 1,000 re-renders batch    | 67 ms  | 14,800      |
 
+## Real-World Synthetic App Shapes
+
+Focused run for the new `benchmarks/real-world.bench.ts` cases.
+These numbers use fixtures shaped after `mini-coder` and `mini-coder-next`:
+long unvirtualized conversations, syntax-highlight-like wrapping HStack token
+rows, and mini-coder-style virtualized scrollback slices.
+
+**Runtime:** Bun 1.3.13 (x64-linux)  
+**Date:** 2026-04-25
+
+### mini-coder-next-style unvirtualized conversation
+
+| Scenario                               | Time   |
+| -------------------------------------- | ------ |
+| Layout 100 messages (120×40)           | 71 ms  |
+| Layout 500 messages (120×40)           | 348 ms |
+| Layout 1,000 messages (120×40)         | 740 ms |
+| Paint pre-laid 500 messages (120×40)   | 4.0 ms |
+| Paint pre-laid 1,000 messages (120×40) | 6.5 ms |
+| Full render 250 messages (120×40)      | 172 ms |
+| Diff render 250 → 251 messages         | 179 ms |
+
+The new benchmark exposes the real bottleneck that the older app-tree cases
+missed: long unvirtualized conversation layout dominates render time. Paint is
+much smaller but still grows for token-heavy visible content.
+
+### Long wrapping HStack token lists
+
+| Scenario                     | Time   |
+| ---------------------------- | ------ |
+| Layout 100 tokens (120×40)   | 314 µs |
+| Layout 500 tokens (120×40)   | 1.6 ms |
+| Layout 1,000 tokens (120×40) | 3.2 ms |
+| Paint 100 tokens (120×40)    | 771 µs |
+| Paint 500 tokens (120×40)    | 3.5 ms |
+| Paint 1,000 tokens (120×40)  | 6.0 ms |
+
+These rows mimic `SyntaxHighlight` output: each logical line becomes an
+`HStack({ flexWrap: "wrap" })` with many styled `Text` spans.
+
+### mini-coder-style virtualized conversation
+
+| Scenario                                        | Time   |
+| ----------------------------------------------- | ------ |
+| Layout total 1,000 / visible 40 (120×40)        | 31 ms  |
+| Layout total 5,000 / visible 40 (120×40)        | 26 ms  |
+| Paint total 1,000 / visible 40 (120×40)         | 1.6 ms |
+| Paint total 5,000 / visible 40 (120×40)         | 1.6 ms |
+| Measure content height, 250 messages, width 118 | 56 ms  |
+
+The virtualized shape is mostly insensitive to total message count because the
+rendered node count is bounded by the visible slice plus spacers. The remaining
+cost is from the visible token-heavy message nodes and cold height measurement.
+
 ## Ink Raw Numbers
 
 Ink v6.8.0, visually similar tree to cel-tui's "ink-comparable"
@@ -177,8 +231,9 @@ Run 3: 1,000 re-renders: 1450.79 ms — 1,451 µs/render
 # cel-tui benchmarks
 cd cel-tui
 bun install
-bun run benchmarks/run-all.ts       # full suite
-bun run benchmarks/e2e.bench.ts     # just the headline numbers
+bun run benchmarks/run-all.ts          # full suite
+bun run benchmarks/e2e.bench.ts        # just the headline numbers
+bun run benchmarks/real-world.bench.ts # real app-shaped stress cases
 
 # Ink benchmarks
 git clone https://github.com/vadimdemedes/ink.git /tmp/ink-bench

@@ -1,5 +1,5 @@
 import type { ContainerProps, Node, SizeValue } from "@cel-tui/types";
-import { layoutText } from "./text-layout.js";
+import { measureTextLineCount } from "./text-layout.js";
 import { visibleWidth } from "./width.js";
 
 /**
@@ -100,11 +100,11 @@ function intrinsicMainSize(
 ): number {
   if (node.type === "text") {
     if (isVertical) {
-      return layoutText(
+      return measureTextLineCount(
         node.content,
         Math.max(1, crossSize),
         node.props.wrap ?? "none",
-      ).lineCount;
+      );
     }
     // Width (intrinsic)
     if (node.props.repeat === "fill") return 0;
@@ -124,7 +124,7 @@ function intrinsicMainSize(
     if (isVertical) {
       const val = node.props.value || "";
       const innerCrossForTI = Math.max(1, crossSize - tiPadX);
-      return layoutText(val, innerCrossForTI, "word").lineCount + tiPadY;
+      return measureTextLineCount(val, innerCrossForTI, "word") + tiPadY;
     }
     return 0 + tiPadX;
   }
