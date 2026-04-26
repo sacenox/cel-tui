@@ -263,7 +263,7 @@ VStack({ flex: 1, overflow: "scroll", padding: { x: 1 } }, [
 SyntaxHighlight(source, "javascript", { theme: "dark-plus" });
 ```
 
-`SyntaxHighlight(content, language, props?)` renders registered `clew` languages into cel-tui primitives. Current ids include the TypeScript / JavaScript families plus `python` / `py`, `bash`, `json`, and `markdown`. The component stays synchronous to call, but append-only updates reuse a cached `clew` stream while non-append edits replay the full snippet, so final output stays stable across streamed chunk boundaries. Unknown language ids render plain text. The optional `theme` accepts the small built-in presets (`"default"`, `"dark-plus"`) or a best-effort token-color registration object targeting canonical `clew` scopes.
+`SyntaxHighlight(content, language, props?)` renders registered `clew` languages into cel-tui primitives. Current ids include the TypeScript / JavaScript families plus `python` / `py`, `bash`, `json`, `markdown`, and `diff` / `patch`. The component stays synchronous to call, but append-only updates reuse a cached `clew` stream while non-append edits replay the full snippet, so final output stays stable across streamed chunk boundaries. Unknown language ids render plain text. The optional `theme` accepts the small built-in presets (`"default"`, `"dark-plus"`) or a best-effort token-color registration object targeting canonical `clew` scopes.
 
 ## Gotchas
 

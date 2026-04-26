@@ -72,6 +72,8 @@ describe("clew", () => {
     expect(clewSupportsLanguage("bash")).toBe(true);
     expect(clewSupportsLanguage("json")).toBe(true);
     expect(clewSupportsLanguage("markdown")).toBe(true);
+    expect(clewSupportsLanguage("diff")).toBe(true);
+    expect(clewSupportsLanguage("patch")).toBe(true);
     expect(clewSupportsLanguage("tsx")).toBe(false);
     expect(clewSupportsLanguage("jsx")).toBe(false);
     expect(clewSupportsLanguage("shell")).toBe(false);
@@ -94,6 +96,14 @@ describe("clew", () => {
     expectFullCoverage(
       "# Title\n- item with `code`\n> quote [link](https://example.com)\n",
       "markdown",
+    );
+    expectFullCoverage(
+      "diff --git a/a.txt b/a.txt\n--- a/a.txt\n+++ b/a.txt\n@@ -1 +1 @@\n-old\n+new\n",
+      "diff",
+    );
+    expectFullCoverage(
+      "Index: a.txt\n===================================================================\n--- a.txt\n+++ a.txt\n@@ -1,1 +1,1 @@\n-old\n+new\n",
+      "patch",
     );
   });
 
@@ -269,6 +279,162 @@ describe("clew", () => {
       "string",
       "markup.code",
     ]);
+  });
+
+  test("tokenizes unified and git diff line classes", () => {
+    const source = [
+      "diff --git a/src/file.ts b/src/file.ts",
+      "index 83db48f..f735c2d 100644",
+      "old mode 100644",
+      "new mode 100755",
+      "deleted file mode 100644",
+      "new file mode 100644",
+      "similarity index 96%",
+      "dissimilarity index 12%",
+      "rename from src/old.ts",
+      "rename to src/new.ts",
+      "copy from src/source.ts",
+      "copy to src/copy.ts",
+      "--- /dev/null",
+      "+++ b/src/file.ts",
+      "@@ -0,0 +1,3 @@ optional section",
+      "+added line",
+      "-removed line",
+      " context line",
+      "\\ No newline at end of file",
+      "plain fallback",
+      "",
+    ].join("\n");
+
+    expectTokenScopes(
+      "diff",
+      source,
+      "diff --git a/src/file.ts b/src/file.ts",
+      ["meta", "diff.header"],
+    );
+    expectTokenScopes("diff", source, "index 83db48f..f735c2d 100644", [
+      "meta",
+      "diff.header",
+    ]);
+    expectTokenScopes("diff", source, "old mode 100644", [
+      "meta",
+      "diff.header",
+    ]);
+    expectTokenScopes("diff", source, "new mode 100755", [
+      "meta",
+      "diff.header",
+    ]);
+    expectTokenScopes("diff", source, "deleted file mode 100644", [
+      "meta",
+      "diff.header",
+    ]);
+    expectTokenScopes("diff", source, "new file mode 100644", [
+      "meta",
+      "diff.header",
+    ]);
+    expectTokenScopes("diff", source, "similarity index 96%", [
+      "meta",
+      "diff.header",
+    ]);
+    expectTokenScopes("diff", source, "dissimilarity index 12%", [
+      "meta",
+      "diff.header",
+    ]);
+    expectTokenScopes("diff", source, "rename from src/old.ts", [
+      "meta",
+      "diff.header",
+    ]);
+    expectTokenScopes("diff", source, "rename to src/new.ts", [
+      "meta",
+      "diff.header",
+    ]);
+    expectTokenScopes("diff", source, "copy from src/source.ts", [
+      "meta",
+      "diff.header",
+    ]);
+    expectTokenScopes("diff", source, "copy to src/copy.ts", [
+      "meta",
+      "diff.header",
+    ]);
+    expectTokenScopes("diff", source, "--- /dev/null", [
+      "meta",
+      "diff.file.old",
+    ]);
+    expectTokenScopes("diff", source, "+++ b/src/file.ts", [
+      "meta",
+      "diff.file.new",
+    ]);
+    expectTokenScopes("diff", source, "@@ -0,0 +1,3 @@ optional section", [
+      "meta",
+      "diff.hunk",
+    ]);
+    expectTokenScopes("diff", source, "added line", [
+      "string",
+      "diff.inserted",
+    ]);
+    expectTokenScopes("diff", source, "removed line", [
+      "comment",
+      "diff.deleted",
+    ]);
+    expectTokenScopes("diff", source, "context line", ["text", "diff.context"]);
+    expectTokenScopes("diff", source, "\\ No newline at end of file", [
+      "comment",
+      "diff.no-newline",
+    ]);
+    expectTokenType("diff", source, "plain fallback", "text");
+  });
+
+  test("tokenizes npm diff createPatch-style headers", () => {
+    const source = [
+      "Index: file.txt",
+      "===================================================================",
+      "--- file.txt",
+      "+++ file.txt",
+      "@@ -1,2 +1,2 @@",
+      " line",
+      "-before",
+      "+after",
+      "",
+    ].join("\n");
+
+    expectTokenScopes("patch", source, "Index: file.txt", [
+      "meta",
+      "diff.header",
+    ]);
+    expectTokenScopes(
+      "patch",
+      source,
+      "===================================================================",
+      ["meta", "diff.header"],
+    );
+    expectTokenScopes("patch", source, "--- file.txt", [
+      "meta",
+      "diff.file.old",
+    ]);
+    expectTokenScopes("patch", source, "+++ file.txt", [
+      "meta",
+      "diff.file.new",
+    ]);
+    expectTokenScopes("patch", source, "before", ["comment", "diff.deleted"]);
+    expectTokenScopes("patch", source, "after", ["string", "diff.inserted"]);
+  });
+
+  test("streams diff final output consistently across chunk boundaries", () => {
+    const content =
+      "diff --git a/a.txt b/a.txt\n--- a/a.txt\n+++ b/a.txt\n@@ -1 +1 @@\n-old\n+new\n";
+    const direct = clew(content, { lang: "diff", stream: false });
+    const stream = clew("", { lang: "diff" });
+
+    for (const chunk of [
+      "diff --git a/a",
+      ".txt b/a.txt\n--- a/a.txt\n+",
+      "++ b/a.txt\n@@ -1 +1 @@\n-o",
+      "ld\n+new\n",
+    ]) {
+      stream.write(chunk);
+    }
+
+    expect(stream.end()).toEqual(direct);
   });
 
   test("streams append-only chunks eagerly by default", () => {

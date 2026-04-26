@@ -132,6 +132,8 @@ The current implementation ships a small internal language registry with:
   - `json`
 - **Markdown**
   - `markdown`
+- **Diff / patch**
+  - `diff`, `patch`
 
 `clew` emits normalized tokens with canonical scopes like `keyword`, `string`,
 `property`, `link`, `markup.heading`, `meta.substitution.command`, and

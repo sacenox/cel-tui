@@ -34,7 +34,7 @@ export function clew(content: string, options: ClewSyncOptions): ClewOutput;
  * Streaming is the default mode, and `stability` defaults to `"eager"`.
  *
  * The current implementation supports TypeScript / JavaScript ids, Python,
- * Bash, JSON, and Markdown.
+ * Bash, JSON, Markdown, and diff/patch.
  */
 export function clew(content: string, options: ClewStreamOptions): ClewStream;
 export function clew(

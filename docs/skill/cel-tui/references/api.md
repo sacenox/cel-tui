@@ -308,7 +308,7 @@ SyntaxHighlight(code, "javascript", { theme: "dark-plus" });
 ```
 
 - Signature: `SyntaxHighlight(content, language, props?)`
-- `language` accepts registered `clew` language ids (`typescript` / `javascript` families plus `python` / `py`, `bash`, `json`, and `markdown` right now)
+- `language` accepts registered `clew` language ids (`typescript` / `javascript` families plus `python` / `py`, `bash`, `json`, `markdown`, and `diff` / `patch` right now)
 - `props.theme` accepts the built-in presets (`"default"`, `"dark-plus"`) or a best-effort token theme registration object targeting canonical `clew` scopes
 - Uses a terminal-friendly ANSI 16 fallback theme by default
 - Highlighting is synchronous at the component boundary; unsupported languages render plain text

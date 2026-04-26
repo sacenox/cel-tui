@@ -1,4 +1,5 @@
 import { bashLanguageSupport } from "./languages/bash.js";
+import { diffLanguageSupport } from "./languages/diff.js";
 import { jsonLanguageSupport } from "./languages/json.js";
 import { markdownLanguageSupport } from "./languages/markdown.js";
 import { pythonLanguageSupport } from "./languages/python.js";
@@ -17,6 +18,7 @@ const languageSupports = [
   bashLanguageSupport,
   jsonLanguageSupport,
   markdownLanguageSupport,
+  diffLanguageSupport,
 ] satisfies readonly ClewLanguageSupport[];
 
 const supportById = new Map<string, ClewLanguageSupport>();
