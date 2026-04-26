@@ -100,6 +100,22 @@ export type SizeValue = number | `${number}%`;
 // biome-ignore lint/suspicious/noConfusingVoidType: public callback contract intentionally accepts void-returning handlers.
 export type KeyPressHandler = (key: string) => boolean | void;
 
+/**
+ * Scroll notification callback for controlled scroll containers.
+ *
+ * Return exactly `false` to decline handling and continue scroll propagation
+ * to the next scrollable ancestor. Any other return value, including
+ * `undefined`, consumes the scroll event.
+ *
+ * This is a union of `void`-returning and `boolean`-returning callback
+ * signatures instead of a single `boolean | void` return type so legacy
+ * expression-bodied void handlers remain source-compatible even when they
+ * incidentally return another value.
+ */
+export type ScrollHandler =
+  | ((offset: number, maxOffset: number) => void)
+  | ((offset: number, maxOffset: number) => boolean);
+
 /** Why a focus change callback fired. */
 export type FocusChangeReason = "tab" | "shift+tab" | "click" | "escape";
 
@@ -216,10 +232,15 @@ export interface ContainerProps extends StyleProps {
    * In controlled mode, update {@link scrollOffset} with the new value
    * to move the scroll position.
    *
+   * Return `false` to decline handling and continue scroll propagation
+   * to the next scrollable ancestor. Any other return value consumes the
+   * scroll event and stops propagation.
+   *
    * @param offset - The new scroll offset in cells.
    * @param maxOffset - The maximum scroll offset (content size minus viewport size).
+   * @returns `false` to keep bubbling, anything else to consume.
    */
-  onScroll?: (offset: number, maxOffset: number) => void;
+  onScroll?: ScrollHandler;
 
   /**
    * Called on mouse click or Enter key when this container is focused.

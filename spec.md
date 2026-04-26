@@ -61,14 +61,14 @@ This helper is for **content subtrees** whose height is not externally constrain
 
 ### Systems
 
-| System                     | Description                                               |
-| -------------------------- | --------------------------------------------------------- |
-| Flexbox layout engine      | Sizing, alignment, gap                                    |
-| Overflow & scrolling       | `overflow: "hidden" \| "scroll"`, scrollbar               |
-| Layering                   | Multiple viewport layers, composited bottom-to-top        |
-| Mouse/scroll hit detection | Pointer-driven, topmost layer first, innermost node wins  |
-| Focus management           | Keyboard-driven, for `TextInput` and clickable containers |
-| Keyboard input             | Kitty-first input with tmux/legacy compatibility          |
+| System                     | Description                                                  |
+| -------------------------- | ------------------------------------------------------------ |
+| Flexbox layout engine      | Sizing, alignment, gap                                       |
+| Overflow & scrolling       | `overflow: "hidden" \| "scroll"`, scrollbar                  |
+| Layering                   | Multiple viewport layers, composited bottom-to-top           |
+| Mouse/scroll hit detection | Pointer-driven, topmost layer first, innermost-first routing |
+| Focus management           | Keyboard-driven, for `TextInput` and clickable containers    |
+| Keyboard input             | Kitty-first input with tmux/legacy compatibility             |
 
 ---
 
@@ -94,32 +94,34 @@ HStack(props, children);
 
 Shared by both VStack and HStack. Containers also accept styling props (see [Styling](#styling)).
 
-| Prop             | Type                                                                       | Description                                         |
-| ---------------- | -------------------------------------------------------------------------- | --------------------------------------------------- |
-| `width`          | `number \| string`                                                         | Fixed cells or percentage (`"50%"`)                 |
-| `height`         | `number \| string`                                                         | Fixed cells or percentage (`"100%"`)                |
-| `flex`           | `number`                                                                   | Flex grow factor, proportional to siblings          |
-| `minWidth`       | `number`                                                                   | Minimum width constraint                            |
-| `maxWidth`       | `number`                                                                   | Maximum width constraint                            |
-| `minHeight`      | `number`                                                                   | Minimum height constraint                           |
-| `maxHeight`      | `number`                                                                   | Maximum height constraint                           |
-| `padding`        | `{ x?: number, y?: number }`                                               | Internal padding (cells)                            |
-| `gap`            | `number`                                                                   | Spacing between children (cells)                    |
-| `justifyContent` | `string`                                                                   | Distribute children along the main axis             |
-| `alignItems`     | `string`                                                                   | Align children along the cross axis                 |
-| `flexWrap`       | `"nowrap" \| "wrap"`                                                       | Wrap children to next line (HStack only)            |
-| `overflow`       | `"hidden" \| "scroll"`                                                     | Content overflow behavior (default: `"hidden"`)     |
-| `scrollbar`      | `boolean`                                                                  | Show scrollbar indicator                            |
-| `scrollStep`     | `number`                                                                   | Mouse wheel step in cells (default: adaptive)       |
-| `scrollOffset`   | `number`                                                                   | Scroll position in cells (controlled)               |
-| `onScroll`       | `(offset: number, maxOffset: number) => void`                              | Called on scroll input                              |
-| `onClick`        | `() => void`                                                               | Called on mouse click or Enter when focused         |
-| `focusable`      | `boolean`                                                                  | Opt out of focus (default: `true` if `onClick`)     |
-| `focused`        | `boolean`                                                                  | Whether this element is focused (controlled)        |
-| `onFocus`        | `(event: { reason: "tab" \| "shift+tab" \| "click" \| "escape" }) => void` | Called when element receives focus                  |
-| `onBlur`         | `(event: { reason: "tab" \| "shift+tab" \| "click" \| "escape" }) => void` | Called when element loses focus                     |
-| `focusStyle`     | `StyleProps`                                                               | Style overrides applied when focused                |
-| `onKeyPress`     | `(key: string) => boolean \| void`                                         | Key event handler. Return `false` to keep bubbling. |
+| Prop             | Type                                                                       | Description                                              |
+| ---------------- | -------------------------------------------------------------------------- | -------------------------------------------------------- |
+| `width`          | `number \| string`                                                         | Fixed cells or percentage (`"50%"`)                      |
+| `height`         | `number \| string`                                                         | Fixed cells or percentage (`"100%"`)                     |
+| `flex`           | `number`                                                                   | Flex grow factor, proportional to siblings               |
+| `minWidth`       | `number`                                                                   | Minimum width constraint                                 |
+| `maxWidth`       | `number`                                                                   | Maximum width constraint                                 |
+| `minHeight`      | `number`                                                                   | Minimum height constraint                                |
+| `maxHeight`      | `number`                                                                   | Maximum height constraint                                |
+| `padding`        | `{ x?: number, y?: number }`                                               | Internal padding (cells)                                 |
+| `gap`            | `number`                                                                   | Spacing between children (cells)                         |
+| `justifyContent` | `string`                                                                   | Distribute children along the main axis                  |
+| `alignItems`     | `string`                                                                   | Align children along the cross axis                      |
+| `flexWrap`       | `"nowrap" \| "wrap"`                                                       | Wrap children to next line (HStack only)                 |
+| `overflow`       | `"hidden" \| "scroll"`                                                     | Content overflow behavior (default: `"hidden"`)          |
+| `scrollbar`      | `boolean`                                                                  | Show scrollbar indicator                                 |
+| `scrollStep`     | `number`                                                                   | Mouse wheel step in cells (default: adaptive)            |
+| `scrollOffset`   | `number`                                                                   | Scroll position in cells (controlled)                    |
+| `onScroll`       | `ScrollHandler`                                                            | Called on scroll input. Return `false` to keep bubbling. |
+| `onClick`        | `() => void`                                                               | Called on mouse click or Enter when focused              |
+| `focusable`      | `boolean`                                                                  | Opt out of focus (default: `true` if `onClick`)          |
+| `focused`        | `boolean`                                                                  | Whether this element is focused (controlled)             |
+| `onFocus`        | `(event: { reason: "tab" \| "shift+tab" \| "click" \| "escape" }) => void` | Called when element receives focus                       |
+| `onBlur`         | `(event: { reason: "tab" \| "shift+tab" \| "click" \| "escape" }) => void` | Called when element loses focus                          |
+| `focusStyle`     | `StyleProps`                                                               | Style overrides applied when focused                     |
+| `onKeyPress`     | `(key: string) => boolean \| void`                                         | Key event handler. Return `false` to keep bubbling.      |
+
+`ScrollHandler` is `((offset: number, maxOffset: number) => void) | ((offset: number, maxOffset: number) => boolean)`. Only an exact `false` return continues propagation to the next scrollable ancestor; any other return value consumes the scroll event. The union preserves source compatibility for legacy void callbacks whose expression bodies incidentally return another value.
 
 ### Sizing
 
@@ -260,6 +262,8 @@ VStack({
 
 In controlled mode, mouse wheel events fire `onScroll` with the new offset and maximum offset (total content size minus viewport size); the UI only moves when the app passes the updated `scrollOffset` back.
 
+For containers, `onScroll` may return `false` to decline handling and continue scroll propagation to the next scrollable ancestor. Any other return value (`undefined`, `true`, or no return) consumes the scroll event and stops propagation, preserving backward compatibility with existing void handlers.
+
 ### Scroll Step
 
 Mouse wheel scrolling moves by a configurable **step size** measured in cells along the container's main axis.
@@ -319,12 +323,14 @@ Scroll is **pointer-driven**, not focus-driven. Mouse wheel events are routed sp
 1. Terminal reports mouse position via SGR mouse mode
 2. Starting from the **topmost layer**, find the deepest node at `(x, y)`
 3. If the layer has a node at that position, it handles the event. Otherwise, try the next layer down.
-4. For scroll: walk up the ancestor chain to find the nearest scrollable node (container with `overflow: "scroll"`, or TextInput)
+4. For scroll: walk up the ancestor chain from the deepest hit node, considering scrollable nodes innermost-first (containers with `overflow: "scroll"`, or TextInput)
 5. For click: walk up to find the nearest container with `onClick`
 
 ### Nested Scrollable Containers
 
-**Innermost scrollable wins.** The deepest scrollable ancestor of the hit target handles the event.
+Wheel events start at the deepest scrollable ancestor of the hit target. For scrollable containers, if the container's `onScroll` returns `false`, the event continues to the next scrollable ancestor. Otherwise, that first target handles the event and propagation stops. Existing void `onScroll` handlers preserve current behavior because `undefined` consumes the event.
+
+TextInput participates as a scrollable target with framework-managed scroll, but it does not expose `onScroll`; once a TextInput is the scroll target, it handles wheel input directly.
 
 ### Architecture Requirements
 

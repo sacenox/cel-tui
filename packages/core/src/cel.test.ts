@@ -324,6 +324,137 @@ describe("cel end-to-end", () => {
       expect(scrollOffset).toBe(12);
     });
 
+    test("inner onScroll returning false propagates wheel input to parent", async () => {
+      const term = setup(20, 12);
+      let outerOffset = 0;
+      const innerOffsets: number[] = [];
+      const outerOffsets: number[] = [];
+
+      cel.viewport(() =>
+        VStack(
+          {
+            width: 20,
+            height: 12,
+            overflow: "scroll",
+            scrollOffset: outerOffset,
+            onScroll: (offset) => {
+              outerOffset = offset;
+              outerOffsets.push(offset);
+            },
+          },
+          [
+            VStack(
+              {
+                height: 6,
+                overflow: "scroll",
+                scrollOffset: 0,
+                onScroll: (offset) => {
+                  innerOffsets.push(offset);
+                  return false;
+                },
+              },
+              Array.from({ length: 10 }, (_, i) => Text(`inner ${i + 1}`)),
+            ),
+            ...Array.from({ length: 20 }, (_, i) => Text(`outer ${i + 1}`)),
+          ],
+        ),
+      );
+      await waitForRender();
+
+      term.sendInput("\x1b[<65;4;3M");
+      await waitForRender();
+
+      expect(innerOffsets).toEqual([3]);
+      expect(outerOffsets).toEqual([4]);
+      expect(outerOffset).toBe(4);
+    });
+
+    test("void inner onScroll consumes wheel input and does not notify parent", async () => {
+      const term = setup(20, 12);
+      let innerOffset = 0;
+      let parentCalled = false;
+
+      cel.viewport(() =>
+        VStack(
+          {
+            width: 20,
+            height: 12,
+            overflow: "scroll",
+            scrollOffset: 0,
+            onScroll: () => {
+              parentCalled = true;
+            },
+          },
+          [
+            VStack(
+              {
+                height: 6,
+                overflow: "scroll",
+                scrollOffset: innerOffset,
+                onScroll: (offset) => {
+                  innerOffset = offset;
+                },
+              },
+              Array.from({ length: 10 }, (_, i) => Text(`inner ${i + 1}`)),
+            ),
+            ...Array.from({ length: 20 }, (_, i) => Text(`outer ${i + 1}`)),
+          ],
+        ),
+      );
+      await waitForRender();
+
+      term.sendInput("\x1b[<65;4;3M");
+      await waitForRender();
+
+      expect(innerOffset).toBe(3);
+      expect(parentCalled).toBe(false);
+    });
+
+    test("batched propagated scrolls skip the declined inner accumulator", async () => {
+      const term = setup(20, 12);
+      let outerOffset = 0;
+      const innerOffsets: number[] = [];
+      const outerOffsets: number[] = [];
+
+      cel.viewport(() =>
+        VStack(
+          {
+            width: 20,
+            height: 12,
+            overflow: "scroll",
+            scrollOffset: outerOffset,
+            onScroll: (offset) => {
+              outerOffset = offset;
+              outerOffsets.push(offset);
+            },
+          },
+          [
+            VStack(
+              {
+                height: 6,
+                overflow: "scroll",
+                scrollOffset: 0,
+                onScroll: (offset) => {
+                  innerOffsets.push(offset);
+                  return false;
+                },
+              },
+              Array.from({ length: 10 }, (_, i) => Text(`inner ${i + 1}`)),
+            ),
+            ...Array.from({ length: 20 }, (_, i) => Text(`outer ${i + 1}`)),
+          ],
+        ),
+      );
+      await waitForRender();
+
+      term.sendInput("\x1b[<65;4;3M\x1b[<65;4;3M");
+      await waitForRender();
+
+      expect(innerOffsets).toEqual([3, 3]);
+      expect(outerOffsets).toEqual([4, 8]);
+      expect(outerOffset).toBe(8);
+    });
+
     test("scroll clamps at max offset (no blank space past content)", async () => {
       const term = setup(20, 5);
       let scrollOffset = 0;

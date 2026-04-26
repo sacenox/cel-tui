@@ -34,7 +34,7 @@ All props accepted by `VStack` and `HStack`:
   scrollbar,              // boolean
   scrollStep,             // number (mouse wheel step in cells; default adaptive)
   scrollOffset,           // number (controlled scroll)
-  onScroll,               // (offset: number, maxOffset: number) => void
+  onScroll,               // ScrollHandler; return false to keep bubbling
   flexWrap,               // "nowrap" (default) | "wrap" (HStack only)
 
   // Styling (inherited by descendants)
@@ -101,7 +101,7 @@ VStack(
 - Scroll is pointer-driven (mouse wheel), not focus-driven. A user can type in a focused widget while scrolling a different container.
 - Mouse wheel scrolling uses an adaptive default step based on the scroll target's visible main-axis viewport size: `floor(viewportMainAxis / 3)`, clamped to `3..8`.
 - Set `scrollStep` to override the mouse wheel step for a specific scrollable or `TextInput`.
-- In controlled mode, the UI only moves when the app passes the updated `scrollOffset` back. `onScroll` fires with the clamped new offset and the maximum offset (content size minus viewport size). Pass `Infinity` as `scrollOffset` to mean "scroll to end" (clamped during rendering and hit testing). `scrollStep` affects mouse wheel input only.
+- In controlled mode, the UI only moves when the app passes the updated `scrollOffset` back. `onScroll` fires with the clamped new offset and the maximum offset (content size minus viewport size). Return exactly `false` to decline handling and continue to the next scrollable ancestor; any other return value consumes the scroll. Pass `Infinity` as `scrollOffset` to mean "scroll to end" (clamped during rendering and hit testing). `scrollStep` affects mouse wheel input only.
 
 ## Text Props
 

@@ -10,8 +10,8 @@ import { defaultTheme, emitBuffer, emitDiff } from "./emitter.js";
 import {
   collectFocusable,
   collectKeyPressHandlers,
+  collectScrollTargets,
   findClickHandler,
-  findScrollTarget,
   hitTest,
 } from "./hit-test.js";
 import { decodeKeyEvents, isEditingKey, type KeyInput } from "./keys.js";
@@ -725,55 +725,55 @@ function handleMouseEvent(event: MouseEvent): void {
     }
 
     if (event.type === "scroll-up" || event.type === "scroll-down") {
-      const target = findScrollTarget(path);
-      if (target) {
+      const targets = collectScrollTargets(path);
+      for (const target of targets) {
         const step = getScrollStep(target);
         const delta = event.type === "scroll-up" ? -step : step;
         const maxOffset = getMaxScrollOffset(target);
 
         if (target.node.type === "textinput") {
-          // TextInput scroll is always framework-managed
+          // TextInput scroll is always framework-managed and consumes wheel input.
           const tiProps = target.node.props;
           const current = getTextInputScroll(tiProps);
           const clamped = Math.max(0, Math.min(maxOffset, current + delta));
           setTextInputScroll(tiProps, clamped);
           cel.render();
-        } else if (
-          target.node.type === "vstack" ||
-          target.node.type === "hstack"
-        ) {
+          return;
+        }
+
+        if (target.node.type === "vstack" || target.node.type === "hstack") {
           const props = target.node.props;
-          if (props.overflow === "scroll") {
-            if (props.onScroll) {
-              // Controlled scroll: notify app.
-              // Use batch accumulator if available (multiple events in one chunk),
-              // otherwise read from props. Clamp to maxOffset first so that
-              // Infinity (sticky-bottom) resolves to a finite value before
-              // applying the delta — otherwise Infinity + (-1) = Infinity
-              // and scrolling up never unsticks.
-              const rawBase =
-                batchScrollOffsets?.get(props) ?? props.scrollOffset ?? 0;
-              const baseOffset = Math.min(rawBase, maxOffset);
-              const newOffset = Math.max(
-                0,
-                Math.min(maxOffset, baseOffset + delta),
-              );
-              batchScrollOffsets?.set(props, newOffset);
-              props.onScroll(newOffset, maxOffset);
-            } else {
-              // Uncontrolled scroll: framework manages state via path key
-              const pathKey = getScrollPathKey(target);
-              if (pathKey !== null) {
-                const current = uncontrolledScrollOffsets.get(pathKey) ?? 0;
-                const clamped = Math.max(
-                  0,
-                  Math.min(maxOffset, current + delta),
-                );
-                uncontrolledScrollOffsets.set(pathKey, clamped);
-              }
+          if (props.overflow !== "scroll") continue;
+
+          if (props.onScroll) {
+            // Controlled scroll: notify app.
+            // Use batch accumulator if available (multiple events in one chunk),
+            // otherwise read from props. Clamp to maxOffset first so that
+            // Infinity (sticky-bottom) resolves to a finite value before
+            // applying the delta — otherwise Infinity + (-1) = Infinity
+            // and scrolling up never unsticks.
+            const rawBase =
+              batchScrollOffsets?.get(props) ?? props.scrollOffset ?? 0;
+            const baseOffset = Math.min(rawBase, maxOffset);
+            const newOffset = Math.max(
+              0,
+              Math.min(maxOffset, baseOffset + delta),
+            );
+            const result = props.onScroll(newOffset, maxOffset);
+            if (result === false) continue;
+            batchScrollOffsets?.set(props, newOffset);
+          } else {
+            // Uncontrolled scroll: framework manages state via path key and consumes.
+            const pathKey = getScrollPathKey(target);
+            if (pathKey !== null) {
+              const current = uncontrolledScrollOffsets.get(pathKey) ?? 0;
+              const clamped = Math.max(0, Math.min(maxOffset, current + delta));
+              uncontrolledScrollOffsets.set(pathKey, clamped);
             }
-            cel.render();
           }
+
+          cel.render();
+          return;
         }
       }
       return;

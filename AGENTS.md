@@ -31,7 +31,7 @@ Dependency graph: `core → types`, `components → core`, `components → types
 - **Reactive rendering:** `cel.render()` batches via `process.nextTick()`. No fixed FPS.
 - **Layers:** `cel.viewport(() => [layer1, layer2])` — array of independent viewport-sized trees, composited bottom-to-top. Conditional inclusion = show/hide.
 - **Key bubbling:** Unconsumed keys bubble up from focused element through ancestors. Root `onKeyPress` = global handler. Escape blur is a fallback default action after bubbling — consuming `escape` prevents blur.
-- **Hit detection:** Topmost layer first, deepest node at (x,y), walk up to find handler. Innermost wins for scroll, click, keys.
+- **Hit detection:** Topmost layer first, deepest node at (x,y), walk up to find handler. Scroll targets propagate innermost-first when a container `onScroll` returns exactly `false`; TextInput consumes wheel input directly. Click uses the nearest handler; key bubbling is focused-element based.
 
 ## Implementation Status
 

@@ -136,21 +136,38 @@ export function findClickHandler(
 }
 
 /**
- * Find the nearest scrollable ancestor (innermost wins).
+ * Collect scrollable ancestors in bubbling order (innermost first).
  * Matches containers with `overflow: "scroll"` or TextInput nodes.
  *
  * @param path - Hit test path (root to deepest).
- * @returns The scrollable layout node, or null.
+ * @returns Scrollable layout nodes ordered deepest to root.
  */
-export function findScrollTarget(path: LayoutNode[]): LayoutNode | null {
+export function collectScrollTargets(path: LayoutNode[]): LayoutNode[] {
+  const targets: LayoutNode[] = [];
   for (let i = path.length - 1; i >= 0; i--) {
     const layoutNode = requiredAt(path, i, "hit path node");
     const node = layoutNode.node;
-    if (node.type === "textinput") return layoutNode;
+    if (node.type === "textinput") {
+      targets.push(layoutNode);
+      continue;
+    }
     const props = getProps(layoutNode);
-    if (props?.overflow === "scroll") return layoutNode;
+    if (props?.overflow === "scroll") targets.push(layoutNode);
   }
-  return null;
+  return targets;
+}
+
+/**
+ * Find the nearest scrollable ancestor.
+ *
+ * For full scroll dispatch, prefer {@link collectScrollTargets} so container
+ * handlers can propagate by returning `false`. TextInput consumes directly.
+ *
+ * @param path - Hit test path (root to deepest).
+ * @returns The innermost scrollable layout node, or null.
+ */
+export function findScrollTarget(path: LayoutNode[]): LayoutNode | null {
+  return collectScrollTargets(path)[0] ?? null;
 }
 
 /**

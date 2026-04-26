@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   collectFocusable,
   collectKeyPressHandlers,
+  collectScrollTargets,
   findClickHandler,
   findScrollTarget,
   hitTest,
@@ -230,7 +231,7 @@ describe("findScrollTarget", () => {
     expect(findScrollTarget(path)).toBeNull();
   });
 
-  test("innermost scrollable wins", () => {
+  test("findScrollTarget returns the innermost scrollable", () => {
     const node = VStack({ width: 20, height: 10, overflow: "scroll" }, [
       VStack({ height: 5, overflow: "scroll" }, [Text("inner")]),
     ]);
@@ -241,6 +242,31 @@ describe("findScrollTarget", () => {
     expect(target.node.type).toBe("vstack");
     if (target.node.type === "vstack") {
       expect(target.node.props.height).toBe(5);
+    }
+  });
+});
+
+describe("collectScrollTargets", () => {
+  test("collects scrollable ancestors from innermost to outermost", () => {
+    const node = VStack({ width: 20, height: 10, overflow: "scroll" }, [
+      VStack({ height: 6 }, [
+        VStack({ height: 4, overflow: "scroll" }, [Text("inner")]),
+      ]),
+    ]);
+    const ln = layout(node, 20, 10);
+    const path = hitTest(ln, 3, 0);
+    const targets = collectScrollTargets(path);
+
+    expect(targets).toHaveLength(2);
+    const inner = item(targets, 0);
+    const outer = item(targets, 1);
+    expect(inner.node.type).toBe("vstack");
+    expect(outer.node.type).toBe("vstack");
+    if (inner.node.type === "vstack") {
+      expect(inner.node.props.height).toBe(4);
+    }
+    if (outer.node.type === "vstack") {
+      expect(outer.node.props.height).toBe(10);
     }
   });
 });
