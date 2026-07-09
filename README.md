@@ -100,6 +100,7 @@ Some historical legacy collisions remain impossible to recover once a host has a
 ## Documentation
 
 - **[API Reference](https://sacenox.github.io/cel-tui/)** — full TypeDoc-generated docs on GitHub Pages
+- **[0.9 Migration Guide](MIGRATION.md)** — changes required when upgrading from 0.8.x
 - **[Specification](spec.md)** — complete design spec covering layout, rendering, input, and focus
 - **[Agent Skill](docs/skill/cel-tui/SKILL.md)** — structured guide for AI coding agents to build apps with cel-tui
 
