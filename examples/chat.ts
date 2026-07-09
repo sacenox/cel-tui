@@ -12,14 +12,20 @@
  */
 
 import {
+  Button,
+  Divider,
+  Markdown,
+  Spacer,
+  Spinner,
+} from "@cel-tui/components";
+import {
   cel,
-  VStack,
   HStack,
+  ProcessTerminal,
   Text,
   TextInput,
-  ProcessTerminal,
+  VStack,
 } from "@cel-tui/core";
-import { Button, Divider, Markdown, Spacer } from "@cel-tui/components";
 import { warningBox } from "./warning-box";
 
 const MIN_COLS = 56;
@@ -104,23 +110,15 @@ let streamPos = 0;
 let scrollOffset = 0;
 let stickToBottom = true;
 
-const spinnerFrames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
-let spinnerTick = 0;
-let spinnerTimer: ReturnType<typeof setInterval> | null = null;
+const spinner = Spinner({ maxFps: 12.5 });
 
 function startSpinner() {
-  stopSpinner();
-  spinnerTimer = setInterval(() => {
-    spinnerTick++;
-    cel.render();
-  }, 80);
+  spinner.reset();
+  spinner.start();
 }
 
 function stopSpinner() {
-  if (spinnerTimer) {
-    clearInterval(spinnerTimer);
-    spinnerTimer = null;
-  }
+  spinner.stop();
 }
 
 function stopStreaming() {
@@ -141,7 +139,7 @@ function canSend(text = input): boolean {
 
 function streamNextChar() {
   const agentMessage = messages[messages.length - 1];
-  if (!agentMessage || agentMessage.role !== "agent") {
+  if (agentMessage?.role !== "agent") {
     stopStreaming();
     return;
   }
@@ -203,12 +201,13 @@ function resetChat() {
 
 function quit() {
   stopStreaming();
+  spinner.dispose();
   cel.stop();
   process.exit(0);
 }
 
 function currentSpinner(): string {
-  return spinnerFrames[spinnerTick % spinnerFrames.length]!;
+  return spinner.current;
 }
 
 function renderMarkdownNode(node: ReturnType<typeof Markdown>[number]) {

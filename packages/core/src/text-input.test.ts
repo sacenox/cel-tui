@@ -1,10 +1,9 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { cel } from "./cel.js";
 import { VStack } from "./primitives/stacks.js";
 import { Text } from "./primitives/text.js";
 import { TextInput } from "./primitives/text-input.js";
 import { MockTerminal } from "./terminal.js";
-import { kittyEncode } from "./test-helpers.js";
+import { testCel as cel, kittyEncode } from "./test-helpers.js";
 
 const ENTER = kittyEncode("enter");
 const BACKSPACE = kittyEncode("backspace");
@@ -20,6 +19,8 @@ const ALT_F = kittyEncode("alt+f");
 const UP = kittyEncode("up");
 const DOWN = kittyEncode("down");
 const LEFT = kittyEncode("left");
+const RIGHT = kittyEncode("right");
+const DELETE = kittyEncode("delete");
 const LEGACY_CTRL_R = "\x12";
 const LEGACY_ALT_X = "\x1bx";
 const BRACKETED_PASTE_START = "\x1b[200~";
@@ -43,7 +44,7 @@ describe("TextInput integration", () => {
   }
 
   async function waitForRender(): Promise<void> {
-    await new Promise((resolve) => setTimeout(resolve, 10));
+    await cel._flush();
   }
 
   function currentBuffer() {
@@ -191,40 +192,65 @@ describe("TextInput integration", () => {
     expect(onChangeCalls).toBe(1);
   });
 
-  test("bracketed paste start marker can be split across stdin chunks", async () => {
+  test("bracketed paste start marker can be split at every byte boundary", async () => {
+    for (let split = 1; split < BRACKETED_PASTE_START.length; split++) {
+      if (split > 1) {
+        cel.stop();
+      }
+
+      const term = setup(20, 3);
+      let value = "";
+      let onChangeCalls = 0;
+
+      cel.viewport(() =>
+        VStack({}, [
+          TextInput({
+            value,
+            focused: true,
+            onChange: (v) => {
+              value = v;
+              onChangeCalls++;
+            },
+          }),
+        ]),
+      );
+      await waitForRender();
+
+      term.sendInput(BRACKETED_PASTE_START.slice(0, split));
+      await waitForRender();
+      expect(value).toBe("");
+      expect(onChangeCalls).toBe(0);
+
+      term.sendInput(
+        `${BRACKETED_PASTE_START.slice(split)}hi${BRACKETED_PASTE_END}`,
+      );
+      await waitForRender();
+
+      expect(value).toBe("hi");
+      expect(onChangeCalls).toBe(1);
+    }
+  });
+
+  test("a standalone legacy Escape is dispatched after the ambiguous prefix timeout", async () => {
     const term = setup(20, 3);
-    let value = "";
-    let onChangeCalls = 0;
+    const keys: string[] = [];
 
     cel.viewport(() =>
-      VStack({}, [
-        TextInput({
-          value,
-          focused: true,
-          onChange: (v) => {
-            value = v;
-            onChangeCalls++;
+      VStack(
+        {
+          onKeyPress: (key) => {
+            keys.push(key);
           },
-        }),
-      ]),
+        },
+        [Text("content")],
+      ),
     );
     await waitForRender();
 
-    term.sendInput("\x1b[20");
-    await waitForRender();
-    expect(value).toBe("");
-    expect(onChangeCalls).toBe(0);
+    term.sendInput("\x1b");
+    await new Promise((resolve) => setTimeout(resolve, 35));
 
-    term.sendInput("0~hi");
-    await waitForRender();
-    expect(value).toBe("");
-    expect(onChangeCalls).toBe(0);
-
-    term.sendInput(BRACKETED_PASTE_END);
-    await waitForRender();
-
-    expect(value).toBe("hi");
-    expect(onChangeCalls).toBe(1);
+    expect(keys).toEqual(["escape"]);
   });
 
   test("bracketed paste with no focused TextInput is ignored and does not bubble as keys", async () => {
@@ -522,6 +548,45 @@ describe("TextInput integration", () => {
 
     expect(value).toBe("hello brave ");
     expect(parentKey).toBe("");
+  });
+
+  test("TextInput consumes editing keys when they are boundary no-ops", async () => {
+    const term = setup(20, 3);
+    const parentKeys: string[] = [];
+
+    cel.viewport(() =>
+      VStack(
+        {
+          onKeyPress: (key) => {
+            parentKeys.push(key);
+          },
+        },
+        [
+          TextInput({
+            value: "",
+            focused: true,
+            onChange: () => {},
+          }),
+        ],
+      ),
+    );
+    await waitForRender();
+
+    term.sendInput(
+      BACKSPACE +
+        LEFT +
+        RIGHT +
+        DELETE +
+        CTRL_LEFT +
+        CTRL_RIGHT +
+        CTRL_W +
+        ALT_B +
+        ALT_D +
+        ALT_F,
+    );
+    await waitForRender();
+
+    expect(parentKeys).toEqual([]);
   });
 
   test("enter inserts newline by default", async () => {
@@ -863,6 +928,174 @@ describe("TextInput integration", () => {
     expect(value).toBe("abcXdef");
   });
 
+  test("stateKey preserves cursor across inline callback recreation", async () => {
+    const term = setup(20, 3);
+    let value = "abcdef";
+    let showHeader = false;
+
+    cel.viewport(() =>
+      VStack({}, [
+        ...(showHeader ? [Text("header")] : []),
+        TextInput({
+          stateKey: "editor",
+          value,
+          focused: true,
+          onChange: (next) => {
+            value = next;
+          },
+        }),
+      ]),
+    );
+    await waitForRender();
+
+    term.sendInput(LEFT);
+    await waitForRender();
+    term.sendInput(LEFT);
+    await waitForRender();
+    term.sendInput(LEFT);
+    await waitForRender();
+    showHeader = true;
+    cel.render();
+    await waitForRender();
+    term.sendInput("X");
+    await waitForRender();
+
+    expect(value).toBe("abcXdef");
+  });
+
+  test("controlled cursor inserts at the requested offset and reports updates", async () => {
+    const term = setup(20, 3);
+    let value = "abc";
+    let cursor = 1;
+    const cursorUpdates: number[] = [];
+
+    cel.viewport(() =>
+      VStack({}, [
+        TextInput({
+          value,
+          cursor,
+          focused: true,
+          onChange: (next) => {
+            value = next;
+          },
+          onCursorChange: (next) => {
+            cursor = next;
+            cursorUpdates.push(next);
+          },
+        }),
+      ]),
+    );
+    await waitForRender();
+
+    term.sendInput("X");
+    await waitForRender();
+    term.sendInput(RIGHT);
+    await waitForRender();
+
+    expect(value).toBe("aXbc");
+    expect(cursor).toBe(3);
+    expect(cursorUpdates).toEqual([2, 3]);
+  });
+
+  test("controlled cursor clamps backward to a grapheme boundary", async () => {
+    const term = setup(20, 3);
+    let value = "A👨‍👩‍👧B";
+    let cursor = 2; // Inside the multi-codepoint family emoji.
+
+    cel.viewport(() =>
+      VStack({}, [
+        TextInput({
+          value,
+          cursor,
+          focused: true,
+          onChange: (next) => {
+            value = next;
+          },
+          onCursorChange: (next) => {
+            cursor = next;
+          },
+        }),
+      ]),
+    );
+    await waitForRender();
+
+    term.sendInput("X");
+    await waitForRender();
+
+    expect(value).toBe("AX👨‍👩‍👧B");
+    expect(cursor).toBe(2);
+  });
+
+  test("programmatic controlled cursor updates take effect on the next render", async () => {
+    const term = setup(20, 3);
+    let value = "abc";
+    let cursor = 0;
+
+    cel.viewport(() =>
+      VStack({}, [
+        TextInput({
+          value,
+          cursor,
+          focused: true,
+          onChange: (next) => {
+            value = next;
+          },
+          onCursorChange: (next) => {
+            cursor = next;
+          },
+        }),
+      ]),
+    );
+    await waitForRender();
+
+    cursor = 3;
+    cel.render();
+    await waitForRender();
+    term.sendInput("X");
+    await waitForRender();
+
+    expect(value).toBe("abcX");
+    expect(cursor).toBe(4);
+  });
+
+  test("unmounting a stateKey disposes its TextInput cursor state", async () => {
+    const term = setup(20, 3);
+    let value = "abc";
+    let mounted = true;
+
+    cel.viewport(() =>
+      VStack(
+        {},
+        mounted
+          ? [
+              TextInput({
+                stateKey: "editor",
+                value,
+                focused: true,
+                onChange: (next) => {
+                  value = next;
+                },
+              }),
+            ]
+          : [Text("unmounted")],
+      ),
+    );
+    await waitForRender();
+
+    term.sendInput(LEFT);
+    await waitForRender();
+    mounted = false;
+    cel.render();
+    await waitForRender();
+    mounted = true;
+    cel.render();
+    await waitForRender();
+    term.sendInput("X");
+    await waitForRender();
+
+    expect(value).toBe("abcX");
+  });
+
   test("animated sibling updates do not emit cursor commands after synchronized output", async () => {
     const term = setup(20, 3);
     let tick = 0;
@@ -935,6 +1168,56 @@ describe("TextInput integration", () => {
       }
     }
     expect(hasLine1).toBe(false);
+  });
+
+  test("native cursor follows a TextInput shifted by ancestor scroll", async () => {
+    const term = setup(10, 1);
+    const onChange = () => {};
+
+    cel.viewport(() =>
+      VStack({ width: 10, height: 1, overflow: "scroll", scrollOffset: 1 }, [
+        Text("above"),
+        TextInput({ value: "x", height: 1, focused: true, onChange }),
+      ]),
+    );
+    await waitForRender();
+
+    expect(currentBuffer().get(0, 0).char).toBe("x");
+    expect(term.output).toContain("\x1b[1;2H\x1b[1 q\x1b[?25h");
+    expect(term.output).not.toContain("\x1b[2;2H");
+  });
+
+  test("native cursor shape follows TextInput cursorStyle", async () => {
+    const term = setup(10, 1);
+
+    cel.viewport(() =>
+      TextInput({
+        value: "x",
+        cursorStyle: "bar",
+        focused: true,
+        onChange: () => {},
+      }),
+    );
+    await waitForRender();
+
+    expect(term.output).toContain("\x1b[1;2H\x1b[5 q\x1b[?25h");
+  });
+
+  test("native cursor is hidden when ancestor clipping scrolls the input away", async () => {
+    const term = setup(10, 1);
+    const onChange = () => {};
+
+    cel.viewport(() =>
+      VStack({ width: 10, height: 1, overflow: "scroll", scrollOffset: 1 }, [
+        TextInput({ value: "x", height: 1, focused: true, onChange }),
+        Text("below"),
+      ]),
+    );
+    await waitForRender();
+
+    expect(currentBuffer().get(0, 0).char).toBe("b");
+    expect(term.output).not.toContain("\x1b[?25h");
+    expect(term.output).not.toContain("\x1b[1;2H");
   });
 
   test("unfocused TextInput does not consume keys", async () => {

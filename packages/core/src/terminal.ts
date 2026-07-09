@@ -1,3 +1,20 @@
+import type { KittyKeyboardOptions } from "@cel-tui/types";
+
+/** Optional terminal modes selected by `cel.init()`. */
+export interface TerminalStartOptions {
+  /** Kitty progressive-enhancement flags beyond baseline disambiguation. */
+  kittyKeyboard?: KittyKeyboardOptions;
+}
+
+function kittyKeyboardFlags(options?: KittyKeyboardOptions): number {
+  let flags = 1; // Disambiguate escape codes (the existing default).
+  if (options?.reportEventTypes) flags |= 2;
+  if (options?.reportAlternateKeys) flags |= 4;
+  if (options?.reportAllKeys || options?.reportAssociatedText) flags |= 8;
+  if (options?.reportAssociatedText) flags |= 16;
+  return flags;
+}
+
 /**
  * Minimal terminal interface.
  *
@@ -12,14 +29,18 @@ export interface Terminal {
   /** Terminal height in rows. */
   get rows(): number;
   /**
-   * Enter raw mode, enable Kitty level 1 keyboard reporting, enable bracketed
-   * paste mode, enable mouse tracking, and hide the cursor.
+   * Enter raw mode, push Kitty keyboard flags, enable bracketed paste mode,
+   * enable mouse tracking, and hide the cursor.
    *
    * The framework prefers Kitty semantics but its parser also accepts mixed
    * tmux/legacy keyboard encodings that may still arrive on stdin.
    */
-  start(onInput: (data: string) => void, onResize: () => void): void;
-  /** Restore terminal state. */
+  start(
+    onInput: (data: string) => void,
+    onResize: () => void,
+    options?: TerminalStartOptions,
+  ): void;
+  /** Restore terminal modes, visibility, and the configured default cursor shape. */
   stop(): void;
   /** Hide the terminal cursor. */
   hideCursor(): void;
@@ -30,8 +51,9 @@ export interface Terminal {
 /**
  * Real terminal using process.stdin/stdout.
  *
- * Enables Kitty keyboard protocol level 1, bracketed paste mode, SGR mouse
- * tracking, and raw mode. The runtime prefers Kitty semantics for full
+ * Enables Kitty keyboard protocol baseline disambiguation plus requested
+ * progressive enhancements, bracketed paste mode, SGR mouse tracking, and
+ * raw mode. The runtime prefers Kitty semantics for full
  * modifier fidelity, while the parser remains compatible with mixed
  * tmux/legacy keyboard encodings that may still arrive on stdin. All modes are
  * restored on stop/crash.
@@ -41,6 +63,8 @@ export class ProcessTerminal implements Terminal {
   private resizeHandler?: () => void;
   private inputHandler?: (data: string) => void;
   private cleanupBound?: () => void;
+  private sigintHandler?: () => void;
+  private sigtermHandler?: () => void;
   private uncaughtExceptionHandler?: (err: unknown) => void;
   private unhandledRejectionHandler?: (err: unknown) => void;
   private stopped = false;
@@ -57,7 +81,11 @@ export class ProcessTerminal implements Terminal {
     process.stdout.write(data);
   }
 
-  start(onInput: (data: string) => void, onResize: () => void): void {
+  start(
+    onInput: (data: string) => void,
+    onResize: () => void,
+    options?: TerminalStartOptions,
+  ): void {
     this.stopped = false;
     this.inputHandler = onInput;
     this.resizeHandler = () => {
@@ -77,8 +105,9 @@ export class ProcessTerminal implements Terminal {
 
     // Switch to alternate screen buffer (restored on exit)
     this.write("\x1b[?1049h");
-    // Enable Kitty keyboard protocol level 1 (disambiguate) with push flag
-    this.write("\x1b[>1u");
+    // Push Kitty keyboard flags after entering the alternate screen. The
+    // baseline remains disambiguation-only unless enhancements were requested.
+    this.write(`\x1b[>${kittyKeyboardFlags(options?.kittyKeyboard)}u`);
     // Enable bracketed paste mode
     this.write("\x1b[?2004h");
     // Enable mouse tracking (normal mode) + SGR encoding
@@ -87,6 +116,8 @@ export class ProcessTerminal implements Terminal {
 
     // Register cleanup handlers for crash/exit scenarios
     this.cleanupBound = () => this.cleanup();
+    this.sigintHandler = () => this.terminateFromSignal("SIGINT");
+    this.sigtermHandler = () => this.terminateFromSignal("SIGTERM");
     this.uncaughtExceptionHandler = (err) => {
       this.cleanup();
       console.error(err);
@@ -99,14 +130,25 @@ export class ProcessTerminal implements Terminal {
     };
 
     process.on("exit", this.cleanupBound);
-    process.on("SIGINT", this.cleanupBound);
-    process.on("SIGTERM", this.cleanupBound);
+    process.on("SIGINT", this.sigintHandler);
+    process.on("SIGTERM", this.sigtermHandler);
     process.on("uncaughtException", this.uncaughtExceptionHandler);
     process.on("unhandledRejection", this.unhandledRejectionHandler);
   }
 
   stop(): void {
     this.cleanup();
+  }
+
+  /** Restore terminal state, then unconditionally re-deliver the signal. */
+  private terminateFromSignal(signal: "SIGINT" | "SIGTERM"): void {
+    this.cleanup();
+    // Other application listeners may otherwise consume the re-delivered
+    // signal and leave a half-stopped process alive. The process is committed
+    // to termination at this point; removing listeners preserves the native
+    // signal exit status instead of substituting process.exit().
+    process.removeAllListeners(signal);
+    process.kill(process.pid, signal);
   }
 
   /**
@@ -122,6 +164,8 @@ export class ProcessTerminal implements Terminal {
     this.write("\x1b[?2004l");
     // Pop Kitty keyboard protocol mode
     this.write("\x1b[<u");
+    // Restore the user's configured cursor shape before making it visible.
+    this.write("\x1b[0 q");
     this.showCursor();
     // Restore main screen buffer
     this.write("\x1b[?1049l");
@@ -141,8 +185,12 @@ export class ProcessTerminal implements Terminal {
     // Remove process handlers
     if (this.cleanupBound) {
       process.removeListener("exit", this.cleanupBound);
-      process.removeListener("SIGINT", this.cleanupBound);
-      process.removeListener("SIGTERM", this.cleanupBound);
+    }
+    if (this.sigintHandler) {
+      process.removeListener("SIGINT", this.sigintHandler);
+    }
+    if (this.sigtermHandler) {
+      process.removeListener("SIGTERM", this.sigtermHandler);
     }
     if (this.uncaughtExceptionHandler) {
       process.removeListener(
@@ -198,7 +246,11 @@ export class MockTerminal implements Terminal {
     this.output += data;
   }
 
-  start(onInput: (data: string) => void, onResize: () => void): void {
+  start(
+    onInput: (data: string) => void,
+    onResize: () => void,
+    _options?: TerminalStartOptions,
+  ): void {
     this.inputHandler = onInput;
     this.resizeHandler = onResize;
   }

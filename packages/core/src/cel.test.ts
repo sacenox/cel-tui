@@ -1,10 +1,10 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { cel } from "./cel.js";
 import { HStack, VStack } from "./primitives/stacks.js";
 import { Text } from "./primitives/text.js";
 import { TextInput } from "./primitives/text-input.js";
+import type { TerminalStartOptions } from "./terminal.js";
 import { MockTerminal } from "./terminal.js";
-import { kittyEncode } from "./test-helpers.js";
+import { testCel as cel, kittyEncode } from "./test-helpers.js";
 
 // Kitty protocol byte sequences for commonly used keys
 const TAB = kittyEncode("tab");
@@ -43,8 +43,7 @@ describe("cel end-to-end", () => {
   }
 
   async function waitForRender(): Promise<void> {
-    // process.nextTick batching — wait for it to fire
-    await new Promise((resolve) => setTimeout(resolve, 10));
+    await cel._flush();
   }
 
   function currentBuffer() {
@@ -124,6 +123,74 @@ describe("cel end-to-end", () => {
     expect(term.output).toContain("Second");
   });
 
+  test("does not write terminal output for an unchanged frame", async () => {
+    const term = setup(10, 1);
+    cel.viewport(() => Text("same"));
+    await waitForRender();
+    term.clearOutput();
+
+    cel.render();
+    await waitForRender();
+
+    expect(term.output).toBe("");
+  });
+
+  test("redraw re-emits the full frame even when cells are unchanged", async () => {
+    const term = setup(10, 1);
+    cel.viewport(() => Text("same"));
+    await waitForRender();
+    term.clearOutput();
+
+    cel.redraw();
+    await waitForRender();
+
+    expect(term.output).toContain("\x1b[H\x1b[0msame");
+  });
+
+  test("redraw explicitly repairs an unchanged native cursor", async () => {
+    const term = setup(4, 1);
+    const props = { value: "hi", onChange: () => {}, focused: true };
+    cel.viewport(() => TextInput(props));
+    await waitForRender();
+    term.clearOutput();
+
+    cel.redraw();
+    await waitForRender();
+
+    expect(term.output).not.toContain("\x1b7");
+    expect(term.output).not.toContain("\x1b8");
+    expect(term.output).toContain("\x1b[1;3H\x1b[1 q\x1b[?25h");
+  });
+
+  test("setTheme replaces the active theme and performs a full redraw", async () => {
+    const term = setup(10, 1);
+    cel.viewport(() => Text("X", { fgColor: "color01" }));
+    await waitForRender();
+    term.clearOutput();
+
+    cel.setTheme({
+      color00: 0,
+      color01: "#123456",
+      color02: 2,
+      color03: 3,
+      color04: 4,
+      color05: 5,
+      color06: 6,
+      color07: 7,
+      color08: 8,
+      color09: 9,
+      color10: 10,
+      color11: 11,
+      color12: 12,
+      color13: 13,
+      color14: 14,
+      color15: 15,
+    });
+    await waitForRender();
+
+    expect(term.output).toContain("\x1b[38;2;18;52;86mX");
+  });
+
   test("batches multiple render calls", async () => {
     const term = setup(10, 1);
     let count = 0;
@@ -188,6 +255,15 @@ describe("cel end-to-end", () => {
       expect(extractTitlePayloads(term.output)).toEqual(["first", "second"]);
     });
 
+    test("setTitle suppresses duplicate sanitized titles", () => {
+      const term = setup();
+
+      cel.setTitle("same");
+      cel.setTitle("sa\nme");
+
+      expect(extractTitlePayloads(term.output)).toEqual(["same"]);
+    });
+
     test("stop does not emit a title restore sequence", () => {
       const term = setup();
       cel.setTitle("session");
@@ -200,6 +276,174 @@ describe("cel end-to-end", () => {
   });
 
   describe("input handling", () => {
+    test("init forwards advanced Kitty keyboard configuration", () => {
+      class ConfigTerminal extends MockTerminal {
+        startOptions?: TerminalStartOptions;
+
+        override start(
+          onInput: (data: string) => void,
+          onResize: () => void,
+          options?: TerminalStartOptions,
+        ): void {
+          this.startOptions = options;
+          super.start(onInput, onResize, options);
+        }
+      }
+
+      cel.stop();
+      const configured = new ConfigTerminal(20, 5);
+      cel.init(configured, {
+        kittyKeyboard: {
+          reportEventTypes: true,
+          reportAssociatedText: true,
+        },
+      });
+
+      expect(configured.startOptions).toEqual({
+        kittyKeyboard: {
+          reportEventTypes: true,
+          reportAssociatedText: true,
+        },
+      });
+    });
+
+    test("routes advanced event metadata while release skips default actions", async () => {
+      const term = setup(20, 5);
+      let value = "";
+      const inputEvents: string[] = [];
+      const rootEvents: string[] = [];
+
+      cel.viewport(() =>
+        VStack(
+          {
+            onKeyPress: (_key, event) => {
+              rootEvents.push(`${event.eventType}:${event.text ?? ""}`);
+            },
+          },
+          [
+            TextInput({
+              value,
+              focused: true,
+              onChange: (next) => {
+                value = next;
+              },
+              onKeyPress: (_key, event) => {
+                inputEvents.push(`${event.eventType}:${event.text ?? ""}`);
+              },
+            }),
+          ],
+        ),
+      );
+      await waitForRender();
+
+      term.sendInput(
+        "\x1b[97;1:1;97u\x1b[97;1:2;97u\x1b[97;1:3;97u\x1b[13;1:3u",
+      );
+      await waitForRender();
+
+      expect(value).toBe("aa");
+      expect(inputEvents).toEqual([
+        "press:a",
+        "repeat:a",
+        "release:a",
+        "release:",
+      ]);
+      expect(rootEvents).toEqual(["release:a", "release:"]);
+    });
+
+    test("release never triggers focused-container activation", async () => {
+      const term = setup(20, 5);
+      let clicks = 0;
+      cel.viewport(() =>
+        HStack(
+          {
+            focused: true,
+            onClick: () => {
+              clicks++;
+            },
+          },
+          [Text("action")],
+        ),
+      );
+      await waitForRender();
+
+      term.sendInput("\x1b[13;1:3u");
+      await waitForRender();
+      expect(clicks).toBe(0);
+
+      term.sendInput("\x1b[13;1:2u");
+      await waitForRender();
+      expect(clicks).toBe(1);
+    });
+
+    test("inserts multi-codepoint associated text as one advanced event", async () => {
+      const term = setup(20, 5);
+      let value = "";
+      const events: string[] = [];
+      cel.viewport(() =>
+        TextInput({
+          value,
+          focused: true,
+          onChange: (next) => {
+            value = next;
+          },
+          onKeyPress: (_key, event) => {
+            events.push(event.text ?? "");
+          },
+        }),
+      );
+      await waitForRender();
+
+      term.sendInput("\x1b[0;;128105:8205:128187u");
+      await waitForRender();
+
+      expect(value).toBe("👩‍💻");
+      expect(events).toEqual(["👩‍💻"]);
+    });
+
+    test("all-key events without associated text do not guess TextInput output", async () => {
+      const term = setup(20, 5);
+      let value = "";
+      cel.viewport(() =>
+        TextInput({
+          value,
+          focused: true,
+          onChange: (next) => {
+            value = next;
+          },
+        }),
+      );
+      await waitForRender();
+
+      term.sendInput("\x1b[97;1u");
+      await waitForRender();
+
+      expect(value).toBe("");
+    });
+
+    test("release Escape never triggers fallback blur", async () => {
+      const term = setup(20, 5);
+      let blurCount = 0;
+      cel.viewport(() =>
+        TextInput({
+          value: "",
+          focused: true,
+          onChange: () => {},
+          onBlur: () => {
+            blurCount++;
+          },
+        }),
+      );
+      await waitForRender();
+
+      term.sendInput("\x1b[27;1:3u");
+      await waitForRender();
+      expect(blurCount).toBe(0);
+
+      term.sendInput("\x1b[27;1:1u");
+      await waitForRender();
+      expect(blurCount).toBe(1);
+    });
     test("onClick fires on mouse click", async () => {
       const term = setup(20, 5);
       let clicked = false;
@@ -565,6 +809,157 @@ describe("cel end-to-end", () => {
       let row0 = "";
       for (let x = 0; x < 6; x++) row0 += buf2.get(x, 0).char;
       expect(row0).toBe("line 5");
+    });
+
+    test("stateKey preserves uncontrolled scroll when a sibling is inserted", async () => {
+      const term = setup(20, 4);
+      let showHeader = false;
+
+      cel.viewport(() =>
+        VStack(
+          { width: 20, height: 4 },
+          [
+            showHeader ? Text("header") : null,
+            VStack(
+              {
+                stateKey: "messages",
+                width: 20,
+                height: 3,
+                overflow: "scroll",
+              },
+              Array.from({ length: 6 }, (_, i) => Text(`line ${i + 1}`)),
+            ),
+          ].filter((node) => node !== null),
+        ),
+      );
+      await waitForRender();
+
+      term.sendInput("\x1b[<65;4;2M");
+      await waitForRender();
+      showHeader = true;
+      cel.render();
+      await waitForRender();
+
+      const row = Array.from(
+        { length: 6 },
+        (_, x) => currentBuffer().get(x, 1).char,
+      ).join("");
+      expect(row).toBe("line 4");
+    });
+
+    test("unmounting a stateKey disposes uncontrolled scroll state", async () => {
+      const term = setup(20, 3);
+      let mounted = true;
+
+      cel.viewport(() =>
+        VStack(
+          { width: 20, height: 3 },
+          mounted
+            ? [
+                VStack(
+                  {
+                    stateKey: "messages",
+                    width: 20,
+                    height: 3,
+                    overflow: "scroll",
+                  },
+                  Array.from({ length: 6 }, (_, i) => Text(`line ${i + 1}`)),
+                ),
+              ]
+            : [Text("unmounted")],
+        ),
+      );
+      await waitForRender();
+
+      term.sendInput("\x1b[<65;4;2M");
+      await waitForRender();
+      mounted = false;
+      cel.render();
+      await waitForRender();
+      mounted = true;
+      cel.render();
+      await waitForRender();
+
+      const row = Array.from(
+        { length: 6 },
+        (_, x) => currentBuffer().get(x, 0).char,
+      ).join("");
+      expect(row).toBe("line 1");
+    });
+
+    test("uncontrolled scroll updates framework state when onScroll consumes", async () => {
+      const term = setup(20, 3);
+      const offsets: number[] = [];
+
+      cel.viewport(() =>
+        VStack(
+          {
+            width: 20,
+            height: 3,
+            overflow: "scroll",
+            onScroll: (offset) => {
+              offsets.push(offset);
+            },
+          },
+          Array.from({ length: 6 }, (_, i) => Text(`line ${i + 1}`)),
+        ),
+      );
+      await waitForRender();
+
+      term.sendInput("\x1b[<65;4;2M");
+      await waitForRender();
+
+      expect(offsets).toEqual([3]);
+      const row0 = Array.from(
+        { length: 6 },
+        (_, x) => currentBuffer().get(x, 0).char,
+      ).join("");
+      expect(row0).toBe("line 4");
+    });
+
+    test("uncontrolled onScroll returning false leaves state unchanged and bubbles", async () => {
+      const term = setup(20, 6);
+      const innerOffsets: number[] = [];
+      const outerOffsets: number[] = [];
+
+      cel.viewport(() =>
+        VStack(
+          {
+            width: 20,
+            height: 6,
+            overflow: "scroll",
+            onScroll: (offset) => {
+              outerOffsets.push(offset);
+            },
+          },
+          [
+            VStack(
+              {
+                height: 3,
+                overflow: "scroll",
+                onScroll: (offset) => {
+                  innerOffsets.push(offset);
+                  return false;
+                },
+              },
+              Array.from({ length: 6 }, (_, i) => Text(`inner ${i + 1}`)),
+            ),
+            ...Array.from({ length: 6 }, (_, i) => Text(`outer ${i + 1}`)),
+          ],
+        ),
+      );
+      await waitForRender();
+
+      term.sendInput("\x1b[<65;4;2M");
+      await waitForRender();
+
+      expect(innerOffsets).toEqual([3]);
+      expect(outerOffsets).toEqual([3]);
+      const row0 = Array.from(
+        { length: 7 },
+        (_, x) => currentBuffer().get(x, 0).char,
+      ).join("");
+      expect(row0).toBe("outer 1");
     });
 
     test("uncontrolled scroll clamps at max offset", async () => {
@@ -1756,6 +2151,60 @@ describe("cel end-to-end", () => {
   });
 
   describe("uncontrolled focus", () => {
+    test("autoFocus seeds focus once and reports the auto reason", async () => {
+      const term = setup(20, 5);
+      const reasons: string[] = [];
+      let clicks = 0;
+      let mounted = true;
+
+      cel.viewport(() =>
+        VStack(
+          { width: 20, height: 5 },
+          mounted
+            ? [
+                HStack(
+                  {
+                    stateKey: "primary",
+                    autoFocus: true,
+                    onClick: () => clicks++,
+                    onFocus: ({ reason }) => reasons.push(reason),
+                  },
+                  [Text("Primary")],
+                ),
+              ]
+            : [Text("unmounted")],
+        ),
+      );
+      await waitForRender();
+
+      term.sendInput(ENTER);
+      await waitForRender();
+      expect(clicks).toBe(1);
+      expect(reasons).toEqual(["auto"]);
+
+      term.sendInput(ESCAPE);
+      await waitForRender();
+      cel.render();
+      await waitForRender();
+      term.sendInput(ENTER);
+      await waitForRender();
+
+      expect(clicks).toBe(1);
+      expect(reasons).toEqual(["auto"]);
+
+      mounted = false;
+      cel.render();
+      await waitForRender();
+      mounted = true;
+      cel.render();
+      await waitForRender();
+      term.sendInput(ENTER);
+      await waitForRender();
+
+      expect(clicks).toBe(2);
+      expect(reasons).toEqual(["auto", "auto"]);
+    });
+
     test("Tab focuses first clickable element and Enter activates it", async () => {
       const term = setup(20, 5);
       let clicked = false;
@@ -1810,6 +2259,110 @@ describe("cel end-to-end", () => {
       term.sendInput(ENTER);
       await waitForRender();
       expect(clicks).toEqual(["btn1", "btn2"]);
+    });
+
+    test("stateKey preserves uncontrolled focus when siblings reorder", async () => {
+      const term = setup(20, 5);
+      const clicks: string[] = [];
+      let reversed = false;
+
+      cel.viewport(() => {
+        const first = HStack(
+          { stateKey: "first", onClick: () => clicks.push("first") },
+          [Text("First")],
+        );
+        const second = HStack(
+          { stateKey: "second", onClick: () => clicks.push("second") },
+          [Text("Second")],
+        );
+        return VStack(
+          { width: 20, height: 5 },
+          reversed ? [second, first] : [first, second],
+        );
+      });
+      await waitForRender();
+
+      term.sendInput(TAB);
+      await waitForRender();
+      reversed = true;
+      cel.render();
+      await waitForRender();
+      term.sendInput(ENTER);
+      await waitForRender();
+
+      expect(clicks).toEqual(["first"]);
+    });
+
+    test("keyed last focus survives reorder after Escape", async () => {
+      const term = setup(20, 5);
+      const clicks: string[] = [];
+      let reversed = false;
+
+      cel.viewport(() => {
+        const first = HStack(
+          { stateKey: "first", onClick: () => clicks.push("first") },
+          [Text("First")],
+        );
+        const second = HStack(
+          { stateKey: "second", onClick: () => clicks.push("second") },
+          [Text("Second")],
+        );
+        return VStack(
+          { width: 20, height: 5 },
+          reversed ? [second, first] : [first, second],
+        );
+      });
+      await waitForRender();
+
+      term.sendInput(TAB);
+      await waitForRender();
+      term.sendInput(ESCAPE);
+      await waitForRender();
+      reversed = true;
+      cel.render();
+      await waitForRender();
+      term.sendInput(TAB);
+      await waitForRender();
+      term.sendInput(ENTER);
+      await waitForRender();
+
+      expect(clicks).toEqual(["second"]);
+    });
+
+    test("removing a keyed focus does not focus its index replacement", async () => {
+      const term = setup(20, 5);
+      const clicks: string[] = [];
+      let showFirst = true;
+
+      cel.viewport(() =>
+        VStack({ width: 20, height: 5 }, [
+          ...(showFirst
+            ? [
+                HStack(
+                  {
+                    stateKey: "first",
+                    onClick: () => clicks.push("first"),
+                  },
+                  [Text("First")],
+                ),
+              ]
+            : []),
+          HStack({ stateKey: "second", onClick: () => clicks.push("second") }, [
+            Text("Second"),
+          ]),
+        ]),
+      );
+      await waitForRender();
+
+      term.sendInput(TAB);
+      await waitForRender();
+      showFirst = false;
+      cel.render();
+      await waitForRender();
+      term.sendInput(ENTER);
+      await waitForRender();
+
+      expect(clicks).toEqual([]);
     });
 
     test("Shift+Tab moves focus backwards", async () => {

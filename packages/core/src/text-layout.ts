@@ -1,4 +1,4 @@
-import { visibleWidthFromColumn } from "./width.js";
+import { extractAnsiCode, visibleWidthFromColumn } from "./width.js";
 
 const segmenter = new Intl.Segmenter(undefined, { granularity: "grapheme" });
 const whitespaceRegex = /^\s+$/u;
@@ -101,17 +101,10 @@ export function layoutText(
   for (const hardLine of hardLines) {
     const graphemes = segmentLine(value, hardLine.start, hardLine.end);
     if (wrap === "word") {
-      lines.push(
-        ...wrapGraphemes(value, graphemes, Math.max(1, width), hardLine),
-      );
+      lines.push(...wrapGraphemes(graphemes, Math.max(1, width), hardLine));
     } else {
       lines.push(
-        ...buildVisualLines(
-          value,
-          graphemes,
-          [[0, graphemes.length]],
-          hardLine,
-        ),
+        ...buildVisualLines(graphemes, [[0, graphemes.length]], hardLine),
       );
     }
   }
@@ -208,60 +201,8 @@ function measureWrappedHardLine(
   if (start === end) {
     return 1;
   }
-
-  const widths: number[] = [];
-  const whitespace: boolean[] = [];
-  const text = value.slice(start, end);
-  let col = 0;
-
-  for (const { segment } of segmenter.segment(text)) {
-    const segmentWidth = visibleWidthFromColumn(segment, col);
-    widths.push(segmentWidth);
-    whitespace.push(whitespaceRegex.test(segment));
-    col += segmentWidth;
-  }
-
-  if (col <= width) {
-    return 1;
-  }
-
-  let lineCount = 0;
-  let lineStart = 0;
-
-  while (lineStart < widths.length) {
-    let lineEnd = lineStart;
-    let lineWidth = 0;
-    let lastBreak = -1;
-
-    while (lineEnd < widths.length) {
-      const segmentWidth = widths[lineEnd];
-      if (segmentWidth === undefined) {
-        break;
-      }
-      const nextWidth = lineWidth + segmentWidth;
-      if (nextWidth > width) break;
-      lineWidth = nextWidth;
-      lineEnd++;
-      if (whitespace[lineEnd - 1]) {
-        lastBreak = lineEnd;
-      }
-    }
-
-    lineCount++;
-
-    if (lineEnd >= widths.length) {
-      break;
-    }
-
-    if (lineEnd === lineStart) {
-      lineStart++;
-      continue;
-    }
-
-    lineStart = lastBreak > lineStart ? lastBreak : lineEnd;
-  }
-
-  return lineCount;
+  const graphemes = segmentLine(value, start, end);
+  return Math.max(1, getWrappedRanges(graphemes, width).length);
 }
 
 function splitHardLines(value: string): Range[] {
@@ -284,10 +225,26 @@ function segmentLine(
 ): GraphemeInfo[] {
   const graphemes: GraphemeInfo[] = [];
   const text = value.slice(start, end);
-  let offset = start;
   let col = 0;
+  let ansiEnd = -1;
 
-  for (const { segment } of segmenter.segment(text)) {
+  for (const { segment, index } of segmenter.segment(text)) {
+    const offset = start + index;
+    if (offset < ansiEnd) continue;
+
+    const ansi = extractAnsiCode(value, offset);
+    if (ansi !== null && offset + ansi.length <= end) {
+      ansiEnd = offset + ansi.length;
+      graphemes.push({
+        text: "",
+        startOffset: offset,
+        endOffset: ansiEnd,
+        width: 0,
+        isWhitespace: false,
+      });
+      continue;
+    }
+
     const width = visibleWidthFromColumn(segment, col);
     graphemes.push({
       text: segment,
@@ -296,7 +253,6 @@ function segmentLine(
       width,
       isWhitespace: whitespaceRegex.test(segment),
     });
-    offset += segment.length;
     col += width;
   }
 
@@ -304,51 +260,65 @@ function segmentLine(
 }
 
 function wrapGraphemes(
-  value: string,
   graphemes: GraphemeInfo[],
   width: number,
   hardLine: Range,
 ): VisualLineData[] {
   if (graphemes.length === 0) {
-    return [makeVisualLine(value, graphemes, 0, 0, hardLine.start)];
+    return [makeVisualLine(graphemes, 0, 0, hardLine.start)];
   }
 
-  const prefixWidths = [0];
-  for (const grapheme of graphemes) {
-    const previousWidth = requiredAt(
-      prefixWidths,
-      prefixWidths.length - 1,
-      "prefix width",
-    );
-    prefixWidths.push(previousWidth + grapheme.width);
-  }
+  return buildVisualLines(
+    graphemes,
+    getWrappedRanges(graphemes, width),
+    hardLine,
+  );
+}
 
+function getWrappedRanges(
+  graphemes: GraphemeInfo[],
+  width: number,
+): Array<[number, number]> {
   const ranges: Array<[number, number]> = [];
   let lineStart = 0;
 
   while (lineStart < graphemes.length) {
     let lineEnd = lineStart;
+    let lineWidth = 0;
     let lastBreak = -1;
 
     while (lineEnd < graphemes.length) {
-      const nextWidth =
-        requiredAt(prefixWidths, lineEnd + 1, "prefix width") -
-        requiredAt(prefixWidths, lineStart, "prefix width");
+      const grapheme = requiredAt(graphemes, lineEnd, "grapheme");
+      const graphemeWidth = contextualGraphemeWidth(grapheme, lineWidth);
+      const nextWidth = lineWidth + graphemeWidth;
       if (nextWidth > width) break;
+      lineWidth = nextWidth;
       lineEnd++;
-      if (requiredAt(graphemes, lineEnd - 1, "grapheme").isWhitespace) {
+      if (grapheme.isWhitespace) {
         lastBreak = lineEnd;
       }
     }
 
     if (lineEnd >= graphemes.length) {
-      ranges.push([lineStart, graphemes.length]);
+      if (lineWidth === 0 && ranges.length > 0) {
+        // Trailing control spans belong to the preceding visible line; they
+        // must not manufacture a blank line of their own.
+        const previous = requiredAt(ranges, ranges.length - 1, "wrap range");
+        previous[1] = graphemes.length;
+      } else {
+        ranges.push([lineStart, graphemes.length]);
+      }
       break;
     }
 
-    if (lineEnd === lineStart) {
-      ranges.push([lineStart, lineStart + 1]);
-      lineStart++;
+    if (lineWidth === 0) {
+      // Zero-width control spans (for example a leading ANSI sequence) must
+      // travel with the first visible grapheme. Otherwise a wide grapheme
+      // that exceeds the viewport can strand those spans on a phantom blank
+      // visual line.
+      const forcedEnd = Math.min(graphemes.length, lineEnd + 1);
+      ranges.push([lineStart, forcedEnd]);
+      lineStart = forcedEnd;
       continue;
     }
 
@@ -362,22 +332,20 @@ function wrapGraphemes(
     lineStart = lineEnd;
   }
 
-  return buildVisualLines(value, graphemes, ranges, hardLine);
+  return ranges;
 }
 
 function buildVisualLines(
-  value: string,
   graphemes: GraphemeInfo[],
   ranges: Array<[number, number]>,
   hardLine: Range,
 ): VisualLineData[] {
   return ranges.map(([startIndex, endIndex]) =>
-    makeVisualLine(value, graphemes, startIndex, endIndex, hardLine.start),
+    makeVisualLine(graphemes, startIndex, endIndex, hardLine.start),
   );
 }
 
 function makeVisualLine(
-  value: string,
   graphemes: GraphemeInfo[],
   startIndex: number,
   endIndex: number,
@@ -395,7 +363,16 @@ function makeVisualLine(
     };
   }
 
-  const lineGraphemes = graphemes.slice(startIndex, endIndex);
+  let width = 0;
+  const lineGraphemes = graphemes
+    .slice(startIndex, endIndex)
+    .map((grapheme) => {
+      const contextualWidth = contextualGraphemeWidth(grapheme, width);
+      width += contextualWidth;
+      return contextualWidth === grapheme.width
+        ? grapheme
+        : { ...grapheme, width: contextualWidth };
+    });
   const startOffset = requiredAt(lineGraphemes, 0, "line grapheme").startOffset;
   const endOffset = requiredAt(
     lineGraphemes,
@@ -405,13 +382,25 @@ function makeVisualLine(
 
   return {
     line: {
-      text: value.slice(startOffset, endOffset),
+      text: lineGraphemes.map((grapheme) => grapheme.text).join(""),
       startOffset,
       endOffset,
-      width: lineGraphemes.reduce((sum, grapheme) => sum + grapheme.width, 0),
+      width,
     },
     graphemes: lineGraphemes,
   };
+}
+
+function contextualGraphemeWidth(
+  grapheme: GraphemeInfo,
+  column: number,
+): number {
+  // Tabs advance to the next tab stop and therefore need their width
+  // recomputed after a soft wrap. All other graphemes have a stable width;
+  // re-segmenting each one here makes ordinary ASCII wrapping much slower.
+  return grapheme.text === "\t"
+    ? visibleWidthFromColumn(grapheme.text, column)
+    : grapheme.width;
 }
 
 function offsetToPosition(
@@ -453,6 +442,9 @@ function positionToOffset(
 
   if (targetCol === 0 || entry.graphemes.length === 0) {
     return entry.line.startOffset;
+  }
+  if (targetCol >= entry.line.width) {
+    return entry.line.endOffset;
   }
 
   let currentCol = 0;

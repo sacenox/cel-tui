@@ -128,6 +128,13 @@ describe("emitBuffer", () => {
     expect(output).toContain("\x1b[H");
   });
 
+  test("establishes a default SGR baseline before rendering the full frame", () => {
+    const buf = new CellBuffer(1, 1);
+    const output = emitBuffer(buf);
+
+    expect(output.startsWith("\x1b[?2026h\x1b[H\x1b[0m")).toBe(true);
+  });
+
   test("empty cells render as spaces", () => {
     const buf = new CellBuffer(3, 1);
     // Leave all cells empty
@@ -213,8 +220,55 @@ describe("emitDiff", () => {
     prev.set(0, 0, cell("A"));
     next.set(0, 0, cell("A"));
     const output = emitDiff(prev, next);
-    // Only sync markers, no content
-    expect(output).toBe("\x1b[?2026h\x1b[?2026l");
+    expect(output).toBe("");
+  });
+
+  test("returns empty string when cells and visible cursor are unchanged", () => {
+    const prev = new CellBuffer(5, 1);
+    const next = new CellBuffer(5, 1);
+
+    const output = emitDiff(prev, next, defaultTheme, {
+      cursor: { visible: true, x: 2, y: 0 },
+      previousCursor: { visible: true, x: 2, y: 0 },
+    });
+
+    expect(output).toBe("");
+  });
+
+  test("returns empty string when the explicit cursor style is unchanged", () => {
+    const prev = new CellBuffer(5, 1);
+    const next = new CellBuffer(5, 1);
+
+    const output = emitDiff(prev, next, defaultTheme, {
+      cursor: { visible: true, x: 2, y: 0, style: "bar" },
+      previousCursor: { visible: true, x: 2, y: 0, style: "bar" },
+    });
+
+    expect(output).toBe("");
+  });
+
+  test("emits a deterministic shape-only cursor update", () => {
+    const prev = new CellBuffer(5, 1);
+    const next = new CellBuffer(5, 1);
+
+    const output = emitDiff(prev, next, defaultTheme, {
+      cursor: { visible: true, x: 2, y: 0, style: "underline" },
+      previousCursor: { visible: true, x: 2, y: 0, style: "bar" },
+    });
+
+    expect(output).toBe("\x1b[?2026h\x1b[3 q\x1b[?2026l");
+  });
+
+  test("emits a cursor-only update when its position changes", () => {
+    const prev = new CellBuffer(5, 1);
+    const next = new CellBuffer(5, 1);
+
+    const output = emitDiff(prev, next, defaultTheme, {
+      cursor: { visible: true, x: 3, y: 0 },
+      previousCursor: { visible: true, x: 2, y: 0 },
+    });
+
+    expect(output).toBe("\x1b[?2026h\x1b[1;4H\x1b[?2026l");
   });
 
   test("emits only changed cells with cursor positioning", () => {
@@ -301,7 +355,43 @@ describe("emitDiff", () => {
       previousCursor: { visible: false },
     });
 
-    expect(output.endsWith("\x1b[1;2H\x1b[?25h\x1b[?2026l")).toBe(true);
+    expect(output.endsWith("\x1b[1;2H\x1b[1 q\x1b[?25h\x1b[?2026l")).toBe(true);
+  });
+
+  for (const [style, sequence] of [
+    ["block", "\x1b[1 q"],
+    ["underline", "\x1b[3 q"],
+    ["bar", "\x1b[5 q"],
+  ] as const) {
+    test(`full output selects the ${style} native cursor shape`, () => {
+      const output = emitBuffer(new CellBuffer(2, 1), defaultTheme, {
+        cursor: { visible: true, x: 1, y: 0, style },
+        previousCursor: { visible: false },
+      });
+
+      expect(output).toContain(`\x1b[1;2H${sequence}\x1b[?25h`);
+    });
+  }
+
+  test("full output repairs cursor state even when the logical cursor is unchanged", () => {
+    const buf = new CellBuffer(2, 1);
+    const output = emitBuffer(buf, defaultTheme, {
+      cursor: { visible: true, x: 1, y: 0 },
+      previousCursor: { visible: true, x: 1, y: 0 },
+    });
+
+    expect(output).not.toContain("\x1b7");
+    expect(output).not.toContain("\x1b8");
+    expect(output.endsWith("\x1b[1;2H\x1b[1 q\x1b[?25h\x1b[?2026l")).toBe(true);
+  });
+
+  test("full output explicitly hides the cursor from an unknown terminal state", () => {
+    const output = emitBuffer(new CellBuffer(1, 1), defaultTheme, {
+      cursor: { visible: false },
+      previousCursor: { visible: false },
+    });
+
+    expect(output.endsWith("\x1b[?25l\x1b[?2026l")).toBe(true);
   });
 
   test("hides a previously visible cursor inside synchronized diff output", () => {

@@ -5,7 +5,7 @@ license: MIT
 compatibility: Requires Bun runtime. Best experience on Kitty-compatible terminals and in tmux with `set -s extended-keys on`; uses SGR mouse mode and accepts recoverable legacy key encodings when hosts do not preserve a pure Kitty stream.
 metadata:
   author: sacenox
-  version: "0.8.3"
+  version: "0.9.0"
 ---
 
 # Building TUIs with cel-tui
@@ -18,7 +18,7 @@ cel-tui is a TypeScript TUI framework with a declarative functional API, flexbox
 - **First-class:** `tmux` with `set -s extended-keys on`
 - **Best effort:** legacy terminals or multiplexers that collapse some modifier distinctions
 
-cel-tui enables Kitty level 1 for full modifier fidelity, but it also accepts recoverable legacy control bytes and ESC-prefixed Alt combinations so common keyboard flows keep working in tmux and mixed environments.
+cel-tui enables Kitty baseline disambiguation for modifier fidelity, but it also accepts recoverable legacy control bytes and ESC-prefixed Alt combinations so common keyboard flows keep working in tmux and mixed environments. Optional `kittyKeyboard` flags expose event phases, alternate keys, all-key reporting, and associated text.
 
 ## Install
 
@@ -77,6 +77,11 @@ cel.viewport(() =>
 The steps: `cel.init(terminal)` → `cel.viewport(() => tree)` → mutate state + `cel.render()`.
 
 Use `cel.setTitle("My App")` when you want to update the terminal window or tab title. It is imperative terminal state, not part of the render tree, and the previous title is not restored automatically on `cel.stop()`.
+
+Use `cel.setTheme(theme)` to replace the active theme at runtime; it schedules a
+full redraw automatically. Use `cel.redraw()` directly after terminal resume or
+when another process has corrupted the screen. Ordinary unchanged renders emit
+no terminal bytes.
 
 ## 4 Primitives
 
@@ -193,7 +198,9 @@ Focus is **uncontrolled by default** — Tab/Shift+Tab/Escape/click just work. P
 
 ```ts
 // Uncontrolled — framework manages focus
-HStack({ onClick: handleAction }, [Text("[ OK ]")]);
+HStack({ stateKey: "ok", autoFocus: true, onClick: handleAction }, [
+  Text("[ OK ]"),
+]);
 
 // Controlled — app owns focus state
 TextInput({
@@ -207,6 +214,15 @@ TextInput({
   },
 });
 ```
+
+Add a viewport-unique `stateKey` when a focusable/scrollable node can reorder,
+or when a TextInput recreates callbacks inline. `autoFocus` seeds focus only
+once in the active topmost layer; modal layers suspend and later restore the
+underlying layer's focus.
+
+Set `cursorStyle: "block" | "bar" | "underline"` to choose the focused
+TextInput caret shape. Block is the default; the framework keeps its painted
+fallback and native blinking terminal cursor aligned.
 
 ### Style inheritance
 
@@ -232,8 +248,7 @@ const mySelect = Select({
   },
 });
 
-// ctrl+q lives on the root — Select returns false for unrecognized
-// keys, so they bubble up automatically.
+// Non-editing shortcuts bubble through Select's TextInput to the root.
 cel.viewport(() =>
   VStack(
     {
@@ -251,38 +266,133 @@ cel.viewport(() =>
 mySelect.reset(); // clear filter/highlight programmatically
 ```
 
+Select uses a real TextInput, so queries preserve exact text, spaces, grapheme
+editing, cursor movement, and bracketed paste. Up/Down navigate results and
+Enter selects. For async/overlay use, pass current state each render:
+
+```ts
+const picker = Select({
+  items: [],
+  onQueryChange: (next) => (query = next),
+  onCursorChange: (next) => (cursor = next),
+  onHighlightChange: (next) => (highlightIndex = next),
+  onSelect: choose,
+  onCancel: closeOverlay,
+});
+
+cel.viewport(() => picker({ items, query, cursor, highlightIndex }));
+```
+
+Use `filter(items, query)` for custom filtering/ranking and
+`renderRow(item, context)` for custom row content. `picker.update(...)` replaces
+the uncontrolled fallback model, while `picker.getState()` inspects the latest
+rendered snapshot.
+
+### VirtualList component
+
+Use a callable `VirtualList` instance when a long collection has variable row
+heights. Create it once, provide stable item keys, and pass exact viewport cell
+dimensions on every render:
+
+```ts
+import { VirtualList } from "@cel-tui/components";
+
+const messages = VirtualList<Message>({
+  itemKey: (message) => message.id,
+  renderItem: (message) => Text(message.body, { wrap: "word" }),
+  estimatedItemHeight: 3,
+  overscan: 8,
+  defaultStickToBottom: true,
+});
+
+cel.viewport(() =>
+  messages({
+    items,
+    width: columns,
+    height: conversationRows,
+    scrollbar: true,
+  }),
+);
+```
+
+Only the visible cell window plus overscan is returned as item nodes; measured
+variable heights and spacer nodes preserve the full scroll extent. Omitting
+`scrollOffset` uses component-managed scrolling. Supply `scrollOffset` and
+handle `onScroll(offset, maxOffset, reason)` for controlled mode. The `reason`
+is `"input"` for wheel input or `"anchor"` when keyed prepend/remove/reflow
+compensation changes the effective offset.
+
+Width changes invalidate wrapping measurements automatically. Immutable item
+replacement invalidates its key; use `itemVersion` or `.invalidate(key)` for
+mutable models. Cache and returned-row counts are bounded by `maxCachedItems`
+and `maxRenderedItems`. Call `.dispose()` when the list is permanently removed.
+
+### Spinner and managed animation
+
+```ts
+import { Spinner } from "@cel-tui/components";
+
+const activity = Spinner({ maxFps: 12, fgColor: "color06" });
+activity.start();
+
+cel.viewport(() => HStack({ gap: 1 }, [activity(), Text("Working...")]));
+
+activity.stop();
+activity.dispose();
+```
+
+`Spinner()` and the lower-level `createTicker()` are opt-in and rate-limited.
+Neither schedules work until `.start()` unless `autoStart: true` is explicitly
+requested. Always stop or dispose long-lived instances when their owner leaves
+the application; cel-tui does not introduce a global animation loop.
+
 ### SyntaxHighlight component
 
 ```ts
-import { SyntaxHighlight } from "@cel-tui/components";
+import { createSyntaxHighlight, SyntaxHighlight } from "@cel-tui/components";
 
 VStack({ flex: 1, overflow: "scroll", padding: { x: 1 } }, [
   SyntaxHighlight(source, "typescript"),
 ]);
 
 SyntaxHighlight(source, "javascript", { theme: "dark-plus" });
+
+SyntaxHighlight(source, "typescript", {
+  theme: {
+    baseStyle: { fgColor: "color07" },
+    scopeStyles: {
+      keyword: { fgColor: "color12", bold: true },
+      comment: { fgColor: "color08", italic: false },
+    },
+  },
+});
+
+// Create once per independently streaming snippet.
+const highlightResponse = createSyntaxHighlight();
+highlightResponse(streamedSource, "markdown");
 ```
 
-`SyntaxHighlight(content, language, props?)` renders registered `clew` languages into cel-tui primitives. Current ids include the TypeScript / JavaScript families plus `python` / `py`, `bash`, `json`, `markdown`, and `diff` / `patch`. The component stays synchronous to call, but append-only updates reuse a cached `clew` stream while non-append edits replay the full snippet, so final output stays stable across streamed chunk boundaries. Unknown language ids render plain text. The optional `theme` accepts the small built-in presets (`"default"`, `"dark-plus"`) or a best-effort token-color registration object targeting canonical `clew` scopes.
+`SyntaxHighlight(content, language, props?)` renders registered `clew` languages into cel-tui primitives and keeps a bounded cache of exact direct-call renders. Current ids include the TypeScript / JavaScript families plus `python` / `py`, `bash`, `json`, `markdown`, and `diff` / `patch`. For append-only updates, create one `createSyntaxHighlight()` callable per independently growing snippet; it owns one isolated `clew` stream and exposes `.dispose()` for eager release. Unknown language ids render plain text. The optional `theme` accepts the built-in presets, compatible TextMate-style `fg` / `bg` / `tokenColors`, or native `baseStyle` plus canonical `scopeStyles`. Native styles preserve palette slots and take precedence over TextMate fields property-by-property; explicit `false` values clear boolean styles.
 
 ## Gotchas
 
 - **State is external** — the framework has no state. Mutate variables then call `cel.render()`.
+- **Animation is opt-in** — `Spinner()` and `createTicker()` have explicit `.start()`, `.stop()`, and `.dispose()` lifecycles. Dispose them with their owner; ordinary reactive rendering has no timer.
 - **Text is a pure leaf** — no sizing props, no children. Parent controls the box.
 - **TextInput consumes insertable text and editing/navigation keys** when focused (printable text, arrows, backspace, Enter, Tab), plus readline-style shortcuts: `ctrl+a` / `ctrl+e`, `alt+b` / `alt+f`, `ctrl+left` / `ctrl+right`, `ctrl+w`, and `alt+d`. Word movement and deletion are whitespace-delimited, and `up` / `down` follow visual wrapped lines. Enter inserts a newline by default. Use `onKeyPress` on TextInput to intercept keys before editing — return `false` to prevent the default action (e.g., intercept Enter for submit). `onKeyPress` receives normalized semantic key strings, while inserted text preserves the original characters (uppercase `A` arrives as key `"a"` but inserts `"A"`). Other modifier combos (`ctrl+s`) and non-insertable control keys bubble up through ancestors via `onKeyPress`.
 - **Escape unfocuses** the current element. Tab/Shift+Tab traverses focusable elements (wraps around). After Escape, traversal continues from where focus was lost.
 - **Enter activates** a focused container's `onClick`. If no `onClick`, Enter reaches `onKeyPress`.
-- **`focusable: true`** without `onClick` makes a container keyboard-focusable (receives `onKeyPress` events via Tab). Used by stateful components like `Select`.
+- **`focusable: true`** without `onClick` makes a container keyboard-focusable (receives `onKeyPress` events via Tab). `Select` instead keeps its wrapper non-focusable and uses its child TextInput as the sole focus target.
 - **Innermost handler wins** — for `onClick`. For `onScroll`, scrollable containers are tried innermost-first; return exactly `false` to continue to the next scrollable ancestor, while `void`/`undefined` consumes the scroll. TextInput consumes wheel input directly. For `onKeyPress`, keys **bubble up** through ancestors: return `false` from a handler to let the key continue to the next ancestor. Returning `void`/`undefined` consumes the key (stops bubbling). This is backward-compatible.
 - **Mouse wheel step is adaptive by default** — scrollable containers and `TextInput` use `floor(viewportMainAxis / 3)`, clamped to `3..8`. Set `scrollStep` to override it for a specific view.
 - **Container `bgColor`** fills the rect with opaque background before painting children. Always pair `bgColor` with `fgColor` for contrast — terminal default fg is designed for the terminal default bg, not for arbitrary palette backgrounds.
 - **Colors are numbered slots** (`"color00"`–`"color15"`), not names. The default theme maps to ANSI 16. Omit `fgColor`/`bgColor` for terminal defaults (guaranteed readable across themes).
 - **Crash cleanup** — terminal state is restored on SIGINT, SIGTERM, uncaughtException.
 - **Always call `cel.stop()` before `process.exit()`** — restores raw mode, mouse tracking, and alternate screen.
-- **Kitty-first keyboard input** — the framework enables Kitty level 1 and gets full modifier fidelity when the host preserves it (`alt+x`, `ctrl+plus`, `shift+enter`, etc.). It also normalizes recoverable legacy encodings so common shortcuts keep working in tmux. For best results, use a Kitty-compatible terminal or `tmux` with `set -s extended-keys on`. On older legacy hosts, historically ambiguous collisions such as `ctrl+i` vs `tab` or `ctrl+m` vs `enter` cannot be recovered once the host collapses them.
+- **Kitty-first keyboard input** — the framework enables baseline disambiguation and gets full modifier fidelity when the host preserves it (`alt+x`, `ctrl+plus`, `shift+enter`, etc.). `cel.init(..., { kittyKeyboard })` can additionally request event phases, alternate keys, all-key events, and associated text. It also normalizes recoverable legacy encodings so common shortcuts keep working in tmux. On older hosts, collisions such as `ctrl+i` vs `tab` cannot be recovered after collapse.
 - **tmux is good for keyboard-driven manual checks** — common `tmux send-keys` paths work for printable chars, `Tab`/`BTab`, `Enter`, `Escape`, arrows, and many `Ctrl+letter` shortcuts. Use exact raw-sequence injection only when you need to target a protocol-specific encoding. Mouse input remains unreliable in tmux and should be verified in a real terminal.
 - **Button limitations** — `Button` from `@cel-tui/components` does not forward container sizing props (`width`, `height`, `flex`, `minWidth`, etc.). It supports styling (`fgColor`, `bgColor`, `bold`, etc.), `focusStyle`, `focused`, `onFocus`, `onBlur`, `onKeyPress`, and `padding`. For full layout control, use `HStack` + `Text` directly.
-- **SyntaxHighlight only keeps parser state for append-only growth** — appended content reuses a cached `clew` stream, but non-append edits still reset and replay the full snippet so final output stays deterministic across chunk boundaries. Unknown language ids render plain text.
+- **Give each streaming snippet its own SyntaxHighlight instance** — create it once with `createSyntaxHighlight()`, call it on each render, and call `.dispose()` when removing it eagerly. Direct `SyntaxHighlight(...)` calls cache exact renders but deliberately do not guess instance identity from matching content prefixes. Non-append edits on an instance reset and replay that snippet, preserving deterministic output. Unknown language ids render plain text.
 
 ## Composing Components
 

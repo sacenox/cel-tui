@@ -13,21 +13,20 @@
  */
 
 import {
-  cel,
-  VStack,
-  HStack,
-  Text,
-  TextInput,
-  ProcessTerminal,
-  type Theme,
-} from "@cel-tui/core";
-import {
-  Divider,
-  Spacer,
-  VDivider,
   Markdown,
   type MarkdownTheme,
+  Spacer,
+  VDivider,
 } from "@cel-tui/components";
+import {
+  cel,
+  HStack,
+  ProcessTerminal,
+  Text,
+  TextInput,
+  type Theme,
+  VStack,
+} from "@cel-tui/core";
 
 // ─── Theme: Catppuccin Mocha ────────────────────────────────────
 

@@ -7,9 +7,9 @@
 
 import { bench, group, run } from "mitata";
 import {
-  parseKey,
-  normalizeKey,
   isEditingKey,
+  normalizeKey,
+  parseKey,
 } from "../packages/core/src/keys.js";
 
 group("parseKey", () => {

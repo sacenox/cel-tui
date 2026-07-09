@@ -10,8 +10,8 @@
  * Run before publishing: bun run scripts/prepublish-check.ts
  */
 
-import { readFileSync } from "fs";
-import { resolve } from "path";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 
 const ROOT = resolve(import.meta.dirname, "..");
 const PACKAGES = ["types", "core", "clew", "components"] as const;

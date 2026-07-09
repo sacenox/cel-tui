@@ -2,20 +2,20 @@
  * cel-tui: SyntaxHighlight component demo
  *
  * This example is intentionally component-focused.
- * It streams append-only chunks into `SyntaxHighlight(content, language, { theme })`
+ * It streams append-only chunks into one `createSyntaxHighlight()` instance
  * and lets you switch samples and themes, without reaching into tokenizer internals.
  *
  * Run: bun run examples/syntax-highlight.ts
  */
 
-import { cel, HStack, ProcessTerminal, Text, VStack } from "@cel-tui/core";
 import {
+  createSyntaxHighlight,
   Divider,
   Spacer,
-  SyntaxHighlight,
-  VDivider,
   type SyntaxHighlightTheme,
+  VDivider,
 } from "@cel-tui/components";
+import { cel, HStack, ProcessTerminal, Text, VStack } from "@cel-tui/core";
 import { warningBox } from "./warning-box";
 
 const MIN_COLS = 76;
@@ -226,6 +226,7 @@ const SAMPLES: readonly DemoSample[] = [
 let sampleIndex = 0;
 let themeIndex = 0;
 let content = "";
+const highlightSource = createSyntaxHighlight();
 let cursor = 0;
 let chunks = 0;
 let lastChunk = "";
@@ -339,13 +340,10 @@ function infoPane() {
       bold: true,
       fgColor: "color06",
     }),
-    Text(
-      "This example only uses SyntaxHighlight(content, language, { theme }).",
-      {
-        fgColor: "color08",
-        italic: true,
-      },
-    ),
+    Text("This example owns one createSyntaxHighlight() streaming instance.", {
+      fgColor: "color08",
+      italic: true,
+    }),
     Text(
       "Append-only chunks are streamed into the component; backend details stay internal.",
       {
@@ -368,7 +366,7 @@ function infoPane() {
     Text(`last chunk: "${previewChunk(lastChunk)}"`, { fgColor: "color08" }),
     Divider({ fgColor: "color08" }),
     Text("Component call", { bold: true, fgColor: "color06" }),
-    Text(`SyntaxHighlight(content, "${sample.language}", {`, {
+    Text(`highlightSource(content, "${sample.language}", {`, {
       fgColor: "color07",
     }),
     Text(
@@ -408,7 +406,7 @@ function highlightPane() {
         scrollbar: true,
         padding: { x: 1 },
       },
-      [SyntaxHighlight(content, sample.language, { theme: theme.theme })],
+      [highlightSource(content, sample.language, { theme: theme.theme })],
     ),
   ]);
 }

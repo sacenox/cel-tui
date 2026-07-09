@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { CellBuffer } from "./cell-buffer.js";
 import { layout } from "./layout.js";
 import {
+  getTextInputCursor,
   getTextInputCursorScreenPos,
   getTextInputScroll,
   paint,
@@ -58,6 +59,18 @@ describe("paint", () => {
       expect(readRow(buf, 0)).toBe("line1");
       expect(readRow(buf, 1)).toBe("line2");
       expect(readRow(buf, 2)).toBe("line3");
+    });
+
+    test("does not paint embedded ANSI control sequences as text", () => {
+      const node = VStack({ width: 10, height: 1 }, [
+        Text("\x1b[31mred\x1b[0m"),
+      ]);
+      const ln = layout(node, 10, 1);
+      const buf = new CellBuffer(10, 1);
+
+      paint(ln, buf);
+
+      expect(readRow(buf, 0)).toBe("red");
     });
 
     test("repeat fill fills the width", () => {
@@ -169,6 +182,94 @@ describe("paint", () => {
         getTextInputCursorScreenPos(props, { x: 0, y: 0, width: 6, height: 3 }),
       ).toEqual({ x: 1, y: 1 });
       expect(getTextInputScroll(props)).toBe(0);
+    });
+
+    test("focused TextInput preserves a wide glyph under the painted cursor", () => {
+      const props = {
+        value: "界A",
+        onChange: () => {},
+        focused: true,
+      };
+      setTextInputCursor(props, 0);
+      const node = VStack({ width: 4, height: 1 }, [TextInput(props)]);
+      const buf = new CellBuffer(4, 1);
+
+      paint(layout(node, 4, 1), buf);
+
+      expect(buf.get(0, 0).char).toBe("界");
+      expect(buf.get(1, 0).char).toBe("");
+      expect(buf.get(2, 0).char).toBe("A");
+      expect(buf.get(1, 0).fgColor).toBe(buf.get(0, 0).fgColor);
+      expect(buf.get(1, 0).bgColor).toBe(buf.get(0, 0).bgColor);
+    });
+
+    test("TextInput uses an inverted block cursor by default", () => {
+      const node = VStack({ width: 4, height: 1 }, [
+        TextInput({
+          value: "ab",
+          cursor: 1,
+          onChange: () => {},
+          focused: true,
+          fgColor: "color02",
+          bgColor: "color04",
+        }),
+      ]);
+      const buf = new CellBuffer(4, 1);
+
+      paint(layout(node, 4, 1), buf);
+
+      expect(buf.get(1, 0)).toMatchObject({
+        char: "b",
+        fgColor: "color04",
+        bgColor: "color02",
+      });
+    });
+
+    test("TextInput paints a bar fallback cursor", () => {
+      const node = VStack({ width: 4, height: 1 }, [
+        TextInput({
+          value: "ab",
+          cursor: 1,
+          cursorStyle: "bar",
+          onChange: () => {},
+          focused: true,
+        }),
+      ]);
+      const buf = new CellBuffer(4, 1);
+
+      paint(layout(node, 4, 1), buf);
+
+      expect(buf.get(1, 0).char).toBe("│");
+    });
+
+    test("TextInput paints an underline fallback cursor", () => {
+      const node = VStack({ width: 4, height: 1 }, [
+        TextInput({
+          value: "ab",
+          cursor: 1,
+          cursorStyle: "underline",
+          onChange: () => {},
+          focused: true,
+        }),
+      ]);
+      const buf = new CellBuffer(4, 1);
+
+      paint(layout(node, 4, 1), buf);
+
+      expect(buf.get(1, 0).char).toBe("b");
+      expect(buf.get(1, 0).underline).toBe(true);
+    });
+
+    test("stateKey isolates TextInput state when inputs share onChange", () => {
+      const onChange = () => {};
+      const first = { stateKey: "first", value: "abc", onChange };
+      const second = { stateKey: "second", value: "xyz", onChange };
+
+      setTextInputCursor(first, 0);
+      setTextInputCursor(second, 2);
+
+      expect(getTextInputCursor(first)).toBe(0);
+      expect(getTextInputCursor(second)).toBe(2);
     });
 
     test("unfocused TextInput clamps stale scroll during paint", () => {
@@ -308,6 +409,37 @@ describe("paint", () => {
       // col 2 should be empty - \u754c doesn't fit (needs 2 cols, only 1 remains)
       expect(buf.get(2, 0).char).toBe(" ");
     });
+
+    test("does not leave a wide continuation when its lead is clipped", () => {
+      const node = HStack(
+        {
+          width: 2,
+          height: 1,
+          overflow: "scroll",
+          scrollOffset: 1,
+        },
+        [Text("😀A")],
+      );
+      const ln = layout(node, 2, 1);
+      const buf = new CellBuffer(2, 1);
+
+      paint(ln, buf);
+
+      expect(buf.get(0, 0).char).toBe(" ");
+      expect(buf.get(1, 0).char).toBe("A");
+    });
+
+    test("does not paint a wide lead when its continuation is clipped", () => {
+      const node = VStack({ width: 1, height: 1 }, [
+        VStack({ width: 2, height: 1 }, [Text("😀")]),
+      ]);
+      const ln = layout(node, 1, 1);
+      const buf = new CellBuffer(1, 1);
+
+      paint(ln, buf);
+
+      expect(buf.get(0, 0).char).toBe(" ");
+    });
   });
 
   describe("overflow clipping", () => {
@@ -431,6 +563,38 @@ describe("paint", () => {
       expect(readRow(buf, 0)).toBe("ABBBB");
     });
 
+    test("nested vertical and horizontal scroll offsets compose", () => {
+      const node = VStack(
+        {
+          width: 4,
+          height: 1,
+          overflow: "scroll",
+          scrollOffset: 1,
+        },
+        [
+          Text("top"),
+          HStack(
+            {
+              width: 4,
+              height: 1,
+              overflow: "scroll",
+              scrollOffset: 1,
+            },
+            [
+              VStack({ width: 2 }, [Text("AB")]),
+              VStack({ width: 4 }, [Text("CDEF")]),
+            ],
+          ),
+        ],
+      );
+      const ln = layout(node, 4, 1);
+      const buf = new CellBuffer(4, 1);
+
+      paint(ln, buf);
+
+      expect(readRawRow(buf, 0)).toBe("BCDE");
+    });
+
     test("scroll with scrollbar shows indicator", () => {
       const node = VStack(
         {
@@ -460,6 +624,63 @@ describe("paint", () => {
       const lastCol = Array.from({ length: 4 }, (_, y) => buf.get(9, y).char);
       // At least one cell should have the scrollbar character
       expect(lastCol.some((c) => c !== " ")).toBe(true);
+    });
+
+    test("scrollbarStyle customizes vertical thumb and track cells", () => {
+      const node = VStack(
+        {
+          width: 5,
+          height: 3,
+          overflow: "scroll",
+          scrollbar: true,
+          scrollbarStyle: {
+            thumb: { char: "#", fgColor: "color06", bold: true },
+            track: { char: ".", fgColor: "color03" },
+          },
+        },
+        Array.from({ length: 6 }, (_, i) => Text(`L${i}`)),
+      );
+      const buf = new CellBuffer(5, 3);
+
+      paint(layout(node, 5, 3), buf);
+
+      expect(buf.get(4, 0)).toMatchObject({
+        char: "#",
+        fgColor: "color06",
+        bold: true,
+      });
+      expect(buf.get(4, 2)).toMatchObject({
+        char: ".",
+        fgColor: "color03",
+      });
+    });
+
+    test("scrollbarStyle rejects characters wider than one cell", () => {
+      const node = VStack(
+        {
+          width: 5,
+          height: 2,
+          overflow: "scroll",
+          scrollbar: true,
+          scrollbarStyle: { thumb: { char: "界" } },
+        },
+        [Text("a"), Text("b"), Text("c")],
+      );
+
+      expect(() => paint(layout(node, 5, 2), new CellBuffer(5, 2))).toThrow(
+        "Scrollbar characters must occupy exactly one terminal column",
+      );
+    });
+
+    test("explicit overflow hidden clips children", () => {
+      const node = VStack({ width: 3, height: 1, overflow: "hidden" }, [
+        Text("abcdef"),
+      ]);
+      const buf = new CellBuffer(6, 1);
+
+      paint(layout(node, 3, 1), buf);
+
+      expect(readRawRow(buf, 0)).toBe("abc   ");
     });
 
     test("scrollbar thumb position accounts for vertical padding", () => {
@@ -836,6 +1057,39 @@ describe("paint", () => {
   });
 
   describe("focusStyle", () => {
+    test("focused TextInput focusStyle overrides its normal style", () => {
+      const node = TextInput({
+        width: 4,
+        height: 1,
+        value: "X",
+        onChange: () => {},
+        focused: true,
+        fgColor: "color01",
+        bgColor: "color02",
+        bold: false,
+        italic: false,
+        underline: false,
+        focusStyle: {
+          fgColor: "color03",
+          bgColor: "color04",
+          bold: true,
+          italic: true,
+          underline: true,
+        },
+      });
+      const ln = layout(node, 4, 1);
+      const buf = new CellBuffer(4, 1);
+
+      paint(ln, buf);
+
+      const cell = buf.get(0, 0);
+      expect(cell.fgColor).toBe("color03");
+      expect(cell.bgColor).toBe("color04");
+      expect(cell.bold).toBe(true);
+      expect(cell.italic).toBe(true);
+      expect(cell.underline).toBe(true);
+    });
+
     test("container with focused=true applies focusStyle bgColor", () => {
       const node = VStack({ width: 10, height: 3 }, [
         HStack(

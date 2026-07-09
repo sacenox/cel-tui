@@ -13,15 +13,16 @@
  * Run: bun run examples/pet.ts
  */
 
+import { Button, Divider, Spacer, VDivider } from "@cel-tui/components";
 import {
   cel,
-  VStack,
   HStack,
+  type Node,
+  ProcessTerminal,
   Text,
   TextInput,
-  ProcessTerminal,
+  VStack,
 } from "@cel-tui/core";
-import { Button, Divider, Spacer, VDivider } from "@cel-tui/components";
 import { warningBox } from "./warning-box";
 
 // ─── Pet Definitions ────────────────────────────────────────────
@@ -758,7 +759,7 @@ function logView() {
                   | "color01"
                   | "color02"
                   | "color09"
-                  | undefined = undefined;
+                  | undefined;
                 if (entry.includes("born")) fg = "color02";
                 else if (entry.includes("fed") || entry.includes("Feed"))
                   fg = "color03";
@@ -857,7 +858,7 @@ cel.viewport(() => {
   const { cols, rows } = termSize();
   if (cols < MIN_COLS || rows < MIN_ROWS) return tooSmallView();
 
-  let base;
+  let base: Node;
   if (screen === "create") base = createView();
   else if (screen === "main") base = mainView();
   else base = deadView();

@@ -66,7 +66,8 @@ For example, a partial token stream may need to be revised once a string closes,
 
 Because of that, `clew` uses **range-based corrections** instead of only append-only token events.
 
-A correction says, in effect:
+A correction uses UTF-16 code-unit offsets, matching JavaScript string
+indexing, and says in effect:
 
 > replace the tokenization for source range `from..to` with these tokens
 
@@ -94,7 +95,7 @@ const output = clew("const x = 1", {
 console.log(output.tokens);
 ```
 
-## Proposed surface
+## Public surface
 
 ```ts
 const stream = clew(content, {

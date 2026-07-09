@@ -5,12 +5,12 @@
  * routing and keyboard focus traversal.
  */
 
-import { bench, group, run } from "mitata";
-import { layout } from "../packages/core/src/layout.js";
-import { hitTest, collectFocusable } from "../packages/core/src/hit-test.js";
-import { flatTree, nestedTree, appTree } from "./helpers.js";
-import { VStack, HStack, Text } from "@cel-tui/core";
+import { HStack, Text, VStack } from "@cel-tui/core";
 import type { Node } from "@cel-tui/types";
+import { bench, group, run } from "mitata";
+import { collectFocusable, hitTest } from "../packages/core/src/hit-test.js";
+import { layout } from "../packages/core/src/layout.js";
+import { appTree, flatTree, nestedTree } from "./helpers.js";
 
 const W = 120;
 const H = 40;

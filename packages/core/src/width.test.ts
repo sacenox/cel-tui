@@ -81,6 +81,11 @@ describe("visibleWidth", () => {
       expect(visibleWidth("\x1b[31m\x1b[0m")).toBe(0);
     });
 
+    test("CSI sequences accept any standard final byte", () => {
+      expect(visibleWidth("\x1b[2~")).toBe(0);
+      expect(visibleWidth("A\x1b[2~B")).toBe(2);
+    });
+
     test("OSC hyperlink", () => {
       expect(
         visibleWidth("\x1b]8;;https://example.com\x07link\x1b]8;;\x07"),

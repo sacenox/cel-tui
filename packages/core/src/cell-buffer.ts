@@ -9,33 +9,34 @@ import type { Color } from "@cel-tui/types";
  */
 export interface Cell {
   /** The grapheme cluster displayed in this cell. */
-  char: string;
+  readonly char: string;
   /** Foreground color, or null for terminal default. */
-  fgColor: Color | null;
+  readonly fgColor: Color | null;
   /** Background color, or null for terminal default. */
-  bgColor: Color | null;
+  readonly bgColor: Color | null;
   /** Bold weight. */
-  bold: boolean;
+  readonly bold: boolean;
   /** Italic style. */
-  italic: boolean;
+  readonly italic: boolean;
   /** Underline decoration. */
-  underline: boolean;
+  readonly underline: boolean;
 }
 
 /**
  * The default empty cell — a space with no styling.
  * Used for cleared/uninitialized cells and transparency detection.
  */
-export const EMPTY_CELL: Readonly<Cell> = {
+export const EMPTY_CELL: Cell = Object.freeze({
   char: " ",
   fgColor: null,
   bgColor: null,
   bold: false,
   italic: false,
   underline: false,
-};
+});
 
 function cellsEqual(a: Cell, b: Cell): boolean {
+  if (a === b) return true;
   return (
     a.char === b.char &&
     a.fgColor === b.fgColor &&
@@ -108,7 +109,40 @@ export class CellBuffer {
    */
   set(x: number, y: number, cell: Cell): void {
     if (x < 0 || x >= this._width || y < 0 || y >= this._height) return;
-    this.cells[y * this._width + x] = cell;
+
+    const index = y * this._width + x;
+    const current = this.cells[index];
+    if (current?.char === "" && cell.char === "") {
+      // Painting a wide glyph writes its lead first and its continuation
+      // cells afterward. Rewriting an existing continuation is therefore a
+      // style/content refresh, not an overlap that should erase the lead.
+      this.cells[index] = cell;
+      return;
+    }
+    if (
+      current !== undefined &&
+      current.char === cell.char &&
+      cell.char !== ""
+    ) {
+      // A style-only rewrite of a wide glyph must preserve its continuation
+      // markers. Keep their styles in sync as well so the glyph remains one
+      // coherent unit for later compositing and comparisons.
+      this.cells[index] = cell;
+      for (let col = x + 1; col < this._width; col++) {
+        const continuationIndex = y * this._width + col;
+        const continuation = this.cells[continuationIndex];
+        if (continuation === undefined || continuation.char !== "") break;
+        this.cells[continuationIndex] = { ...cell, char: "" };
+      }
+      return;
+    }
+
+    // A terminal renders a wide grapheme atomically even though the buffer
+    // represents its trailing columns with empty-string continuation cells.
+    // Clear any existing glyph that overlaps this write so composited layers
+    // can never leave an orphaned lead or continuation behind.
+    this.clearGlyphAt(x, y);
+    this.cells[index] = cell;
   }
 
   /**
@@ -141,7 +175,7 @@ export class CellBuffer {
     const y1 = Math.min(this._height, y + h);
     for (let row = y0; row < y1; row++) {
       for (let col = x0; col < x1; col++) {
-        this.cells[row * this._width + col] = cell;
+        this.set(col, row, cell);
       }
     }
   }
@@ -155,16 +189,19 @@ export class CellBuffer {
    */
   resize(width: number, height: number): void {
     const newCells = new Array<Cell>(width * height);
-    // Fill with empty
-    for (let i = 0; i < newCells.length; i++) {
-      newCells[i] = { ...EMPTY_CELL };
-    }
+    newCells.fill(EMPTY_CELL);
     // Copy existing content
     const copyW = Math.min(this._width, width);
     const copyH = Math.min(this._height, height);
     for (let y = 0; y < copyH; y++) {
       for (let x = 0; x < copyW; x++) {
         newCells[y * width + x] = this.get(x, y);
+      }
+
+      // Do not retain a wide-glyph lead when its continuation was clipped by
+      // the new right edge.
+      if (width > 0 && width < this._width && this.get(width, y).char === "") {
+        newCells[y * width + width - 1] = EMPTY_CELL;
       }
     }
     this.cells = newCells;
@@ -194,8 +231,36 @@ export class CellBuffer {
   }
 
   private clearCells(start: number, end: number): void {
-    for (let i = start; i < end; i++) {
-      this.cells[i] = { ...EMPTY_CELL };
+    this.cells.fill(EMPTY_CELL, start, end);
+  }
+
+  /** Clear the complete stored glyph that occupies `(x, y)`, if any. */
+  private clearGlyphAt(x: number, y: number): void {
+    const rowStart = y * this._width;
+    const index = rowStart + x;
+    const current = this.cells[index];
+    if (
+      current === undefined ||
+      current === EMPTY_CELL ||
+      cellsEqual(current, EMPTY_CELL)
+    ) {
+      return;
+    }
+
+    let leadX = x;
+    if (current.char === "") {
+      while (leadX > 0) {
+        leadX--;
+        const candidate = this.cells[rowStart + leadX];
+        if (candidate === undefined || candidate.char !== "") break;
+      }
+    }
+
+    this.cells[rowStart + leadX] = EMPTY_CELL;
+    for (let col = leadX + 1; col < this._width; col++) {
+      const continuation = this.cells[rowStart + col];
+      if (continuation === undefined || continuation.char !== "") break;
+      this.cells[rowStart + col] = EMPTY_CELL;
     }
   }
 }

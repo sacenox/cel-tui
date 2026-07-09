@@ -8,14 +8,15 @@
  * Run: bun run examples/diff-highlight.ts
  */
 
-import { cel, HStack, ProcessTerminal, Text, VStack } from "@cel-tui/core";
 import {
   Divider,
   Spacer,
   SyntaxHighlight,
+  type SyntaxHighlightNativeTheme,
   type SyntaxHighlightTheme,
   VDivider,
 } from "@cel-tui/components";
+import { cel, HStack, ProcessTerminal, Text, VStack } from "@cel-tui/core";
 import { warningBox } from "./warning-box";
 
 const MIN_COLS = 58;
@@ -29,46 +30,20 @@ interface PatchSample {
   source: string;
 }
 
-const DIFF_THEME: SyntaxHighlightTheme = {
-  name: "diff-highlight-demo",
-  type: "dark",
-  fg: "#e5e5e5",
-  bg: "#000000",
-  tokenColors: [
-    { settings: { foreground: "#e5e5e5" } },
-    {
-      scope: ["diff.header", "diff.hunk"],
-      settings: { foreground: "#29b8db", fontStyle: "bold" },
-    },
-    {
-      scope: "diff.file.old",
-      settings: { foreground: "#f14c4c", fontStyle: "bold" },
-    },
-    {
-      scope: "diff.file.new",
-      settings: { foreground: "#23d18b", fontStyle: "bold" },
-    },
-    {
-      scope: "diff.inserted",
-      settings: { foreground: "#23d18b" },
-    },
-    {
-      scope: "diff.deleted",
-      settings: { foreground: "#f14c4c" },
-    },
-    {
-      scope: "diff.context",
-      settings: { foreground: "#e5e5e5" },
-    },
-    {
-      scope: "diff.no-newline",
-      settings: { foreground: "#666666", fontStyle: "italic" },
-    },
-    {
-      scope: ["operator", "diff.marker"],
-      settings: { foreground: "#bc3fbc" },
-    },
-  ],
+const DIFF_THEME: SyntaxHighlightNativeTheme = {
+  baseStyle: { fgColor: "color07", bgColor: "color00" },
+  scopeStyles: {
+    "diff.header": { fgColor: "color14", bold: true },
+    "diff.hunk": { fgColor: "color14", bold: true },
+    "diff.file.old": { fgColor: "color09", bold: true },
+    "diff.file.new": { fgColor: "color10", bold: true },
+    "diff.inserted": { fgColor: "color10" },
+    "diff.deleted": { fgColor: "color09" },
+    "diff.context": { fgColor: "color07" },
+    "diff.no-newline": { fgColor: "color08", italic: true },
+    operator: { fgColor: "color05" },
+    "diff.marker": { fgColor: "color05" },
+  },
 };
 
 const THEME_OPTIONS: ReadonlyArray<{
@@ -190,7 +165,7 @@ function patchPane() {
     HStack({ padding: { x: 1 }, gap: 1 }, [
       Text(sample.title, { bold: true, fgColor: "color06" }),
       Spacer(),
-      Text(`SyntaxHighlight(..., \"${sample.language}\")`, {
+      Text(`SyntaxHighlight(..., "${sample.language}")`, {
         fgColor: "color08",
       }),
     ]),

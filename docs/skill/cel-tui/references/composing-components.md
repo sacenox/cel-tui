@@ -27,7 +27,7 @@ cel.viewport(() =>
 );
 ```
 
-This is the pattern used by `Button`, `Divider`, `Spacer`, `VDivider`, `Markdown`, and `SyntaxHighlight` — stateless functions that derive output from current inputs. Prefer it whenever possible — it's simple, testable, and composable.
+This is the pattern used by `Button`, `Divider`, `Spacer`, `VDivider`, `Markdown`, and direct `SyntaxHighlight(...)` calls — stateless functions that derive output from current inputs. Prefer it whenever possible — it's simple, testable, and composable.
 
 ## Stateful components (factory pattern)
 
@@ -103,7 +103,16 @@ cel.viewport(() =>
 - **Create once** outside `cel.viewport()`. The closure captures mutable state.
 - **Call each render** inside `cel.viewport()` — the function builds a fresh node tree from current state.
 - **`cel.render()`** is importable from `@cel-tui/core` — stateful components call it after internal state changes to trigger re-renders.
-- **Key bubbling** — `onKeyPress` handlers bubble from innermost to root. Return `false` from a handler to signal the key was not consumed and let it continue to the next ancestor. Return `void`/`undefined` to consume (backward-compatible). Components like `Select` return `false` for unrecognized keys, so app-level shortcuts on parent containers work automatically.
+- **Key bubbling** — `onKeyPress` handlers bubble from innermost to root. Return `false` from a handler to signal the key was not consumed and let it continue to the next ancestor. Return `void`/`undefined` to consume (backward-compatible). Select delegates editing to its TextInput and lets non-editing shortcuts continue to app-level handlers.
 - **`.reset()`** or other methods — attach to the render function (functions are objects in JS) to expose imperative control.
 
-This is the pattern used by `Select` from `@cel-tui/components`.
+This is the pattern used by `Select`, `VirtualList`, `Spinner`, and
+`createSyntaxHighlight()` from `@cel-tui/components`. Select additionally
+accepts an optional controlled model on each call and exposes `.update()` /
+`.getState()` for imperative integrations. VirtualList owns bounded keyed row
+measurements and scroll anchoring; create one per mounted list and dispose it
+when that view is permanently removed. Timer-owning instances such as `Spinner` expose
+`.start()`, `.stop()`, and `.dispose()`; they must release their scheduler when
+the owning view is permanently removed. A syntax-highlighter instance owns one
+append stream; create one per independently updating snippet and call
+`.dispose()` for eager release when that snippet is permanently removed.

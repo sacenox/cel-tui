@@ -11,6 +11,7 @@ import {
   cloneOutput,
   commonPrefixLength,
   outputAtBoundary,
+  outputBoundary,
   stableLineBoundary,
   tokensFrom,
   tokensStartingAtOrAfter,
@@ -35,14 +36,14 @@ export function createStream(
   let ended = false;
   let currentContent = content;
   let currentOutput = support.tokenize(content);
-  let emittedBoundary =
-    stability === "stable"
-      ? boundaryOf(currentContent, false)
-      : currentContent.length;
   let emittedOutput =
     stability === "stable"
-      ? outputAtBoundary(currentOutput, emittedBoundary)
+      ? outputAtBoundary(currentOutput, boundaryOf(currentContent, false))
       : cloneOutput(currentOutput);
+  let emittedBoundary =
+    stability === "stable"
+      ? outputBoundary(emittedOutput)
+      : currentContent.length;
 
   function publish(nextBoundary: number, nextOutput: ClewOutput): void {
     const prefix = commonPrefixLength(emittedOutput.tokens, nextOutput.tokens);
@@ -113,14 +114,16 @@ export function createStream(
       currentContent += chunk;
       currentOutput = support.tokenize(currentContent);
 
-      const nextBoundary =
+      const requestedBoundary =
         stability === "stable"
           ? boundaryOf(currentContent, false)
           : currentContent.length;
       const nextOutput =
         stability === "stable"
-          ? outputAtBoundary(currentOutput, nextBoundary)
+          ? outputAtBoundary(currentOutput, requestedBoundary)
           : currentOutput;
+      const nextBoundary =
+        stability === "stable" ? outputBoundary(nextOutput) : requestedBoundary;
 
       publish(nextBoundary, nextOutput);
     },

@@ -14,5 +14,10 @@
       "@cel-tui/clew": ["./packages/clew/src/index.ts"]
     }
   },
-  "include": ["packages/*/src/**/*.ts", "examples/**/*.ts"]
+  "include": [
+    "packages/*/src/**/*.ts",
+    "examples/**/*.ts",
+    "benchmarks/**/*.ts",
+    "scripts/**/*.ts"
+  ]
 }

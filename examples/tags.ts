@@ -11,8 +11,8 @@
  * Run: bun run examples/tags.ts
  */
 
-import { cel, VStack, HStack, Text, ProcessTerminal } from "@cel-tui/core";
 import { Button, Divider, Spacer } from "@cel-tui/components";
+import { cel, HStack, ProcessTerminal, Text, VStack } from "@cel-tui/core";
 
 // ─── Data ───────────────────────────────────────────────────────
 
@@ -89,7 +89,6 @@ function tagChip(tag: Tag) {
 cel.init(new ProcessTerminal());
 
 cel.viewport(() => {
-  const cols = process.stdout.columns || 80;
   const selTags = TAGS.filter((t) => selected.has(t.label));
 
   return VStack(

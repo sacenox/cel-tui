@@ -13,6 +13,24 @@ export interface EditState {
 const segmenter = new Intl.Segmenter(undefined, { granularity: "grapheme" });
 const WHITESPACE_RE = /^\s+$/u;
 
+/** Clamp a UTF-16 offset backward to a valid grapheme boundary. */
+export function clampCursorToGraphemeBoundary(
+  value: string,
+  cursor: number,
+): number {
+  const target = Number.isFinite(cursor) ? Math.trunc(cursor) : 0;
+  if (target <= 0) return 0;
+  if (target >= value.length) return value.length;
+
+  for (const { index, segment } of segmenter.segment(value)) {
+    const end = index + segment.length;
+    if (target <= index) return index;
+    if (target < end) return index;
+    if (target === end) return end;
+  }
+  return value.length;
+}
+
 /**
  * Get the grapheme boundary before the given cursor position.
  * Returns the start offset of the grapheme that contains or precedes

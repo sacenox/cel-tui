@@ -1,4 +1,4 @@
-import type { Color, Theme, ThemeValue } from "@cel-tui/types";
+import type { Color, CursorStyle, Theme, ThemeValue } from "@cel-tui/types";
 import type { Cell, CellBuffer } from "./cell-buffer.js";
 
 // --- Default ANSI 16 theme ---
@@ -105,34 +105,81 @@ const SAVE_CURSOR = "\x1b7";
 const RESTORE_CURSOR = "\x1b8";
 const RESET = "\x1b[0m";
 
-type CursorState =
+/** Native terminal cursor state emitted alongside a frame. */
+export type TerminalCursorState =
   | { visible: false }
   | {
       visible: true;
       x: number;
       y: number;
+      /** Omitted by legacy callers means the default block cursor. */
+      style?: CursorStyle;
     };
 
-interface EmitOptions {
-  cursor?: CursorState;
-  previousCursor?: CursorState | null;
+/** Cursor state used when emitting a full or differential frame. */
+export interface EmitOptions {
+  /** Desired cursor state after the frame is applied. */
+  cursor?: TerminalCursorState;
+  /** Cursor state established by the previous frame, if known. */
+  previousCursor?: TerminalCursorState | null;
+}
+
+function cursorStyle(cursor: { style?: CursorStyle }): CursorStyle {
+  return cursor.style ?? "block";
+}
+
+function cursorShapeSequence(style: CursorStyle): string {
+  switch (style) {
+    case "block":
+      return "\x1b[1 q";
+    case "underline":
+      return "\x1b[3 q";
+    case "bar":
+      return "\x1b[5 q";
+  }
 }
 
 function sameVisibleCursor(
-  a: CursorState | null | undefined,
-  b: CursorState | null | undefined,
+  a: TerminalCursorState | null | undefined,
+  b: TerminalCursorState | null | undefined,
 ): boolean {
   return (
-    a?.visible === true && b?.visible === true && a.x === b.x && a.y === b.y
+    a?.visible === true &&
+    b?.visible === true &&
+    a.x === b.x &&
+    a.y === b.y &&
+    cursorStyle(a) === cursorStyle(b)
+  );
+}
+
+function sameVisibleCursorPosition(
+  a: TerminalCursorState,
+  b: TerminalCursorState | null,
+): boolean {
+  return (
+    a.visible === true && b?.visible === true && a.x === b.x && a.y === b.y
   );
 }
 
 function getCursorControls(
   options: EmitOptions | undefined,
   hasPaintOutput: boolean,
+  forceCursorState = false,
 ): { prefix: string; suffix: string } {
   const cursor = options?.cursor ?? { visible: false };
   const previous = options?.previousCursor ?? null;
+
+  if (forceCursorState) {
+    return cursor.visible
+      ? {
+          prefix: "",
+          suffix:
+            `\x1b[${cursor.y + 1};${cursor.x + 1}H` +
+            cursorShapeSequence(cursorStyle(cursor)) +
+            SHOW_CURSOR,
+        }
+      : { prefix: "", suffix: HIDE_CURSOR };
+  }
 
   if (sameVisibleCursor(cursor, previous)) {
     return hasPaintOutput
@@ -141,10 +188,17 @@ function getCursorControls(
   }
 
   if (cursor.visible) {
+    const positionUnchanged = sameVisibleCursorPosition(cursor, previous);
+    const shapeChanged =
+      previous?.visible !== true ||
+      cursorStyle(cursor) !== cursorStyle(previous);
     return {
       prefix: "",
       suffix:
-        `\x1b[${cursor.y + 1};${cursor.x + 1}H` +
+        (!positionUnchanged || hasPaintOutput
+          ? `\x1b[${cursor.y + 1};${cursor.x + 1}H`
+          : "") +
+        (shapeChanged ? cursorShapeSequence(cursorStyle(cursor)) : "") +
         (previous?.visible === true ? "" : SHOW_CURSOR),
     };
   }
@@ -174,8 +228,13 @@ export function emitBuffer(
   theme: Theme = defaultTheme,
   options?: EmitOptions,
 ): string {
-  const cursorControls = getCursorControls(options, true);
-  let out = SYNC_START + cursorControls.prefix + CURSOR_HOME;
+  // A full frame is also the recovery path after external screen corruption,
+  // so it must establish cursor position and visibility from scratch instead
+  // of trusting a saved terminal cursor.
+  const cursorControls = getCursorControls(options, true, true);
+  // Reset SGR unconditionally: redraw() is allowed to recover from arbitrary
+  // external terminal output, including colors or attributes left active.
+  let out = SYNC_START + cursorControls.prefix + CURSOR_HOME + RESET;
 
   let lastStyle: Cell | null = null;
 
@@ -233,11 +292,15 @@ export function emitDiff(
 ): string {
   const changes = prev.diff(next);
   const cursorControls = getCursorControls(options, changes.length > 0);
-  let out = SYNC_START + cursorControls.prefix;
 
   if (changes.length === 0) {
-    return out + cursorControls.suffix + SYNC_END;
+    if (cursorControls.prefix === "" && cursorControls.suffix === "") return "";
+    return (
+      SYNC_START + cursorControls.prefix + cursorControls.suffix + SYNC_END
+    );
   }
+
+  let out = SYNC_START + cursorControls.prefix;
 
   let lastStyle: Cell | null = null;
   let lastX = -1;

@@ -60,6 +60,22 @@ export type ThemeValue = number | string;
 export type Theme = Record<Color, ThemeValue>;
 
 /**
+ * Kitty keyboard protocol progressive-enhancement flags requested at init.
+ * Baseline escape-code disambiguation is always enabled. Associated text
+ * automatically enables all-keys reporting, as required by the protocol.
+ */
+export interface KittyKeyboardOptions {
+  /** Report `press`, `repeat`, and `release` event types. */
+  reportEventTypes?: boolean;
+  /** Report shifted and base-keyboard-layout alternate keys. */
+  reportAlternateKeys?: boolean;
+  /** Encode text-producing and modifier keys as structured CSI-u events. */
+  reportAllKeys?: boolean;
+  /** Include produced text as code points. Implies {@link reportAllKeys}. */
+  reportAssociatedText?: boolean;
+}
+
+/**
  * Styling props shared by all node types.
  *
  * Maps directly to terminal SGR (Select Graphic Rendition) attributes.
@@ -90,22 +106,73 @@ export interface StyleProps {
 export type SizeValue = number | `${number}%`;
 
 /**
- * Props shared by all container nodes ({@link ContainerNode} and {@link TextInputNode}).
+ * Stable identity for framework-managed node state.
+ *
+ * Keys are unique among mounted stateful nodes in a viewport. State follows
+ * the key across ordinary re-renders and structural reordering, and is
+ * discarded after the key is absent for a rendered frame.
+ */
+export type StateKey = string | number;
+
+/** Visual shape used for a focused TextInput cursor. */
+export type CursorStyle = "block" | "bar" | "underline";
+
+/** Kitty keyboard event phase. Legacy input can report only `"press"`. */
+export type KeyEventType = "press" | "repeat" | "release";
+
+/** Modifier state reported with a keyboard event. */
+export interface KeyModifiers {
+  readonly shift: boolean;
+  readonly alt: boolean;
+  readonly ctrl: boolean;
+  readonly super: boolean;
+  readonly hyper: boolean;
+  readonly meta: boolean;
+  readonly capsLock: boolean;
+  readonly numLock: boolean;
+}
+
+/** Structured metadata delivered as the second `onKeyPress` argument. */
+export interface KeyEvent {
+  /** Normalized semantic key string, also supplied as the first argument. */
+  readonly key: string;
+  /** Exact insertable text when the terminal reported text for this event. */
+  readonly text?: string;
+  /** Press/repeat/release phase. Legacy input is reported as `"press"`. */
+  readonly eventType: KeyEventType;
+  /** Main CSI-u Unicode/private-use code point, when available. */
+  readonly codePoint?: number;
+  /** Shifted key reported by Kitty alternate-key mode. */
+  readonly shiftedKey?: string;
+  /** Standard PC-101 layout key reported by Kitty alternate-key mode. */
+  readonly baseLayoutKey?: string;
+  /**
+   * Modifier and lock-key state reported by the host. Legacy byte/text input
+   * cannot carry this metadata, so fields the host did not report are false.
+   */
+  readonly modifiers: KeyModifiers;
+}
+
+/**
+ * Props shared by layout container nodes ({@link ContainerNode}).
  *
  * Controls layout, sizing, scrolling, focus, click handling, key events,
  * and styling. Style props on containers are inherited by descendants —
  * child nodes use the nearest ancestor's values unless they set their own.
  * Container `bgColor` fills the container rect before painting children.
  */
-// biome-ignore lint/suspicious/noConfusingVoidType: public callback contract intentionally accepts void-returning handlers.
-export type KeyPressHandler = (key: string) => boolean | void;
+export type KeyPressHandler =
+  | ((key: string, event: KeyEvent) => void)
+  | ((key: string, event: KeyEvent) => boolean);
 
 /**
- * Scroll notification callback for controlled scroll containers.
+ * Scroll input callback for controlled and uncontrolled scroll containers.
  *
  * Return exactly `false` to decline handling and continue scroll propagation
  * to the next scrollable ancestor. Any other return value, including
- * `undefined`, consumes the scroll event.
+ * `undefined`, consumes the scroll event. Controlled containers update through
+ * this callback; uncontrolled containers update framework state after the
+ * callback accepts the event.
  *
  * This is a union of `void`-returning and `boolean`-returning callback
  * signatures instead of a single `boolean | void` return type so legacy
@@ -117,7 +184,8 @@ export type ScrollHandler =
   | ((offset: number, maxOffset: number) => boolean);
 
 /** Why a focus change callback fired. */
-export type FocusChangeReason = "tab" | "shift+tab" | "click" | "escape";
+export type FocusChangeReason =
+  "auto" | "tab" | "shift+tab" | "click" | "escape";
 
 /** Metadata for {@link ContainerProps.onFocus} / {@link ContainerProps.onBlur}. */
 export interface FocusChangeEvent {
@@ -128,7 +196,31 @@ export interface FocusChangeEvent {
 /** Focus change notification callback. */
 export type FocusChangeHandler = (event: FocusChangeEvent) => void;
 
+/** Character and terminal style for one scrollbar part. */
+export interface ScrollbarPartStyle extends StyleProps {
+  /** A single terminal-column grapheme. */
+  char?: string;
+}
+
+/** Custom thumb and track rendering for container scrollbars. */
+export interface ScrollbarStyle {
+  /** Scrollbar thumb appearance. */
+  thumb?: ScrollbarPartStyle;
+  /** Scrollbar track appearance. */
+  track?: ScrollbarPartStyle;
+}
+
 export interface ContainerProps extends StyleProps {
+  /**
+   * Stable identity for framework-managed focus, scroll, and TextInput state.
+   *
+   * Provide this when a stateful node can move, when callbacks are recreated
+   * inline, or when multiple TextInputs share an `onChange` callback. Keys
+   * must be unique among mounted stateful nodes in the viewport. Omitting the
+   * key retains the legacy structural/callback-based fallback behavior.
+   */
+  stateKey?: StateKey;
+
   /**
    * Fixed width in cells, or percentage of parent width.
    * When omitted, the container uses intrinsic sizing (fits content)
@@ -209,6 +301,9 @@ export interface ContainerProps extends StyleProps {
   /** Show a scrollbar indicator when `overflow` is `"scroll"`. */
   scrollbar?: boolean;
 
+  /** Customize scrollbar thumb/track characters and terminal styles. */
+  scrollbarStyle?: ScrollbarStyle;
+
   /**
    * Mouse wheel step size in cells along the container's main axis.
    * When omitted, the framework uses an adaptive default based on the
@@ -249,9 +344,9 @@ export interface ContainerProps extends StyleProps {
   onClick?: () => void;
 
   /**
-   * Whether this container participates in focus traversal.
-   * Defaults to `true` when {@link onClick} is set. Set to `false`
-   * to make a container clickable by mouse but not reachable via Tab.
+   * Whether this element participates in keyboard traversal and mouse focus.
+   * TextInput defaults to `true`; containers default to `true` when
+   * {@link onClick} is set. Explicit controlled focus still works when false.
    */
   focusable?: boolean;
 
@@ -266,8 +361,15 @@ export interface ContainerProps extends StyleProps {
   focused?: boolean;
 
   /**
+   * Seed focus once when this identity first mounts in the active layer.
+   * The topmost layer wins. After Escape, auto focus is not reclaimed until
+   * the identity unmounts for a rendered frame and mounts again.
+   */
+  autoFocus?: boolean;
+
+  /**
    * Called when this container receives focus.
-   * The event includes the transition reason (`tab`, `shift+tab`, `click`, or `escape`).
+   * The event includes the transition reason (`auto`, `tab`, `shift+tab`, `click`, or `escape`).
    * In uncontrolled mode, this is a notification callback.
    * In controlled mode, update {@link focused} here.
    */
@@ -275,7 +377,7 @@ export interface ContainerProps extends StyleProps {
 
   /**
    * Called when this container loses focus.
-   * The event includes the transition reason (`tab`, `shift+tab`, `click`, or `escape`).
+   * The event includes the transition reason (`auto`, `tab`, `shift+tab`, `click`, or `escape`).
    * In uncontrolled mode, this is a notification callback.
    * In controlled mode, update {@link focused} here.
    */
@@ -305,12 +407,17 @@ export interface ContainerProps extends StyleProps {
    * and bubbling stops. This is backward-compatible: existing `void`
    * handlers consume by default.
    *
-   * Key format: all lowercase, modifiers joined by `+` in canonical
-   * order `ctrl+alt+shift+<key>` (e.g., `"ctrl+s"`, `"alt+up"`, `"escape"`).
+   * Key format: all lowercase, modifiers joined by `+` in canonical order
+   * `ctrl+alt+shift+super+hyper+meta+<key>` (e.g., `"ctrl+s"`, `"alt+up"`,
+   * `"escape"`).
    * The key string is a **semantic identifier**, not necessarily the exact
    * inserted text — for example, uppercase `A` is reported as key `"a"`.
+   * Structured event metadata (including repeat/release phase, insertable
+   * text, alternate keys, and reported modifiers) is supplied as the second
+   * argument. One-argument handlers remain valid.
    *
    * @param key - Normalized semantic key string.
+   * @param event - Structured keyboard event metadata.
    * @returns `false` to keep bubbling, anything else to consume.
    */
   onKeyPress?: KeyPressHandler;
@@ -345,6 +452,37 @@ export interface TextProps extends StyleProps {
 }
 
 /**
+ * Container-derived props that are meaningful for a TextInput.
+ *
+ * This is an explicit allowlist: TextInput supports box sizing, inherited
+ * style, focus, key routing, and mouse-wheel step configuration. Child-layout
+ * controls, container scroll state/scrollbars, and click activation are
+ * intentionally excluded because TextInput has no children and owns its
+ * editing scroll behavior internally.
+ */
+export type TextInputBaseProps = Pick<
+  ContainerProps,
+  | keyof StyleProps
+  | "stateKey"
+  | "width"
+  | "height"
+  | "flex"
+  | "minWidth"
+  | "maxWidth"
+  | "minHeight"
+  | "maxHeight"
+  | "padding"
+  | "scrollStep"
+  | "focusable"
+  | "focused"
+  | "autoFocus"
+  | "onFocus"
+  | "onBlur"
+  | "focusStyle"
+  | "onKeyPress"
+>;
+
+/**
  * Props for the `TextInput` primitive.
  *
  * TextInput is a multi-line editable text container. It accepts container
@@ -362,7 +500,7 @@ export interface TextProps extends StyleProps {
  * visual wrapped lines. Other modifier combos and non-insertable control
  * keys bubble to ancestor {@link onKeyPress} handlers.
  */
-export interface TextInputProps extends ContainerProps {
+export interface TextInputProps extends TextInputBaseProps {
   /** Current text content. Controlled — the app owns this value. */
   value: string;
 
@@ -375,14 +513,33 @@ export interface TextInputProps extends ContainerProps {
   onChange: (value: string) => void;
 
   /**
+   * Controlled UTF-16 cursor offset. The value is clamped backward to a
+   * grapheme boundary, so emoji and combining sequences are never split.
+   * When omitted, the framework manages the cursor internally.
+   */
+  cursor?: number;
+
+  /**
+   * Called when editing or navigation requests a new cursor offset.
+   * In controlled mode, update `cursor` and render the new value.
+   */
+  onCursorChange?: (cursor: number) => void;
+
+  /**
+   * Cursor shape for both the painted fallback and native terminal cursor.
+   * Defaults to `"block"`.
+   */
+  cursorStyle?: CursorStyle;
+
+  /**
    * Key handler that fires **before** the built-in editing logic.
    * Return `false` to prevent the default editing action for that key
    * (no character insertion, no cursor movement, no deletion).
    * Any other return (or no return) lets the default action proceed.
    *
-   * Receives the normalized **semantic** key string, not necessarily the
-   * exact inserted text. For example, typing uppercase `A` reports key
-   * `"a"` here while still inserting `"A"` into the input.
+   * Receives the normalized **semantic** key string plus structured event
+   * metadata, not necessarily the exact inserted text. For example, typing
+   * uppercase `A` can report key `"a"` while `event.text` remains `"A"`.
    *
    * @example
    * // Enter submits instead of inserting a newline

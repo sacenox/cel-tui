@@ -7,11 +7,16 @@ import type { TextInputNode, TextInputProps } from "@cel-tui/types";
  * `padding`, `maxHeight`, etc.) but has no children — its content is the
  * {@link TextInputProps.value | value} prop.
  *
- * Word-wrap is always on. Cursor position is framework-managed.
+ * Word-wrap is always on. Cursor position is framework-managed unless the
+ * controlled `cursor` prop is provided with `onCursorChange`.
+ * `cursorStyle` selects a block (default), bar, or underline cursor for both
+ * the painted fallback and native terminal cursor.
  * Scroll is always uncontrolled — the view follows the cursor and
  * responds to mouse wheel automatically.
  *
- * TextInput is always focusable. When focused, it consumes insertable text
+ * TextInput is focusable by default; pass `focusable: false` to remove it
+ * from keyboard traversal and mouse focus. When focused through controlled
+ * focus, it consumes insertable text
  * plus editing/navigation keys (arrows, backspace, delete, Enter, Tab),
  * along with a small set of readline-style shortcuts: `ctrl+a` / `ctrl+e`,
  * `alt+b` / `alt+f`, `ctrl+left` / `ctrl+right`, `ctrl+w`, and `alt+d`.
@@ -21,8 +26,9 @@ import type { TextInputNode, TextInputProps } from "@cel-tui/types";
  * `onKeyPress` handlers.
  *
  * Use `onKeyPress` to intercept keys before editing. The handler receives a
- * normalized semantic key string; inserted text preserves the original
- * characters. Return `false` to prevent the default editing action.
+ * normalized semantic key string and structured event metadata; `event.text`
+ * preserves exact insertable characters. Return `false` to prevent the
+ * default editing action.
  *
  * @param props - Value, callbacks, sizing, styling, and focus props.
  * @returns A text input node for the UI tree.

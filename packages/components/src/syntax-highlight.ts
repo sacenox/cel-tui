@@ -9,7 +9,9 @@ import { HStack, Text, VStack, visibleWidth } from "@cel-tui/core";
 import type { Color, ContainerNode, Node, StyleProps } from "@cel-tui/types";
 
 const DEFAULT_THEME_NAME = "cel-ansi16";
-const MAX_STATES_PER_KEY = 4;
+const MAX_CACHED_COLORS = 256;
+const MAX_CACHED_DIRECT_RENDERS = 128;
+const MAX_CACHED_THEMES = 64;
 const TAB_STOP = 4;
 const segmenter = new Intl.Segmenter(undefined, { granularity: "grapheme" });
 
@@ -35,27 +37,47 @@ const ANSI_SLOT_HEX: ReadonlyArray<readonly [Color, string]> = [
 /** A best-effort token color override entry. */
 export interface SyntaxHighlightThemeTokenColor {
   /** Target canonical `clew` scopes emitted by this component. */
-  scope?: string | readonly string[];
+  readonly scope?: string | readonly string[];
   /** Style settings for the matched scopes. */
-  settings: {
-    foreground?: string;
-    background?: string;
-    fontStyle?: string;
+  readonly settings: {
+    readonly foreground?: string;
+    readonly background?: string;
+    readonly fontStyle?: string;
   };
 }
 
-/** Theme registration shape accepted by {@link SyntaxHighlight}. */
-export interface SyntaxHighlightThemeRegistration {
+/**
+ * Native cel-tui syntax theme fields.
+ *
+ * Palette slots are preserved as `color00`–`color15` references. Changing the
+ * runtime color theme therefore changes the rendered colors without rebuilding
+ * or re-quantizing syntax-highlight nodes.
+ */
+export interface SyntaxHighlightNativeTheme {
+  /** Style inherited by every highlighted token. */
+  readonly baseStyle?: Readonly<StyleProps>;
+  /** Style overrides keyed by canonical `clew` scope. */
+  readonly scopeStyles?: Readonly<Record<string, Readonly<StyleProps>>>;
+}
+
+/**
+ * Theme registration shape accepted by {@link SyntaxHighlight}.
+ * Registrations are immutable values and are cached by object identity and
+ * serialized value. Compatible TextMate fields are applied first; native
+ * {@link SyntaxHighlightNativeTheme} fields take precedence when both target
+ * the same property.
+ */
+export interface SyntaxHighlightThemeRegistration extends SyntaxHighlightNativeTheme {
   /** Optional theme name. */
-  name?: string;
+  readonly name?: string;
   /** Optional light/dark hint. */
-  type?: "light" | "dark";
+  readonly type?: "light" | "dark";
   /** Optional base foreground color. */
-  fg?: string;
+  readonly fg?: string;
   /** Optional base background color. */
-  bg?: string;
+  readonly bg?: string;
   /** Token color overrides. */
-  tokenColors?: readonly SyntaxHighlightThemeTokenColor[];
+  readonly tokenColors?: readonly SyntaxHighlightThemeTokenColor[];
 }
 
 /**
@@ -72,10 +94,32 @@ export interface SyntaxHighlightProps {
    * Optional theme override.
    *
    * Built-in presets currently include `"default"` and `"dark-plus"`.
-   * Theme registration objects are applied as best-effort overrides onto the
-   * canonical `clew` scopes emitted by this component.
+   * Theme registration objects accept compatible TextMate token colors and/or
+   * native cel-tui `baseStyle` and `scopeStyles` fields. Native fields are
+   * applied last and preserve palette-slot references directly.
    */
   theme?: SyntaxHighlightTheme;
+}
+
+/**
+ * A stateful syntax highlighter created by {@link createSyntaxHighlight}.
+ *
+ * Create one instance per independently updating snippet. Calls with appended
+ * content reuse that instance's `clew` stream without sharing parser state
+ * with any other snippet.
+ */
+export interface SyntaxHighlightInstance {
+  /** Render the instance's current source. */
+  (
+    content: string,
+    language: string,
+    props?: SyntaxHighlightProps,
+  ): ContainerNode;
+  /**
+   * Release the cached parser and rendered node.
+   * A later call starts a fresh stream, so the instance remains reusable.
+   */
+  dispose(): void;
 }
 
 interface HighlightRun {
@@ -94,6 +138,7 @@ interface ResolvedSyntaxHighlightTheme {
 }
 
 interface ClewSyntaxHighlightState {
+  language: string;
   lastContent: string;
   lastNode: ContainerNode | null;
   output: ClewOutput;
@@ -103,7 +148,12 @@ interface ClewSyntaxHighlightState {
 
 const rgbCache = new Map<string, readonly [number, number, number]>();
 const colorSlotCache = new Map<string, Color>();
-const statesByKey = new Map<string, ClewSyntaxHighlightState[]>();
+const customThemeIdentityCache = new WeakMap<
+  SyntaxHighlightThemeRegistration,
+  ResolvedSyntaxHighlightTheme
+>();
+const customThemeCache = new Map<string, ResolvedSyntaxHighlightTheme>();
+const directRenderCache = new Map<string, ContainerNode>();
 
 type ScopeStyleRecord = Readonly<Record<string, ResolvedScopeStyle>>;
 
@@ -150,6 +200,11 @@ const DARK_PLUS_SCOPE_STYLE_OVERRIDES: Readonly<Record<string, StyleProps>> = {
 };
 
 const DEFAULT_RESOLVED_THEME = buildResolvedTheme(DEFAULT_THEME_NAME, {});
+const DARK_PLUS_RESOLVED_THEME = buildResolvedTheme(
+  "preset:dark-plus",
+  { fgColor: "color07" },
+  DARK_PLUS_SCOPE_STYLE_OVERRIDES,
+);
 
 function requiredAt<T>(
   items: readonly T[],
@@ -163,12 +218,33 @@ function requiredAt<T>(
   return item;
 }
 
-function hashString(input: string): string {
-  let hash = 2166136261;
-  for (let i = 0; i < input.length; i++) {
-    hash = Math.imul(hash ^ input.charCodeAt(i), 16777619);
+function readLru<K, V>(map: Map<K, V>, key: K): V | undefined {
+  const value = map.get(key);
+  if (value === undefined) {
+    return undefined;
   }
-  return (hash >>> 0).toString(36);
+
+  map.delete(key);
+  map.set(key, value);
+  return value;
+}
+
+function writeLru<K, V>(
+  map: Map<K, V>,
+  key: K,
+  value: V,
+  maxEntries: number,
+): void {
+  map.delete(key);
+  map.set(key, value);
+
+  while (map.size > maxEntries) {
+    const oldest = map.keys().next();
+    if (oldest.done) {
+      return;
+    }
+    map.delete(oldest.value);
+  }
 }
 
 function normalizeHex(color: string): string {
@@ -183,7 +259,7 @@ function normalizeHex(color: string): string {
 }
 
 function parseHex(color: string): readonly [number, number, number] {
-  const cached = rgbCache.get(color);
+  const cached = readLru(rgbCache, color);
   if (cached) {
     return cached;
   }
@@ -194,7 +270,7 @@ function parseHex(color: string): readonly [number, number, number] {
     Number.parseInt(normalized.slice(3, 5), 16),
     Number.parseInt(normalized.slice(5, 7), 16),
   ];
-  rgbCache.set(color, rgb);
+  writeLru(rgbCache, color, rgb, MAX_CACHED_COLORS);
   return rgb;
 }
 
@@ -214,7 +290,7 @@ function colorToSlot(color: string | undefined): Color | undefined {
   }
 
   const normalized = normalizeHex(color);
-  const cached = colorSlotCache.get(normalized);
+  const cached = readLru(colorSlotCache, normalized);
   if (cached) {
     return cached;
   }
@@ -231,11 +307,14 @@ function colorToSlot(color: string | undefined): Color | undefined {
     }
   }
 
-  colorSlotCache.set(normalized, best);
+  writeLru(colorSlotCache, normalized, best, MAX_CACHED_COLORS);
   return best;
 }
 
-function mergeStyles(base: StyleProps, overrides: StyleProps): StyleProps {
+function mergeStyles(
+  base: Readonly<StyleProps>,
+  overrides: Readonly<StyleProps>,
+): StyleProps {
   return {
     fgColor: overrides.fgColor ?? base.fgColor,
     bgColor: overrides.bgColor ?? base.bgColor,
@@ -289,7 +368,7 @@ function cloneScopeStyles(
 function applyScopeStyleOverride(
   scopeStyles: Map<string, ResolvedScopeStyle>,
   scope: string,
-  style: StyleProps,
+  style: Readonly<StyleProps>,
 ): void {
   const current = scopeStyles.get(scope);
 
@@ -325,7 +404,7 @@ function applyThemeTokenColors(
 function buildResolvedTheme(
   cacheKey: string,
   baseStyle: StyleProps,
-  scopeStyleOverrides?: Readonly<Record<string, StyleProps>>,
+  scopeStyleOverrides?: Readonly<Record<string, Readonly<StyleProps>>>,
 ): ResolvedSyntaxHighlightTheme {
   const scopeStyles = cloneScopeStyles(DEFAULT_SCOPE_STYLES);
 
@@ -352,15 +431,21 @@ function resolveTheme(
       return DEFAULT_RESOLVED_THEME;
     }
 
-    return buildResolvedTheme(
-      "preset:dark-plus",
-      { fgColor: "color07" },
-      DARK_PLUS_SCOPE_STYLE_OVERRIDES,
-    );
+    return DARK_PLUS_RESOLVED_THEME;
+  }
+
+  const identityCached = customThemeIdentityCache.get(theme);
+  if (identityCached) {
+    return identityCached;
   }
 
   const serialized = JSON.stringify(theme);
-  const cacheHash = hashString(serialized);
+  const cached = readLru(customThemeCache, serialized);
+  if (cached) {
+    customThemeIdentityCache.set(theme, cached);
+    return cached;
+  }
+
   const baseStyle = themeSettingsToStyle({
     background: theme.bg,
     foreground: theme.fg,
@@ -369,67 +454,19 @@ function resolveTheme(
 
   applyThemeTokenColors(scopeStyles, theme.tokenColors, baseStyle);
 
-  return {
+  Object.assign(baseStyle, mergeStyles(baseStyle, theme.baseStyle ?? {}));
+  for (const [scope, style] of Object.entries(theme.scopeStyles ?? {})) {
+    applyScopeStyleOverride(scopeStyles, scope, style);
+  }
+
+  const resolved = {
     baseStyle,
-    cacheKey: `custom:${cacheHash}`,
+    cacheKey: `custom:${serialized}`,
     scopeStyles,
   };
-}
-
-function stateKey(
-  language: string,
-  theme: ResolvedSyntaxHighlightTheme,
-): string {
-  return `${language}\u0000${theme.cacheKey}`;
-}
-
-function getStateBucket<T>(map: Map<string, T[]>, key: string): T[] {
-  let states = map.get(key);
-  if (!states) {
-    states = [];
-    map.set(key, states);
-  }
-  return states;
-}
-
-function touchCachedState<T>(
-  map: Map<string, T[]>,
-  key: string,
-  state: T,
-): void {
-  const states = getStateBucket(map, key);
-  const index = states.indexOf(state);
-  if (index !== -1) {
-    states.splice(index, 1);
-  }
-  states.push(state);
-
-  if (states.length > MAX_STATES_PER_KEY) {
-    states.shift();
-  }
-}
-
-function findClewState(
-  key: string,
-  content: string,
-): ClewSyntaxHighlightState | undefined {
-  const states = getStateBucket(statesByKey, key);
-  let bestPrefix: ClewSyntaxHighlightState | undefined;
-
-  for (let i = states.length - 1; i >= 0; i--) {
-    const state = requiredAt(states, i, "syntax highlight state");
-    if (state.lastContent === content) {
-      return state;
-    }
-    if (
-      content.startsWith(state.lastContent) &&
-      (!bestPrefix || state.lastContent.length > bestPrefix.lastContent.length)
-    ) {
-      bestPrefix = state;
-    }
-  }
-
-  return bestPrefix;
+  writeLru(customThemeCache, serialized, resolved, MAX_CACHED_THEMES);
+  customThemeIdentityCache.set(theme, resolved);
+  return resolved;
 }
 
 function pushRun(
@@ -577,6 +614,7 @@ function createState(
 ): ClewSyntaxHighlightState {
   const stream = clew("", { lang: language, stability: "eager" });
   return {
+    language,
     lastContent: "",
     lastNode: null,
     output: stream.snapshot(),
@@ -585,11 +623,7 @@ function createState(
   };
 }
 
-function updateState(
-  state: ClewSyntaxHighlightState,
-  language: string,
-  content: string,
-): void {
+function updateState(state: ClewSyntaxHighlightState, content: string): void {
   if (content === state.lastContent) {
     return;
   }
@@ -600,7 +634,7 @@ function updateState(
       state.stream.write(appended);
     }
   } else {
-    state.stream = clew("", { lang: language, stability: "eager" });
+    state.stream = clew("", { lang: state.language, stability: "eager" });
     if (content.length > 0) {
       state.stream.write(content);
     }
@@ -633,12 +667,95 @@ function renderHighlightedState(
   return state.lastNode;
 }
 
+function directRenderKey(
+  content: string,
+  language: string,
+  theme: ResolvedSyntaxHighlightTheme,
+): string {
+  // Length prefixes make the concatenation unambiguous even when source text
+  // contains NULs or other separator-like characters.
+  return `${language.length}:${language}${theme.cacheKey.length}:${theme.cacheKey}${content}`;
+}
+
+function renderDirect(
+  content: string,
+  language: string,
+  theme: ResolvedSyntaxHighlightTheme,
+): ContainerNode {
+  const key = directRenderKey(content, language, theme);
+  const cached = readLru(directRenderCache, key);
+  if (cached) {
+    return cached;
+  }
+
+  const state = createState(theme, language);
+  updateState(state, content);
+  const node = renderHighlightedState(state);
+  writeLru(directRenderCache, key, node, MAX_CACHED_DIRECT_RENDERS);
+  return node;
+}
+
+/**
+ * Create an independently stateful syntax highlighter.
+ *
+ * Use one instance per snippet whose source grows over time. The instance owns
+ * exactly one parser stream, so snippets cannot evict or accidentally reuse
+ * one another's state. Dropping the callable releases it to garbage collection;
+ * call {@link SyntaxHighlightInstance.dispose | dispose} to release it eagerly.
+ *
+ * @returns A callable highlighter with an explicit disposal method.
+ *
+ * @example
+ * ```ts
+ * const highlightLog = createSyntaxHighlight();
+ *
+ * cel.viewport(() =>
+ *   VStack({}, [highlightLog(streamedSource, "typescript")]),
+ * );
+ *
+ * // When the snippet is permanently removed:
+ * highlightLog.dispose();
+ * ```
+ */
+export function createSyntaxHighlight(): SyntaxHighlightInstance {
+  let state: ClewSyntaxHighlightState | undefined;
+
+  function render(
+    content: string,
+    language: string,
+    props?: SyntaxHighlightProps,
+  ): ContainerNode {
+    if (!clewSupportsLanguage(language)) {
+      state = undefined;
+      return renderPlainContent(content);
+    }
+
+    const theme = resolveTheme(props?.theme);
+    if (
+      !state ||
+      state.language !== language ||
+      state.theme.cacheKey !== theme.cacheKey
+    ) {
+      state = createState(theme, language);
+    }
+
+    updateState(state, content);
+    return renderHighlightedState(state);
+  }
+
+  render.dispose = () => {
+    state = undefined;
+  };
+
+  return render as SyntaxHighlightInstance;
+}
+
 /**
  * Render syntax-highlighted code as cel-tui primitives.
  *
- * The component is synchronous to call, but append-only updates reuse a cached
- * `clew` stream so final output stays deterministic across chunk boundaries.
- * Non-append edits reset the stream and replay the full snippet.
+ * The component is synchronous and caches exact direct-call renders. Use
+ * {@link createSyntaxHighlight} when a snippet grows over time: the returned
+ * callable owns an isolated `clew` stream and reuses it for appended content.
  *
  * Unknown languages render as plain text. The default theme is terminal-friendly
  * and maps canonical `clew` scopes onto cel's ANSI palette slots while leaving
@@ -659,9 +776,5 @@ export function SyntaxHighlight(
   }
 
   const theme = resolveTheme(props?.theme);
-  const key = stateKey(language, theme);
-  const state = findClewState(key, content) ?? createState(theme, language);
-  updateState(state, language, content);
-  touchCachedState(statesByKey, key, state);
-  return renderHighlightedState(state);
+  return renderDirect(content, language, theme);
 }

@@ -220,10 +220,88 @@ describe("Markdown", () => {
     expect(asText(item(row.children, 0)).props.fgColor).toBe("color02");
   });
 
-  test("inline formatting in headings is stripped to plain text", () => {
-    const nodes = Markdown("# Hello **world** and `code`");
-    const t = asText(item(nodes, 0));
-    expect(t.content).toBe("Hello world and code");
+  test("heading levels preserve their base style with inline content", () => {
+    const nodes = Markdown(
+      "# H1 **bold**\n## H2 *italic*\n### H3 `code` [link](https://example.com)",
+    );
+
+    const h1 = asContainer(item(nodes, 0));
+    const h2 = asContainer(item(nodes, 1));
+    const h3 = asContainer(item(nodes, 2));
+
+    expect(h1.type).toBe("hstack");
+    expect(h1.props).toMatchObject({
+      flexWrap: "wrap",
+      bold: true,
+      fgColor: "color06",
+    });
+    expect(h2.props).toMatchObject({
+      flexWrap: "wrap",
+      bold: true,
+      fgColor: "color03",
+    });
+    expect(h3.props).toMatchObject({
+      flexWrap: "wrap",
+      bold: true,
+      fgColor: "color02",
+    });
+
+    expect(asText(item(h1.children, 2)).props.bold).toBe(true);
+    expect(asText(item(h2.children, 2)).props.italic).toBe(true);
+    expect(asText(item(h3.children, 2)).props.fgColor).toBe("color03");
+    expect(asText(item(h3.children, 4)).props).toMatchObject({
+      fgColor: "color06",
+      underline: true,
+    });
+  });
+
+  test("heading inline styles compose with a custom heading theme", () => {
+    const nodes = Markdown(
+      "# plain **bold** *italic* `code value` [the link](https://example.com)",
+      {
+        theme: {
+          heading1: { bold: true, fgColor: "color05", bgColor: "color00" },
+          bold: { bold: true, fgColor: "color01" },
+          italic: { italic: true, fgColor: "color02" },
+          inlineCode: { fgColor: "color03" },
+          link: { fgColor: "color04", underline: true },
+        },
+      },
+    );
+
+    const heading = asContainer(item(nodes, 0));
+    expect(heading.props).toMatchObject({
+      flexWrap: "wrap",
+      bold: true,
+      fgColor: "color05",
+      bgColor: "color00",
+    });
+    expect(heading.children.map(textContent)).toEqual([
+      "plain",
+      " ",
+      "bold",
+      " ",
+      "italic",
+      " ",
+      "code value",
+      " ",
+      "the link",
+    ]);
+    expect(asText(item(heading.children, 2)).props).toEqual({
+      bold: true,
+      fgColor: "color01",
+    });
+    expect(asText(item(heading.children, 4)).props).toEqual({
+      italic: true,
+      fgColor: "color02",
+    });
+    expect(asText(item(heading.children, 6)).props).toEqual({
+      fgColor: "color03",
+    });
+    expect(asText(item(heading.children, 8)).props).toEqual({
+      fgColor: "color04",
+      underline: true,
+    });
   });
 
   test("link text is used, url is stripped", () => {

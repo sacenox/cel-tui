@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+  clampCursorToGraphemeBoundary,
   deleteBackward,
   deleteForward,
   deleteWordBackward,
@@ -9,6 +10,17 @@ import {
   moveCursor,
   moveCursorByWord,
 } from "./text-edit.js";
+
+describe("cursor boundary normalization", () => {
+  test("clamps offsets inside a grapheme backward to its start", () => {
+    const value = "A👨‍👩‍👧B";
+    expect(clampCursorToGraphemeBoundary(value, 2)).toBe(1);
+    expect(clampCursorToGraphemeBoundary(value, value.length + 10)).toBe(
+      value.length,
+    );
+    expect(clampCursorToGraphemeBoundary(value, -2)).toBe(0);
+  });
+});
 
 function state(value: string, cursor: number): EditState {
   return { value, cursor };

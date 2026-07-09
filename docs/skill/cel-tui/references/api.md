@@ -3,15 +3,22 @@
 ## Framework lifecycle
 
 ```ts
-cel.init(new ProcessTerminal(), { theme?: Theme });
+cel.init(new ProcessTerminal(), {
+  theme?: Theme,
+  kittyKeyboard?: KittyKeyboardOptions,
+});
 cel.viewport(() => tree); // or () => [layer1, layer2]
 cel.render();
+cel.redraw();
+cel.setTheme(theme);
 cel.setTitle("My App");
 cel.stop();
 ```
 
 - `cel.viewport` sets the render function and triggers the first render.
 - `cel.render()` requests a batched re-render after external state changes.
+- `cel.redraw()` requests a batched full-frame redraw and bypasses the cell-diff baseline.
+- `cel.setTheme(theme)` replaces the active runtime theme and automatically redraws the full frame.
 - `cel.setTitle(title)` writes a best-effort terminal title request. Control characters are stripped from `title`, and `cel.stop()` does not restore the previous title automatically.
 - `cel.stop()` restores terminal state (raw mode, keyboard protocol, mouse tracking, alternate screen).
 
@@ -32,6 +39,7 @@ All props accepted by `VStack` and `HStack`:
   alignItems,             // "start" | "end" | "center" | "stretch"
   overflow,               // "hidden" (default) | "scroll"
   scrollbar,              // boolean
+  scrollbarStyle,         // { thumb?: { char?, ...StyleProps }, track?: { char?, ...StyleProps } }
   scrollStep,             // number (mouse wheel step in cells; default adaptive)
   scrollOffset,           // number (controlled scroll)
   onScroll,               // ScrollHandler; return false to keep bubbling
@@ -43,12 +51,14 @@ All props accepted by `VStack` and `HStack`:
   focusStyle,             // StyleProps — overrides when focused
 
   // Interaction
+  stateKey,               // string | number — stable framework state identity
   onClick,                // () => void
-  focusable,              // boolean (default true if onClick set, or set true explicitly)
+  focusable,              // boolean (TextInput defaults true; containers with onClick do too)
   focused,                // boolean (controlled — omit for uncontrolled)
-  onFocus,                // ({ reason }) => void — reason is "tab" | "shift+tab" | "click" | "escape"
-  onBlur,                 // ({ reason }) => void — reason is "tab" | "shift+tab" | "click" | "escape"
-  onKeyPress,             // (key: string) => boolean | void — normalized semantic key string; return false to keep bubbling
+  autoFocus,              // boolean — seed active-layer focus once per mount
+  onFocus,                // ({ reason }) => void — reason includes "auto" | "tab" | "shift+tab" | "click" | "escape"
+  onBlur,                 // ({ reason }) => void — reason includes "auto" | "tab" | "shift+tab" | "click" | "escape"
+  onKeyPress,             // (key: string, event: KeyEvent) => boolean | void — return false to keep bubbling
 }
 ```
 
@@ -125,11 +135,27 @@ Colors: 16 numbered palette slots — `"color00"` through `"color15"`. Mapped to
 TextInput({
   value, // string (controlled)
   onChange, // (value: string) => void
-  onKeyPress, // (key: string) => boolean | void — normalized semantic key string; return false to prevent default editing action
+  cursor, // number (optional controlled UTF-16 grapheme-boundary offset)
+  onCursorChange, // (cursor: number) => void
+  cursorStyle, // "block" | "bar" | "underline" (default: "block")
+  onKeyPress, // (key: string, event: KeyEvent) => boolean | void — return false to prevent default editing action
   placeholder, // Text() node shown when empty
-  // + all container props (sizing, styling, focus, scrollStep, etc.)
+  // + TextInputBaseProps: stateKey, sizing, styling, focus,
+  //   onKeyPress, and scrollStep (no child-layout/container-scroll props)
 });
 ```
+
+Use `stateKey` for TextInputs created with inline callbacks or rendered in
+dynamic collections. Providing `cursor` opts into controlled caret state;
+cursor updates are clamped backward to grapheme boundaries and reported via
+`onCursorChange`.
+
+TextInput participates in Tab traversal and mouse focus by default. Pass
+`focusable: false` for a display-only or programmatically controlled input;
+explicit `focused: true` can still activate it.
+
+`cursorStyle` keeps the painted fallback and native blinking terminal cursor
+in sync. Runtime cleanup restores the terminal's configured default shape.
 
 Enter inserts a newline by default. Use `onKeyPress` to intercept keys before editing:
 
@@ -172,6 +198,32 @@ All lowercase, modifiers joined by `+`: `"ctrl+s"`, `"ctrl+shift+n"`, `"escape"`
 
 cel-tui is **Kitty-first** and works well in `tmux` with `set -s extended-keys on`. Recoverable legacy forms normalize to the same key strings, but historically collapsed collisions (`ctrl+i` vs `tab`, `ctrl+m` vs `enter`, `ctrl+[` vs `escape`) remain limited by what the host terminal or multiplexer reports.
 
+Advanced reporting uses Kitty's actual independent flags, not numbered levels:
+
+```ts
+cel.init(new ProcessTerminal(), {
+  kittyKeyboard: {
+    reportEventTypes: true,
+    reportAlternateKeys: true,
+    reportAllKeys: true,
+    reportAssociatedText: true,
+  },
+});
+
+VStack({
+  onKeyPress: (key, event) => {
+    log(event.eventType, key, event.text, event.baseLayoutKey);
+  },
+});
+```
+
+Release events reach handlers but never trigger editing, activation, traversal,
+or Escape blur. `reportAssociatedText` automatically enables all-key reporting.
+If `reportAllKeys` is requested without associated text, the terminal no longer
+sends insertable text, so TextInput deliberately does not synthesize it from a
+physical key code. Legacy events report `"press"` and false for modifier state
+the host did not encode.
+
 ## Pre-made Components
 
 ```ts
@@ -180,8 +232,12 @@ import {
   Divider,
   Button,
   Select,
+  VirtualList,
+  Spinner,
+  createTicker,
   VDivider,
   Markdown,
+  createSyntaxHighlight,
   SyntaxHighlight,
 } from "@cel-tui/components";
 
@@ -196,9 +252,62 @@ Button("✕", { onClick: handleClose, focusable: false });
 // For full layout control, use HStack + Text directly.
 ```
 
+### Spinner and managed animation
+
+`Spinner()` returns an inert callable instance. Start it only while animation
+is useful, and dispose it when its owner is removed:
+
+```ts
+const loading = Spinner({
+  maxFps: 12,
+  fgColor: "color06",
+  frames: ["⠋", "⠙", "⠹", "⠸"],
+});
+
+loading.start();
+cel.viewport(() => HStack({ gap: 1 }, [loading(), Text("Loading...")]));
+
+loading.stop(); // pause and retain the current frame
+loading.reset(); // return to frame zero and render
+loading.dispose(); // permanently release timer callbacks
+```
+
+Frames are padded to a stable terminal width by default. The callable accepts
+per-render `TextProps` overrides and exposes `.current`, `.frame`, `.running`,
+and `.disposed`. `autoStart: true` is available when immediate scheduling is
+explicitly desired.
+
+For arbitrary external animation state, use the same rate-limited scheduler:
+
+```ts
+const ticker = createTicker({
+  maxFps: 20,
+  onTick: ({ deltaMs, elapsedMs, frame }) =>
+    updateAnimation({
+      deltaMs,
+      elapsedMs,
+      frame,
+    }),
+});
+
+ticker.start();
+ticker.stop();
+ticker.dispose();
+```
+
+Construction schedules no work. Delayed frames are skipped, never replayed in
+a burst, and each successful tick requests one batched `cel.render()`.
+
 ### Select (filterable list)
 
-Select props: `items`, `onSelect`, `placeholder` (default `"type to filter..."`), `maxVisible` (default `10`), `indicator` (default `"›"`), `highlightColor` (default `"color06"`), `onKeyPress` (composed with internal handler), plus container/style props: `width`, `height`, `flex`, `fgColor`, `bgColor`, `focused`, `focusable`, `onFocus`, `onBlur`, `focusStyle`.
+`Select()` creates a callable component instance backed by a real `TextInput`.
+Query editing therefore preserves exact case and spaces, deletes whole
+graphemes, supports cursor/readline navigation, and inserts bracketed paste as
+one edit. Up/Down navigate filtered rows, PageUp/PageDown jump by one visible
+page, Enter selects, and Escape calls `onCancel` when supplied. Home/End and
+Left/Right edit the query cursor.
+
+The small static-list API remains uncontrolled by default:
 
 ```ts
 const mySelect = Select({
@@ -211,7 +320,7 @@ const mySelect = Select({
   maxVisible: 8,
 });
 
-// Select returns false for unrecognized keys, so they bubble to root.
+// Non-editing shortcuts bubble through the TextInput to the root.
 cel.viewport(() =>
   VStack(
     {
@@ -231,7 +340,16 @@ cel.viewport(() =>
 mySelect.reset();
 ```
 
-Rich items with separate display label, return value, and filter text:
+Core props are `items`, `onSelect`, `initialQuery`, controlled `query` /
+`onQueryChange`, `initialHighlightIndex`, controlled `highlightIndex` /
+`onHighlightChange`, controlled query `cursor` / `onCursorChange`, `onCancel`,
+`filter`, and `renderRow`. Display props include `placeholder`, `searchLabel`,
+`emptyLabel`, `maxVisible`, `indicator`, and `highlightColor`; focus/layout/style
+props include `stateKey`, `autoFocus`, `focused`, `focusable`, `onFocus`,
+`onBlur`, `focusStyle`, `onKeyPress`, `width`, `height`, `flex`, `fgColor`, and
+`bgColor`.
+
+Rich items separate their display label, selected value, and filter text:
 
 ```ts
 const modelSelect = Select({
@@ -249,6 +367,106 @@ const modelSelect = Select({
   },
 });
 ```
+
+Async and multi-pane apps can pass a controlled model on every render. The
+factory configuration retains callbacks and presentation while current data
+stays external:
+
+```ts
+let items = [];
+let query = "";
+let cursor = 0;
+let highlightIndex = 0;
+
+const picker = Select({
+  items,
+  autoFocus: true,
+  onQueryChange: (next) => (query = next),
+  onCursorChange: (next) => (cursor = next),
+  onHighlightChange: (next) => (highlightIndex = next),
+  onSelect: openModel,
+  onCancel: closePicker,
+  filter: (candidates, search) =>
+    candidates.filter((item) => item.filterText.includes(search)),
+  renderRow: (item, { highlighted, indicator }) =>
+    Text(`${highlighted ? indicator : " "} ${item.label}`),
+});
+
+cel.viewport(() => picker({ items, query, cursor, highlightIndex }));
+```
+
+`picker.update({ items, query, cursor, highlightIndex })` updates the
+uncontrolled fallback imperatively and schedules a render. `picker.getState()`
+returns the latest rendered snapshot, including normalized and filtered items.
+
+### VirtualList (variable-height windowing)
+
+`VirtualList(options)` returns a callable instance. Create one instance per
+mounted list and call it inside `cel.viewport()` with the current collection and
+exact viewport dimensions:
+
+```ts
+const history = VirtualList<Message>({
+  itemKey: (message) => message.id,
+  renderItem: (message) =>
+    VStack({ gap: 1 }, [
+      Text(message.author, { bold: true }),
+      Text(message.body, { wrap: "word" }),
+    ]),
+  estimatedItemHeight: 4,
+  itemVersion: (message) => message.revision,
+  gap: 1,
+  overscan: 12,
+  maxCachedItems: 2048,
+  maxRenderedItems: 512,
+  defaultStickToBottom: true,
+});
+
+cel.viewport(() =>
+  history({
+    items: messages,
+    width: conversationWidth,
+    height: conversationHeight,
+    scrollbar: true,
+  }),
+);
+```
+
+Construction options:
+
+- `itemKey(item, index)` — required `string | number` identity; duplicate keys
+  throw.
+- `renderItem(item, index)` — required row renderer, called only for the active
+  measurement/window set. Rows should use intrinsic or fixed height rather than
+  viewport-relative main-axis sizing.
+- `estimatedItemHeight` — positive cell height or `(item, index, width)`
+  function; default `1`.
+- `itemVersion` — height-cache revision; defaults to the item value/reference.
+- `gap` — cells between rows; default `0`.
+- `overscan` — extra cells before and after the viewport; default `4`.
+- `maxCachedItems` — bounded retained measurements; default `2048`.
+- `maxRenderedItems` — hard item-node bound; default `512`.
+- `defaultScrollOffset` / `defaultStickToBottom` — initial uncontrolled state.
+
+Render props require `items`, numeric `width`, and numeric `height`. Normal
+container style/focus/scrollbar props are forwarded. Per-render `gap` and
+`overscan` override the factory defaults.
+
+- Omit `scrollOffset` for instance-managed scrolling; provide it for controlled
+  mode. Controlled `Infinity` preserves the core "scroll to end" convention.
+- `stickToBottom` controls sticky state; omit it to use the instance-managed
+  default. `onStickToBottomChange` reports wheel transitions.
+- `onScroll(offset, maxOffset, reason)` receives `"input"` for wheel requests
+  and `"anchor"` for keyed layout compensation. Returning exactly `false`
+  bubbles only an input event.
+- The first visible key retains its screen position across prepend, removal,
+  reorder, and measured-height changes. Cold rows use estimates until measured.
+- Changing `width` clears measured heights so wrapped rows reflow.
+
+Instance methods are `.getState()`, `.reset()`, `.invalidate(key?)`,
+`.scrollTo(offset)`, `.scrollToEnd()`, and `.dispose()`. All mutation methods
+except `.dispose()` request a batched render. `.dispose()` eagerly clears the
+bounded cache and state; the callable can be reused as a fresh instance.
 
 ### VDivider (vertical divider)
 
@@ -292,27 +510,52 @@ Markdown(content, {
 ```
 
 Streaming works naturally — append chunks and call `cel.render()`. Unclosed blocks are handled gracefully.
+Inline bold, italic, code, and link styles are preserved in headings, paragraphs, list items, and blockquotes; the surrounding block style remains inherited.
 
 ### SyntaxHighlight (rendered code)
 
 Returns a `VStack` — place it directly in a container's children:
 
 ```ts
-import { SyntaxHighlight } from "@cel-tui/components";
+import {
+  createSyntaxHighlight,
+  SyntaxHighlight,
+  type SyntaxHighlightNativeTheme,
+} from "@cel-tui/components";
 
 VStack({ flex: 1, overflow: "scroll", padding: { x: 1 } }, [
   SyntaxHighlight(code, "typescript"),
 ]);
 
 SyntaxHighlight(code, "javascript", { theme: "dark-plus" });
+
+const nativeTheme = {
+  baseStyle: { fgColor: "color07" },
+  scopeStyles: {
+    keyword: { fgColor: "color12", bold: true },
+    comment: { fgColor: "color08", italic: false },
+    string: { fgColor: "color10" },
+  },
+} satisfies SyntaxHighlightNativeTheme;
+
+SyntaxHighlight(code, "typescript", { theme: nativeTheme });
+
+const highlightMessage = createSyntaxHighlight(); // create once per snippet
+highlightMessage(streamedCode, "typescript");
+highlightMessage.dispose(); // optional eager release when permanently removed
 ```
 
 - Signature: `SyntaxHighlight(content, language, props?)`
+- Stateful factory: `createSyntaxHighlight()` returns a callable with the same signature plus `.dispose()`
 - `language` accepts registered `clew` language ids (`typescript` / `javascript` families plus `python` / `py`, `bash`, `json`, `markdown`, and `diff` / `patch` right now)
-- `props.theme` accepts the built-in presets (`"default"`, `"dark-plus"`) or a best-effort token theme registration object targeting canonical `clew` scopes
+- `props.theme` accepts the built-in presets (`"default"`, `"dark-plus"`) or a theme registration targeting canonical `clew` scopes
+- Compatible TextMate fields remain available: `fg`, `bg`, and `tokenColors` accept hex colors and quantize them to the nearest palette slot
+- Native `baseStyle` and `scopeStyles` fields accept cel-tui `StyleProps` directly, preserve `color00`–`color15`, and follow later `cel.setTheme()` palette changes without re-highlighting
+- When both forms are present, native fields take precedence property-by-property; explicit `false` values clear inherited `bold`, `italic`, or `underline`
 - Uses a terminal-friendly ANSI 16 fallback theme by default
 - Highlighting is synchronous at the component boundary; unsupported languages render plain text
-- Append-only updates reuse a cached `clew` stream, while non-append edits replay the full snippet so final output stays stable across streamed chunk boundaries
+- Direct calls use a bounded exact-render cache and never infer snippet identity from content prefixes
+- A callable instance owns one isolated `clew` stream: append-only updates reuse it, while non-append edits replay only that snippet
 
 ## Theme
 

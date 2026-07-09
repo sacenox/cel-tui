@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { layoutText, measureTextLineCount } from "./text-layout.js";
+import { visibleWidth } from "./width.js";
 
 describe("text-layout", () => {
   test("preserves whitespace at soft wraps and maps offsets using visual lines", () => {
@@ -48,6 +49,45 @@ describe("text-layout", () => {
       { text: "foo", width: 3 },
     ]);
     expect(result.offsetToPosition(1)).toEqual({ line: 1, col: 0 });
+  });
+
+  test("recomputes tab stops after soft wrapping", () => {
+    const result = layoutText("abcde\tXYZ", 6, "word");
+
+    expect(result.lines.every((line) => line.width <= 6)).toBe(true);
+    expect(result.lines.map((line) => line.width)).toEqual(
+      result.lines.map((line) => visibleWidth(line.text)),
+    );
+    expect(measureTextLineCount("abcde\tXYZ", 6, "word")).toBe(
+      result.lineCount,
+    );
+  });
+
+  test("strips ANSI control sequences while preserving visible text", () => {
+    const result = layoutText("\x1b[31mred\x1b[0m", 10, "none");
+
+    expect(result.lines).toEqual([
+      {
+        text: "red",
+        startOffset: 0,
+        endOffset: 12,
+        width: 3,
+      },
+    ]);
+    expect(result.offsetToPosition(0)).toEqual({ line: 0, col: 0 });
+    expect(result.offsetToPosition(4)).toEqual({ line: 0, col: 0 });
+    expect(result.offsetToPosition(12)).toEqual({ line: 0, col: 3 });
+    expect(result.positionToOffset(0, 3)).toBe(12);
+    expect(measureTextLineCount("\x1b[31m", 10, "word")).toBe(1);
+  });
+
+  test("does not create a blank wrapped line for ANSI before a wide grapheme", () => {
+    const result = layoutText("\x1b[31m界\x1b[0m", 1, "word");
+
+    expect(result.lines).toEqual([
+      { text: "界", startOffset: 0, endOffset: 10, width: 2 },
+    ]);
+    expect(result.lineCount).toBe(1);
   });
 
   test("wraps unbroken wide graphemes by grapheme boundaries", () => {

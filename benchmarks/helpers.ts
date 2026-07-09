@@ -2,8 +2,8 @@
  * Shared helpers for benchmark tree construction.
  */
 
-import type { ContainerNode, Node, StyleProps } from "@cel-tui/types";
 import { HStack, Text, TextInput, VStack } from "@cel-tui/core";
+import type { ContainerNode, Node, StyleProps } from "@cel-tui/types";
 
 /** Build a flat VStack with N Text children. */
 export function flatTree(n: number): ContainerNode {
@@ -219,7 +219,8 @@ export function syntaxLikeBlock(
   return VStack({ gap: 0 }, children);
 }
 
-function miniCoderMessage(index: number): ContainerNode {
+/** Build one representative variable-height mini-coder conversation row. */
+export function miniCoderMessage(index: number): ContainerNode {
   const kind = MESSAGE_KINDS[index % MESSAGE_KINDS.length];
   const isUser = kind === "user";
   const isTool = kind === "tool";

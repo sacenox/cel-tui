@@ -22,7 +22,9 @@ export function extractAnsiCode(
     let j = pos + 2;
     while (j < str.length) {
       const char = str[j];
-      if (char === undefined || /[A-Za-z]/.test(char)) break;
+      if (char === undefined) break;
+      const code = char.charCodeAt(0);
+      if (code >= 0x40 && code <= 0x7e) break;
       j++;
     }
     if (j < str.length)

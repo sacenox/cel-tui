@@ -10,6 +10,7 @@ import {
 import { type LayoutNode, layout } from "./layout.js";
 import { HStack, VStack } from "./primitives/stacks.js";
 import { Text } from "./primitives/text.js";
+import { TextInput } from "./primitives/text-input.js";
 
 function item<T>(items: readonly T[], index: number): T {
   const value = items[index];
@@ -308,18 +309,18 @@ describe("collectKeyPressHandlers", () => {
 
 describe("collectFocusable", () => {
   test("collects TextInput nodes", () => {
-    // TextInput is always focusable — use a container with onClick as proxy
     const node = VStack({ width: 20, height: 10 }, [
       Text("not focusable"),
-      HStack({ onClick: () => {} }, [Text("button 1")]),
-      HStack({ onClick: () => {} }, [Text("button 2")]),
+      TextInput({ value: "editable", onChange: () => {} }),
+      HStack({ onClick: () => {} }, [Text("button")]),
     ]);
     const ln = layout(node, 20, 10);
     const focusable = collectFocusable(ln);
     expect(focusable.length).toBe(2);
+    expect(focusable[0]?.node.type).toBe("textinput");
   });
 
-  test("respects focusable: false", () => {
+  test("containers respect focusable: false", () => {
     const node = VStack({ width: 20, height: 10 }, [
       HStack({ onClick: () => {}, focusable: false }, [
         Text("not in tab order"),
@@ -329,6 +330,25 @@ describe("collectFocusable", () => {
     const ln = layout(node, 20, 10);
     const focusable = collectFocusable(ln);
     expect(focusable.length).toBe(1);
+  });
+
+  test("TextInput respects focusable: false", () => {
+    const node = VStack({ width: 20, height: 10 }, [
+      TextInput({
+        value: "display only",
+        onChange: () => {},
+        focusable: false,
+      }),
+      TextInput({ value: "editable", onChange: () => {} }),
+    ]);
+    const ln = layout(node, 20, 10);
+    const focusable = collectFocusable(ln);
+
+    expect(focusable).toHaveLength(1);
+    expect(focusable[0]?.node.type).toBe("textinput");
+    if (focusable[0]?.node.type === "textinput") {
+      expect(focusable[0].node.props.value).toBe("editable");
+    }
   });
 
   test("returns nodes in document order (depth-first)", () => {

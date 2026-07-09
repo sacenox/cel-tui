@@ -5,18 +5,18 @@
  * including text rendering, style inheritance, clipping, and scrollbars.
  */
 
-import { bench, group, run } from "mitata";
 import { CellBuffer } from "@cel-tui/core";
+import { bench, group, run } from "mitata";
 import { layout } from "../packages/core/src/layout.js";
 import { paint } from "../packages/core/src/paint.js";
 import {
-  flatTree,
-  nestedTree,
-  styledTree,
-  scrollableTree,
-  wrappedTextTree,
-  inkComparableTree,
   appTree,
+  flatTree,
+  inkComparableTree,
+  nestedTree,
+  scrollableTree,
+  styledTree,
+  wrappedTextTree,
 } from "./helpers.js";
 
 const W = 120;

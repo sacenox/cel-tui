@@ -31,12 +31,23 @@ export type {
   Color,
   ContainerNode,
   ContainerProps,
+  CursorStyle,
   FocusChangeEvent,
   FocusChangeHandler,
   FocusChangeReason,
+  KeyEvent,
+  KeyEventType,
+  KeyModifiers,
+  KeyPressHandler,
+  KittyKeyboardOptions,
   Node,
+  ScrollbarPartStyle,
+  ScrollbarStyle,
+  ScrollHandler,
   SizeValue,
+  StateKey,
   StyleProps,
+  TextInputBaseProps,
   TextInputNode,
   TextInputProps,
   TextNode,
@@ -44,12 +55,22 @@ export type {
   Theme,
   ThemeValue,
 } from "@cel-tui/types";
-export { cel } from "./cel.js";
+export { type Cel, type CelInitOptions, cel, type RenderFn } from "./cel.js";
 export { type Cell, CellBuffer, EMPTY_CELL } from "./cell-buffer.js";
-export { defaultTheme, emitBuffer } from "./emitter.js";
+export {
+  defaultTheme,
+  type EmitOptions,
+  emitBuffer,
+  type TerminalCursorState,
+} from "./emitter.js";
 export { measureContentHeight } from "./layout.js";
 export { HStack, VStack } from "./primitives/stacks.js";
 export { Text } from "./primitives/text.js";
 export { TextInput } from "./primitives/text-input.js";
-export { MockTerminal, ProcessTerminal, type Terminal } from "./terminal.js";
+export {
+  MockTerminal,
+  ProcessTerminal,
+  type Terminal,
+  type TerminalStartOptions,
+} from "./terminal.js";
 export { extractAnsiCode, visibleWidth } from "./width.js";

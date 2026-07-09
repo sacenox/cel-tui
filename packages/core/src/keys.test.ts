@@ -1,5 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { isEditingKey, normalizeKey, parseKey } from "./keys.js";
+import {
+  decodeKeyEvents,
+  isEditingKey,
+  normalizeKey,
+  parseKey,
+} from "./keys.js";
 import { kittyEncode } from "./test-helpers.js";
 
 // ── kittyEncode helper sanity checks ────────────────────────────────────────
@@ -56,7 +61,7 @@ describe("kittyEncode helper", () => {
 // ── parseKey ────────────────────────────────────────────────────────────────
 
 describe("parseKey", () => {
-  // --- Raw printable characters (arrive as raw bytes at level 1) ---
+  // --- Raw printable characters (raw bytes with baseline flags) ---
 
   describe("raw printable characters", () => {
     test("lowercase letters", () => {
@@ -96,7 +101,7 @@ describe("parseKey", () => {
   });
 
   // --- Legacy bytes for unmodified special keys ---
-  // At Kitty level 1, unmodified special keys retain their traditional
+  // With baseline disambiguation, unmodified special keys retain their traditional
   // encoding. Only modified variants get the CSI u treatment.
 
   describe("legacy bytes for unmodified special keys", () => {
@@ -170,7 +175,7 @@ describe("parseKey", () => {
     });
 
     test("printable codepoint via CSI u (robustness)", () => {
-      // At level 1 unmodified printable chars arrive as raw bytes,
+      // With baseline flags unmodified printable chars arrive as raw bytes,
       // but the parser should handle CSI u for them gracefully
       expect(parseKey("\x1b[97u")).toBe("a");
       expect(parseKey("\x1b[65u")).toBe("a"); // uppercase A codepoint → lowercase
@@ -277,6 +282,138 @@ describe("parseKey", () => {
   });
 });
 
+describe("advanced Kitty keyboard events", () => {
+  test("decodes press, repeat, and release event types", () => {
+    const events = decodeKeyEvents(
+      "\x1b[97;1:1;97u\x1b[97;1:2;97u\x1b[97;1:3u",
+    );
+
+    expect(events.map((event) => event.eventType)).toEqual([
+      "press",
+      "repeat",
+      "release",
+    ]);
+    expect(events.map((event) => event.text)).toEqual(["a", "a", undefined]);
+  });
+
+  test("decodes alternate keys, associated text, and the full modifier state", () => {
+    const [event] = decodeKeyEvents("\x1b[97:65:99;110:2;65u");
+
+    expect(event).toMatchObject({
+      key: "ctrl+shift+super+meta+a",
+      text: "A",
+      eventType: "repeat",
+      codePoint: 97,
+      shiftedKey: "A",
+      baseLayoutKey: "c",
+      modifiers: {
+        shift: true,
+        alt: false,
+        ctrl: true,
+        super: true,
+        hyper: false,
+        meta: true,
+        capsLock: true,
+        numLock: false,
+      },
+    });
+  });
+
+  test("decodes pure associated-text events", () => {
+    const [event] = decodeKeyEvents("\x1b[0;;229u");
+
+    expect(event).toMatchObject({
+      key: "å",
+      text: "å",
+      eventType: "press",
+      codePoint: 0,
+    });
+  });
+
+  test("preserves multi-codepoint associated text as one event", () => {
+    const [event] = decodeKeyEvents("\x1b[0;;128105:8205:128187u");
+
+    expect(event).toMatchObject({
+      key: "👩‍💻",
+      text: "👩‍💻",
+      eventType: "press",
+      codePoint: 0,
+    });
+  });
+
+  test("reports every currently defined modifier and lock bit", () => {
+    const [event] = decodeKeyEvents("\x1b[97;256:2;65u");
+
+    expect(event).toMatchObject({
+      key: "ctrl+alt+shift+super+hyper+meta+a",
+      eventType: "repeat",
+      text: "A",
+      modifiers: {
+        shift: true,
+        alt: true,
+        ctrl: true,
+        super: true,
+        hyper: true,
+        meta: true,
+        capsLock: true,
+        numLock: true,
+      },
+    });
+  });
+
+  test("decodes event types on CSI letter and tilde forms", () => {
+    const events = decodeKeyEvents("\x1b[1;5:3D\x1b[3;1:2~");
+
+    expect(events.map(({ key, eventType }) => ({ key, eventType }))).toEqual([
+      { key: "ctrl+left", eventType: "release" },
+      { key: "delete", eventType: "repeat" },
+    ]);
+  });
+
+  test("names modifier-key events reported by all-keys mode", () => {
+    const [event] = decodeKeyEvents("\x1b[57442;1:3u");
+
+    expect(event).toMatchObject({
+      key: "left-control",
+      eventType: "release",
+      codePoint: 57442,
+    });
+  });
+
+  test("preserves event order in a mixed advanced and legacy stream", () => {
+    const events = decodeKeyEvents("A\x12\x1b[97;1:2;97u\x1bx");
+
+    expect(
+      events.map(({ key, eventType, text }) => ({ key, eventType, text })),
+    ).toEqual([
+      { key: "a", eventType: "press", text: "A" },
+      { key: "ctrl+r", eventType: "press", text: undefined },
+      { key: "a", eventType: "repeat", text: "a" },
+      { key: "alt+x", eventType: "press", text: undefined },
+    ]);
+  });
+
+  test("keeps malformed event metadata contained to its CSI sequence", () => {
+    const events = decodeKeyEvents(
+      "\x1b[97;1:9;97u\x1b[97;0;97u\x1b[55296;1;97uZ",
+    );
+
+    expect(events.map((event) => event.key)).toEqual([
+      "unknown:97;1:9;97u",
+      "unknown:97;0;97u",
+      "unknown:55296;1;97u",
+      "z",
+    ]);
+  });
+
+  test("never exposes control codes as associated insertable text", () => {
+    const [event] = decodeKeyEvents("\x1b[97;1:1;13u");
+
+    expect(event?.key).toBe("a");
+    expect(event?.text).toBeUndefined();
+  });
+});
+
 // ── isEditingKey ────────────────────────────────────────────────────────────
 
 describe("isEditingKey", () => {
@@ -344,5 +481,11 @@ describe("normalizeKey", () => {
 
   test("lowercases everything", () => {
     expect(normalizeKey("Ctrl+S")).toBe("ctrl+s");
+  });
+
+  test("orders advanced modifiers after the compatible modifiers", () => {
+    expect(normalizeKey("meta+super+shift+ctrl+hyper+a")).toBe(
+      "ctrl+shift+super+hyper+meta+a",
+    );
   });
 });

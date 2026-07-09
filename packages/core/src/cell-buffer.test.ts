@@ -18,6 +18,10 @@ describe("CellBuffer", () => {
       }
     });
 
+    test("the shared empty-cell sentinel is immutable", () => {
+      expect(Object.isFrozen(EMPTY_CELL)).toBe(true);
+    });
+
     test("zero dimensions", () => {
       const buf = new CellBuffer(0, 0);
       expect(buf.width).toBe(0);
@@ -87,6 +91,90 @@ describe("CellBuffer", () => {
       expect(buf.get(0, 0).char).toBe("B");
       expect(buf.get(0, 0).fgColor).toBe("color04");
     });
+
+    test("overwriting a wide glyph lead clears its continuation cells", () => {
+      const buf = new CellBuffer(3, 1);
+      const plain: Cell = {
+        char: "😀",
+        fgColor: null,
+        bgColor: null,
+        bold: false,
+        italic: false,
+        underline: false,
+      };
+      buf.set(0, 0, plain);
+      buf.set(1, 0, { ...plain, char: "" });
+
+      buf.set(0, 0, { ...plain, char: "B" });
+
+      expect(buf.get(0, 0).char).toBe("B");
+      expect(buf.get(1, 0)).toEqual(EMPTY_CELL);
+    });
+
+    test("overwriting a wide glyph continuation clears its lead cell", () => {
+      const buf = new CellBuffer(3, 1);
+      const plain: Cell = {
+        char: "😀",
+        fgColor: null,
+        bgColor: null,
+        bold: false,
+        italic: false,
+        underline: false,
+      };
+      buf.set(0, 0, plain);
+      buf.set(1, 0, { ...plain, char: "" });
+
+      buf.set(1, 0, { ...plain, char: "B" });
+
+      expect(buf.get(0, 0)).toEqual(EMPTY_CELL);
+      expect(buf.get(1, 0).char).toBe("B");
+    });
+
+    test("restyling a wide glyph preserves and restyles its continuation", () => {
+      const buf = new CellBuffer(3, 1);
+      const wide: Cell = {
+        char: "界",
+        fgColor: null,
+        bgColor: null,
+        bold: false,
+        italic: false,
+        underline: false,
+      };
+      buf.set(0, 0, wide);
+      buf.set(1, 0, { ...wide, char: "" });
+
+      buf.set(0, 0, {
+        ...wide,
+        fgColor: "color00",
+        bgColor: "color07",
+      });
+
+      expect(buf.get(0, 0).char).toBe("界");
+      expect(buf.get(1, 0).char).toBe("");
+      expect(buf.get(1, 0).fgColor).toBe("color00");
+      expect(buf.get(1, 0).bgColor).toBe("color07");
+    });
+
+    test("repainting the same wide glyph preserves its lead", () => {
+      const buf = new CellBuffer(3, 1);
+      const wide: Cell = {
+        char: "界",
+        fgColor: null,
+        bgColor: null,
+        bold: false,
+        italic: false,
+        underline: false,
+      };
+      const continuation = { ...wide, char: "" };
+      buf.set(0, 0, wide);
+      buf.set(1, 0, continuation);
+
+      buf.set(0, 0, wide);
+      buf.set(1, 0, continuation);
+
+      expect(buf.get(0, 0).char).toBe("界");
+      expect(buf.get(1, 0).char).toBe("");
+    });
   });
 
   describe("clear", () => {
@@ -138,6 +226,24 @@ describe("CellBuffer", () => {
       expect(buf.height).toBe(3);
       expect(buf.get(4, 4)).toEqual(EMPTY_CELL); // out of bounds now
     });
+
+    test("shrinking through a wide glyph removes its clipped lead cell", () => {
+      const buf = new CellBuffer(2, 1);
+      const wide: Cell = {
+        char: "界",
+        fgColor: null,
+        bgColor: null,
+        bold: false,
+        italic: false,
+        underline: false,
+      };
+      buf.set(0, 0, wide);
+      buf.set(1, 0, { ...wide, char: "" });
+
+      buf.resize(1, 1);
+
+      expect(buf.get(0, 0)).toEqual(EMPTY_CELL);
+    });
   });
 
   describe("fill", () => {
@@ -176,6 +282,25 @@ describe("CellBuffer", () => {
       buf.fill(1, 1, 5, 5, cell);
       expect(buf.get(1, 1)).toEqual(cell);
       expect(buf.get(2, 2)).toEqual(cell);
+    });
+
+    test("filling over part of a wide glyph clears the whole glyph", () => {
+      const buf = new CellBuffer(3, 1);
+      const wide: Cell = {
+        char: "界",
+        fgColor: null,
+        bgColor: null,
+        bold: false,
+        italic: false,
+        underline: false,
+      };
+      buf.set(0, 0, wide);
+      buf.set(1, 0, { ...wide, char: "" });
+
+      buf.fill(1, 0, 1, 1, { ...wide, char: " ", bgColor: "color04" });
+
+      expect(buf.get(0, 0)).toEqual(EMPTY_CELL);
+      expect(buf.get(1, 0).bgColor).toBe("color04");
     });
   });
 

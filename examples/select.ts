@@ -1,5 +1,5 @@
-import { cel, VStack, HStack, Text, ProcessTerminal } from "@cel-tui/core";
-import { Select, Divider, Spacer, VDivider } from "@cel-tui/components";
+import { Divider, Select, Spacer, VDivider } from "@cel-tui/components";
+import { cel, HStack, ProcessTerminal, Text, VStack } from "@cel-tui/core";
 
 interface ThemePreset {
   id: string;
@@ -12,12 +12,7 @@ interface ThemePreset {
 }
 
 type AccentColor =
-  | "color06"
-  | "color05"
-  | "color03"
-  | "color02"
-  | "color04"
-  | "color01";
+  "color06" | "color05" | "color03" | "color02" | "color04" | "color01";
 
 const THEMES: ThemePreset[] = [
   {
@@ -84,16 +79,46 @@ const THEMES: ThemePreset[] = [
 
 const themeById = new Map(THEMES.map((theme) => [theme.id, theme]));
 let selectedThemeId = THEMES[0]!.id;
+let selectQuery = "";
+let selectCursor = 0;
+let selectHighlightIndex = 0;
+
+const themeItems = THEMES.map((theme) => ({
+  label: theme.name,
+  value: theme.id,
+  filterText: `${theme.name} ${theme.vibe} ${theme.keywords.join(" ")}`,
+}));
 
 const themeSelect = Select({
-  items: THEMES.map((theme) => ({
-    label: theme.name,
-    value: theme.id,
-    filterText: `${theme.name} ${theme.vibe} ${theme.keywords.join(" ")}`,
-  })),
+  items: themeItems,
   maxVisible: 7,
   placeholder: "search themes or keywords...",
   highlightColor: "color06",
+  onQueryChange: (query) => {
+    selectQuery = query;
+  },
+  onCursorChange: (cursor) => {
+    selectCursor = cursor;
+  },
+  onHighlightChange: (highlightIndex) => {
+    selectHighlightIndex = highlightIndex;
+  },
+  onCancel: () => themeSelect.reset(),
+  filter: (items, query) => {
+    const terms = query.toLowerCase().split(/\s+/).filter(Boolean);
+    return items.filter((item) => {
+      const searchable = item.filterText.toLowerCase();
+      return terms.every((term) => searchable.includes(term));
+    });
+  },
+  renderRow: (item, { highlighted, indicator }) => {
+    const theme = themeById.get(item.value);
+    return HStack({ gap: 1 }, [
+      Text(highlighted ? indicator : " "),
+      Text(item.label, { bold: highlighted }),
+      Text(theme?.vibe ?? "", { fgColor: "color08", italic: true }),
+    ]);
+  },
   onSelect: (value) => {
     selectedThemeId = value;
     cel.render();
@@ -106,6 +131,9 @@ function activeTheme(): ThemePreset {
 
 function resetDemo() {
   selectedThemeId = THEMES[0]!.id;
+  selectQuery = "";
+  selectCursor = 0;
+  selectHighlightIndex = 0;
   themeSelect.reset();
   cel.render();
 }
@@ -174,7 +202,7 @@ function previewPane(theme: ThemePreset) {
     ),
     Text("• Filter text includes mood words, so prefix search feels useful."),
     Text(
-      "• External app state stays tiny: the Select manages its own query and highlight.",
+      "• Uses a controlled query/cursor/highlight model suitable for async overlays.",
     ),
     Spacer(),
     Text("Try typing one of the sample filters above, then press Enter.", {
@@ -196,7 +224,12 @@ function pickerPane(theme: ThemePreset) {
     Text("Sample filters", { bold: true, fgColor: "color08" }),
     sampleFilters(),
     Text("Picker", { bold: true, fgColor: "color08" }),
-    themeSelect(),
+    themeSelect({
+      items: themeItems,
+      query: selectQuery,
+      cursor: selectCursor,
+      highlightIndex: selectHighlightIndex,
+    }),
   ]);
 }
 

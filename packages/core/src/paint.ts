@@ -1,7 +1,14 @@
-import type { Color, StyleProps, TextInputProps } from "@cel-tui/types";
+import type {
+  Color,
+  ScrollbarPartStyle,
+  StateKey,
+  StyleProps,
+  TextInputProps,
+} from "@cel-tui/types";
 import type { Cell, CellBuffer } from "./cell-buffer.js";
 import type { LayoutNode, Rect } from "./layout.js";
 import { getMaxScrollOffset } from "./scroll.js";
+import { clampCursorToGraphemeBoundary } from "./text-edit.js";
 import { layoutText } from "./text-layout.js";
 import { visibleWidth, visibleWidthFromColumn } from "./width.js";
 
@@ -21,7 +28,7 @@ const EMPTY_STYLE: StyleProps = {};
  * @param buf - Target cell buffer.
  */
 export function paint(root: LayoutNode, buf: CellBuffer): void {
-  paintLayoutNode(root, buf, root.rect, EMPTY_STYLE);
+  paintLayoutNode(root, buf, root.rect, EMPTY_STYLE, 0, 0);
 }
 
 /**
@@ -91,18 +98,14 @@ function fillBackground(
 ): void {
   const fill = intersectRect(rect, clipRect);
   if (fill.width <= 0 || fill.height <= 0) return;
-  for (let y = fill.y; y < fill.y + fill.height; y++) {
-    for (let x = fill.x; x < fill.x + fill.width; x++) {
-      buf.set(x, y, {
-        char: " ",
-        fgColor: null,
-        bgColor,
-        bold: false,
-        italic: false,
-        underline: false,
-      });
-    }
-  }
+  buf.fill(fill.x, fill.y, fill.width, fill.height, {
+    char: " ",
+    fgColor: null,
+    bgColor,
+    bold: false,
+    italic: false,
+    underline: false,
+  });
 }
 
 function paintLayoutNode(
@@ -110,8 +113,19 @@ function paintLayoutNode(
   buf: CellBuffer,
   clipRect: Rect,
   inherited: StyleProps,
+  offsetX: number,
+  offsetY: number,
 ): void {
-  const { node, rect } = ln;
+  const { node } = ln;
+  const rect =
+    offsetX === 0 && offsetY === 0
+      ? ln.rect
+      : {
+          x: ln.rect.x + offsetX,
+          y: ln.rect.y + offsetY,
+          width: ln.rect.width,
+          height: ln.rect.height,
+        };
 
   // Clip this node's rect against the parent clip rect
   const clipped = intersectRect(rect, clipRect);
@@ -145,11 +159,7 @@ function paintLayoutNode(
       const tiEffective = mergeInherited(inherited, tiResolved);
       const tiProps = {
         ...node.props,
-        fgColor: node.props.fgColor ?? tiEffective.fgColor,
-        bgColor: node.props.bgColor ?? tiEffective.bgColor,
-        bold: node.props.bold ?? tiEffective.bold,
-        italic: node.props.italic ?? tiEffective.italic,
-        underline: node.props.underline ?? tiEffective.underline,
+        ...tiEffective,
       };
       paintTextInput(tiProps, rect, clipped, buf, tiEffective);
       break;
@@ -184,41 +194,24 @@ function paintLayoutNode(
 
   // Recurse into children, using this node's clipped rect as the clip for children
   for (const child of ln.children) {
-    if (isScrollable && scrollOffset !== 0) {
-      // Paint child with shifted position
-      const shifted = shiftLayoutNode(child, isVertical, -scrollOffset);
-      paintLayoutNode(shifted, buf, clipped, childInherited);
-    } else {
-      paintLayoutNode(child, buf, clipped, childInherited);
-    }
+    const childOffsetX =
+      offsetX + (isScrollable && !isVertical ? -scrollOffset : 0);
+    const childOffsetY =
+      offsetY + (isScrollable && isVertical ? -scrollOffset : 0);
+    paintLayoutNode(
+      child,
+      buf,
+      clipped,
+      childInherited,
+      childOffsetX,
+      childOffsetY,
+    );
   }
 
   // Paint scrollbar if enabled
   if (isScrollable && containerProps.scrollbar) {
-    paintScrollbar(ln, scrollOffset, buf, clipped);
+    paintScrollbar(ln, rect, scrollOffset, buf, clipped);
   }
-}
-
-/**
- * Create a copy of a layout node (and all descendants) with positions
- * shifted along the given axis.
- */
-function shiftLayoutNode(
-  ln: LayoutNode,
-  isVertical: boolean,
-  offset: number,
-): LayoutNode {
-  const newRect: Rect = {
-    x: ln.rect.x + (isVertical ? 0 : offset),
-    y: ln.rect.y + (isVertical ? offset : 0),
-    width: ln.rect.width,
-    height: ln.rect.height,
-  };
-  return {
-    node: ln.node,
-    rect: newRect,
-    children: ln.children.map((c) => shiftLayoutNode(c, isVertical, offset)),
-  };
 }
 
 /**
@@ -226,24 +219,28 @@ function shiftLayoutNode(
  */
 function paintScrollbar(
   ln: LayoutNode,
+  rect: Rect,
   scrollOffset: number,
   buf: CellBuffer,
   clipRect: Rect,
 ): void {
-  const { rect, children } = ln;
+  const { children } = ln;
+  const layoutRect = ln.rect;
   const isVertical = ln.node.type === "vstack";
   const props =
     ln.node.type === "vstack" || ln.node.type === "hstack"
       ? ln.node.props
       : null;
   if (!props) return;
+  const thumbStyle = props.scrollbarStyle?.thumb;
+  const trackStyle = props.scrollbarStyle?.track;
 
   if (isVertical) {
     // Compute total scrollable height from children plus bottom padding.
     // Child positions already include top padding, so add only the trailing pad.
     let contentHeight = 0;
     for (const child of children) {
-      const childBottom = child.rect.y + child.rect.height - rect.y;
+      const childBottom = child.rect.y + child.rect.height - layoutRect.y;
       if (childBottom > contentHeight) contentHeight = childBottom;
     }
     const scrollHeight = contentHeight + (props.padding?.y ?? 0);
@@ -267,20 +264,21 @@ function paintScrollbar(
       if (absY < clipRect.y || absY >= clipRect.y + clipRect.height) continue;
       if (barX < clipRect.x || barX >= clipRect.x + clipRect.width) continue;
       const isThumb = row >= thumbPos && row < thumbPos + thumbSize;
-      buf.set(barX, absY, {
-        char: isThumb ? "┃" : "│",
-        fgColor: isThumb ? null : "color08",
-        bgColor: null,
-        bold: false,
-        italic: false,
-        underline: false,
-      });
+      buf.set(
+        barX,
+        absY,
+        scrollbarCell(
+          isThumb ? thumbStyle : trackStyle,
+          isThumb ? "┃" : "│",
+          isThumb ? null : "color08",
+        ),
+      );
     }
   } else {
     // Horizontal scrollbar
     let contentWidth = 0;
     for (const child of children) {
-      const childRight = child.rect.x + child.rect.width - rect.x;
+      const childRight = child.rect.x + child.rect.width - layoutRect.x;
       if (childRight > contentWidth) contentWidth = childRight;
     }
     const scrollWidth = contentWidth + (props.padding?.x ?? 0);
@@ -303,16 +301,38 @@ function paintScrollbar(
       if (absX < clipRect.x || absX >= clipRect.x + clipRect.width) continue;
       if (barY < clipRect.y || barY >= clipRect.y + clipRect.height) continue;
       const isThumb = col >= thumbPos && col < thumbPos + thumbSize;
-      buf.set(absX, barY, {
-        char: isThumb ? "━" : "─",
-        fgColor: isThumb ? null : "color08",
-        bgColor: null,
-        bold: false,
-        italic: false,
-        underline: false,
-      });
+      buf.set(
+        absX,
+        barY,
+        scrollbarCell(
+          isThumb ? thumbStyle : trackStyle,
+          isThumb ? "━" : "─",
+          isThumb ? null : "color08",
+        ),
+      );
     }
   }
+}
+
+function scrollbarCell(
+  style: ScrollbarPartStyle | undefined,
+  defaultChar: string,
+  defaultFgColor: Color | null,
+): Cell {
+  const char = style?.char ?? defaultChar;
+  if (visibleWidth(char) !== 1) {
+    throw new Error(
+      "Scrollbar characters must occupy exactly one terminal column",
+    );
+  }
+  return {
+    char,
+    fgColor: style?.fgColor ?? defaultFgColor,
+    bgColor: style?.bgColor ?? null,
+    bold: style?.bold ?? false,
+    italic: style?.italic ?? false,
+    underline: style?.underline ?? false,
+  };
 }
 
 function makeCell(
@@ -359,6 +379,26 @@ function paintLineGraphemes(
   const clipLeft = clipRect.x;
   const clipRight = clipRect.x + clipRect.width;
 
+  // Printable ASCII is overwhelmingly the common terminal path. It maps
+  // one-to-one to cells, so avoid Intl.Segmenter and width lookups entirely.
+  let isPrintableAscii = true;
+  for (let i = 0; i < line.length; i++) {
+    const code = line.charCodeAt(i);
+    if (code < 0x20 || code > 0x7e) {
+      isPrintableAscii = false;
+      break;
+    }
+  }
+  if (isPrintableAscii) {
+    const start = Math.max(0, clipLeft - x);
+    const end = Math.min(line.length, maxWidth, clipRight - x);
+    for (let col = start; col < end; col++) {
+      const char = line[col];
+      if (char !== undefined) buf.set(x + col, y, makeCell(char, props));
+    }
+    return;
+  }
+
   let col = 0;
   for (const { segment } of segmenter.segment(line)) {
     const gw = visibleWidthFromColumn(segment, col);
@@ -381,14 +421,18 @@ function paintLineGraphemes(
     }
 
     if (col + gw > maxWidth) break;
-    if (absX + gw > clipLeft) {
-      buf.set(absX, y, makeCell(segment, props));
-      for (let w = 1; w < gw; w++) {
-        const cx = absX + w;
-        if (cx < clipRight) {
-          buf.set(cx, y, makeCell("", props));
-        }
-      }
+    // Wide graphemes are atomic. If either their lead or a continuation would
+    // fall outside the active clip, omit the whole glyph rather than creating
+    // an orphaned half that shifts subsequent terminal output.
+    if (absX < clipLeft) {
+      col += gw;
+      continue;
+    }
+    if (absX + gw > clipRight) break;
+
+    buf.set(absX, y, makeCell(segment, props));
+    for (let w = 1; w < gw; w++) {
+      buf.set(absX + w, y, makeCell("", props));
     }
     col += gw;
   }
@@ -428,6 +472,18 @@ function paintText(
     }
   } else if (typeof props.repeat === "number" && props.repeat > 0) {
     text = content.repeat(props.repeat);
+  }
+
+  // No-wrap text without ANSI only needs hard-line splitting. The full text
+  // layout is reserved for wrapping and ANSI stripping.
+  if ((props.wrap ?? "none") === "none" && !text.includes("\x1b")) {
+    const lines = text.split("\n");
+    for (let row = 0; row < lines.length && row < h; row++) {
+      const line = lines[row];
+      if (line === undefined) break;
+      paintLineGraphemes(line, x, y + row, w, clipRect, props, buf);
+    }
+    return;
   }
 
   const textLayout = layoutText(text, w, props.wrap ?? "none");
@@ -561,14 +617,34 @@ function paintTextInput(
         // where fgColor is null).
         const resolvedFg = existing.fgColor ?? inherited.fgColor ?? "color07";
         const resolvedBg = existing.bgColor ?? inherited.bgColor ?? "color00";
-        buf.set(absX, absY, {
-          char: existing.char,
-          fgColor: resolvedBg,
-          bgColor: resolvedFg,
-          bold: existing.bold,
-          italic: existing.italic,
-          underline: existing.underline,
-        });
+        switch (props.cursorStyle ?? "block") {
+          case "block":
+            buf.set(absX, absY, {
+              char: existing.char,
+              fgColor: resolvedBg,
+              bgColor: resolvedFg,
+              bold: existing.bold,
+              italic: existing.italic,
+              underline: existing.underline,
+            });
+            break;
+          case "bar":
+            buf.set(absX, absY, {
+              char: "│",
+              fgColor: resolvedFg,
+              bgColor: existing.bgColor,
+              bold: existing.bold,
+              italic: existing.italic,
+              underline: existing.underline,
+            });
+            break;
+          case "underline":
+            buf.set(absX, absY, {
+              ...existing,
+              underline: true,
+            });
+            break;
+        }
       }
     }
   }
@@ -576,19 +652,53 @@ function paintTextInput(
 
 // --- Framework-managed state ---
 
-/**
- * TextInput state is keyed on the `onChange` function reference, which is
- * a stable identity across re-renders (the app provides the same closure).
- * This avoids losing cursor/scroll position when props objects are recreated
- * each frame.
- */
+/** Explicit stateKey storage plus the legacy onChange-reference fallback. */
 type OnChangeFn = (value: string) => void;
 type TextInputState = { value: string; cursor: number };
-const textInputStates = new WeakMap<OnChangeFn, TextInputState>();
-const textInputScrolls = new WeakMap<OnChangeFn, number>();
+let textInputStates = new WeakMap<OnChangeFn, TextInputState>();
+let textInputScrolls = new WeakMap<OnChangeFn, number>();
+const keyedTextInputStates = new Map<StateKey, TextInputState>();
+const keyedTextInputScrolls = new Map<StateKey, number>();
+
+function getStoredTextInputState(
+  props: TextInputProps,
+): TextInputState | undefined {
+  return props.stateKey === undefined
+    ? textInputStates.get(props.onChange)
+    : keyedTextInputStates.get(props.stateKey);
+}
+
+function storeTextInputState(
+  props: TextInputProps,
+  state: TextInputState,
+): void {
+  if (props.stateKey === undefined) {
+    textInputStates.set(props.onChange, state);
+  } else {
+    keyedTextInputStates.set(props.stateKey, state);
+  }
+}
+
+/** Retain keyed TextInput state only for keys mounted in the current frame. */
+export function retainTextInputStateKeys(keys: ReadonlySet<StateKey>): void {
+  for (const key of keyedTextInputStates.keys()) {
+    if (!keys.has(key)) keyedTextInputStates.delete(key);
+  }
+  for (const key of keyedTextInputScrolls.keys()) {
+    if (!keys.has(key)) keyedTextInputScrolls.delete(key);
+  }
+}
+
+/** Clear framework-managed TextInput state between runtime lifecycles. */
+export function resetTextInputState(): void {
+  textInputStates = new WeakMap();
+  textInputScrolls = new WeakMap();
+  keyedTextInputStates.clear();
+  keyedTextInputScrolls.clear();
+}
 
 function clampCursor(cursor: number, value: string): number {
-  return Math.max(0, Math.min(cursor, value.length));
+  return clampCursorToGraphemeBoundary(value, cursor);
 }
 
 /**
@@ -633,10 +743,10 @@ function remapCursorOffset(
 }
 
 function getTextInputState(props: TextInputProps): TextInputState {
-  const stored = textInputStates.get(props.onChange);
+  const stored = getStoredTextInputState(props);
   if (stored === undefined) {
     const initial = { value: props.value, cursor: props.value.length };
-    textInputStates.set(props.onChange, initial);
+    storeTextInputState(props, initial);
     return initial;
   }
 
@@ -645,15 +755,18 @@ function getTextInputState(props: TextInputProps): TextInputState {
     if (clampedCursor === stored.cursor) return stored;
 
     const clampedState = { value: props.value, cursor: clampedCursor };
-    textInputStates.set(props.onChange, clampedState);
+    storeTextInputState(props, clampedState);
     return clampedState;
   }
 
   const syncedState = {
     value: props.value,
-    cursor: remapCursorOffset(stored.value, stored.cursor, props.value),
+    cursor: clampCursor(
+      remapCursorOffset(stored.value, stored.cursor, props.value),
+      props.value,
+    ),
   };
-  textInputStates.set(props.onChange, syncedState);
+  storeTextInputState(props, syncedState);
   return syncedState;
 }
 
@@ -698,6 +811,11 @@ export function getTextInputCursorScreenPos(
 
 /** Get the cursor offset for a TextInput (framework-managed). */
 export function getTextInputCursor(props: TextInputProps): number {
+  if (props.cursor !== undefined) {
+    const controlled = clampCursor(props.cursor, props.value);
+    storeTextInputState(props, { value: props.value, cursor: controlled });
+    return controlled;
+  }
   return getTextInputState(props).cursor;
 }
 
@@ -707,7 +825,7 @@ export function setTextInputCursor(
   cursor: number,
   value = props.value,
 ): void {
-  textInputStates.set(props.onChange, {
+  storeTextInputState(props, {
     value,
     cursor: clampCursor(cursor, value),
   });
@@ -715,7 +833,9 @@ export function setTextInputCursor(
 
 /** Get the scroll offset for a TextInput (framework-managed). */
 export function getTextInputScroll(props: TextInputProps): number {
-  return textInputScrolls.get(props.onChange) ?? 0;
+  return props.stateKey === undefined
+    ? (textInputScrolls.get(props.onChange) ?? 0)
+    : (keyedTextInputScrolls.get(props.stateKey) ?? 0);
 }
 
 /** Set the scroll offset for a TextInput. */
@@ -723,5 +843,9 @@ export function setTextInputScroll(
   props: TextInputProps,
   scroll: number,
 ): void {
-  textInputScrolls.set(props.onChange, scroll);
+  if (props.stateKey === undefined) {
+    textInputScrolls.set(props.onChange, scroll);
+  } else {
+    keyedTextInputScrolls.set(props.stateKey, scroll);
+  }
 }

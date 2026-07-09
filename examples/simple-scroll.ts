@@ -8,8 +8,8 @@
  * Run: bun run examples/simple-scroll.ts
  */
 
-import { cel, VStack, HStack, Text, ProcessTerminal } from "@cel-tui/core";
 import { Divider, Spacer } from "@cel-tui/components";
+import { cel, HStack, ProcessTerminal, Text, VStack } from "@cel-tui/core";
 import { warningBox } from "./warning-box";
 
 const MIN_COLS = 46;

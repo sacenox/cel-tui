@@ -1073,6 +1073,74 @@ describe("layout", () => {
       expect(item(rects, 1).y).toBe(7);
     });
 
+    test("re-measures flex child height at its allocated row width", () => {
+      const node = VStack({ width: 10 }, [
+        HStack({ flexWrap: "wrap" }, [
+          VStack({ width: 5, height: 1 }, []),
+          VStack({ flex: 1 }, [Text("abcdefghij", { wrap: "word" })]),
+        ]),
+        Text("after"),
+      ]);
+
+      const result = layout(node, 10, 24);
+      const wrappingRow = item(result.children, 0);
+      const followingText = item(result.children, 1);
+      const flexChild = item(wrappingRow.children, 1);
+
+      expect(result.rect.height).toBe(3);
+      expect(wrappingRow.rect.height).toBe(2);
+      expect(flexChild.rect).toEqual({ x: 5, y: 0, width: 5, height: 2 });
+      expect(item(flexChild.children, 0).rect.height).toBe(2);
+      expect(followingText.rect.y).toBe(2);
+    });
+
+    test("uses constrained flex widths when measuring wrapped row height", () => {
+      const node = VStack({ width: 12 }, [
+        HStack({ flexWrap: "wrap", alignItems: "start" }, [
+          VStack({ width: 4, height: 1 }, []),
+          VStack({ flex: 1, minWidth: 6 }, [
+            Text("abcdefghijkl", { wrap: "word" }),
+          ]),
+          VStack({ flex: 1, maxWidth: 2 }, [Text("abcdef", { wrap: "word" })]),
+        ]),
+        Text("after"),
+      ]);
+
+      const result = layout(node, 12, 24);
+      const wrappingRow = item(result.children, 0);
+
+      expect(wrappingRow.children.map((child) => child.rect.width)).toEqual([
+        4, 6, 2,
+      ]);
+      expect(wrappingRow.children.map((child) => child.rect.height)).toEqual([
+        1, 2, 3,
+      ]);
+      expect(wrappingRow.rect.height).toBe(3);
+      expect(item(result.children, 1).rect.y).toBe(3);
+    });
+
+    test("uses percentage widths when measuring wrapped row height", () => {
+      const node = VStack({ width: 10 }, [
+        HStack({ flexWrap: "wrap", alignItems: "start" }, [
+          VStack({ width: "50%" }, [Text("abcdefghij", { wrap: "word" })]),
+          VStack({ flex: 1 }, [Text("klmnopqrst", { wrap: "word" })]),
+        ]),
+        Text("after"),
+      ]);
+
+      const result = layout(node, 10, 24);
+      const wrappingRow = item(result.children, 0);
+
+      expect(wrappingRow.children.map((child) => child.rect.width)).toEqual([
+        5, 5,
+      ]);
+      expect(wrappingRow.children.map((child) => child.rect.height)).toEqual([
+        2, 2,
+      ]);
+      expect(wrappingRow.rect.height).toBe(2);
+      expect(item(result.children, 1).rect.y).toBe(2);
+    });
+
     test("intrinsic height with gap includes gaps between rows", () => {
       const node = VStack({ width: 80, height: 24 }, [
         HStack({ flexWrap: "wrap", gap: 1 }, [

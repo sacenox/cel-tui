@@ -3,11 +3,20 @@
  * NOT exported from the package — excluded via package.json `files` field.
  */
 
+import { type Cel, cel as publicCel } from "./cel.js";
+import type { CellBuffer } from "./cell-buffer.js";
+
+/** Test-only view of runtime synchronization and buffer inspection hooks. */
+export const testCel = publicCel as Cel & {
+  _getBuffer(): CellBuffer | null;
+  _flush(): Promise<void>;
+};
+
 /**
  * Encode a human-readable key string into the byte sequence a Kitty-protocol
- * terminal would send at level 1 (disambiguate escape codes).
+ * terminal would send with baseline escape-code disambiguation enabled.
  *
- * At level 1:
+ * With baseline disambiguation only:
  * - Unmodified printable chars → raw byte
  * - Special/ambiguous keys (Escape, Enter, Tab, Backspace) → CSI u format
  * - Modified keys → CSI u (printable/special) or CSI with modifier param (arrows/tilde)

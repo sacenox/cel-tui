@@ -143,6 +143,15 @@ function spansToNodes(
   return nodes;
 }
 
+/** Render formatted spans in a wrapping row with an optional inherited style. */
+function formattedSpans(
+  spans: InlineSpan[],
+  theme: Required<MarkdownTheme>,
+  style: StyleProps = {},
+): Node {
+  return HStack({ flexWrap: "wrap", ...style }, spansToNodes(spans, theme));
+}
+
 // ─── Component ──────────────────────────────────────────────────
 
 /** Props for the {@link Markdown} component. */
@@ -165,10 +174,10 @@ export interface MarkdownProps {
  * **Block-level styling** is fully supported: headings, code blocks,
  * lists, blockquotes, and horizontal rules are rendered with distinct
  * styles. **Inline styling** (bold, italic, code, links) is rendered
- * in paragraphs, list items, and blockquotes by splitting spans at
+ * in headings, paragraphs, list items, and blockquotes by splitting spans at
  * word boundaries into individual `Text` nodes inside a wrapping
- * `HStack({ flexWrap: "wrap" })`. Headings strip inline formatting
- * to plain text (they're typically short and single-line).
+ * `HStack({ flexWrap: "wrap" })`. Block styles are applied to that
+ * container and inherited by every inline span.
  *
  * **Streaming** works naturally: append chunks to the content string
  * and call `cel.render()`. The component re-tokenizes the full string
@@ -214,15 +223,17 @@ export function Markdown(content: string, props?: MarkdownProps): Node[] {
             : token.depth === 2
               ? theme.heading2
               : theme.heading3;
-        nodes.push(Text(spansToText(token.spans), style));
+        nodes.push(
+          hasFormatting(token.spans)
+            ? formattedSpans(token.spans, theme, style)
+            : Text(spansToText(token.spans), style),
+        );
         break;
       }
 
       case "paragraph":
         if (hasFormatting(token.spans)) {
-          nodes.push(
-            HStack({ flexWrap: "wrap" }, spansToNodes(token.spans, theme)),
-          );
+          nodes.push(formattedSpans(token.spans, theme));
         } else {
           nodes.push(Text(spansToText(token.spans), { wrap: "word" }));
         }
@@ -239,7 +250,7 @@ export function Markdown(content: string, props?: MarkdownProps): Node[] {
       case "list_item": {
         const marker = token.ordered ? `${token.index}.` : "•";
         const liContent = hasFormatting(token.spans)
-          ? HStack({ flexWrap: "wrap" }, spansToNodes(token.spans, theme))
+          ? formattedSpans(token.spans, theme)
           : Text(spansToText(token.spans), { wrap: "word" });
         nodes.push(
           HStack({}, [
@@ -252,10 +263,7 @@ export function Markdown(content: string, props?: MarkdownProps): Node[] {
 
       case "blockquote": {
         const bqContent = hasFormatting(token.spans)
-          ? HStack(
-              { flexWrap: "wrap", ...theme.blockquoteText },
-              spansToNodes(token.spans, theme),
-            )
+          ? formattedSpans(token.spans, theme, theme.blockquoteText)
           : Text(spansToText(token.spans), {
               wrap: "word",
               ...theme.blockquoteText,

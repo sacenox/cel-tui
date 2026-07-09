@@ -181,7 +181,6 @@ function isWordBoundaryStart(content: string, index: number): boolean {
   }
 
   return (
-    char === "#" ||
     char === "$" ||
     char === '"' ||
     char === "'" ||

@@ -9,12 +9,12 @@
  * benchmark/simple) for direct comparison.
  */
 
-import { bench, group, run } from "mitata";
 import { CellBuffer, emitBuffer } from "@cel-tui/core";
+import { bench, group, run } from "mitata";
 import { emitDiff } from "../packages/core/src/emitter.js";
 import { layout } from "../packages/core/src/layout.js";
 import { paint } from "../packages/core/src/paint.js";
-import { flatTree, inkComparableTree, appTree } from "./helpers.js";
+import { appTree, flatTree, inkComparableTree } from "./helpers.js";
 
 // --- Full pipeline: tree → layout → paint → emit ---
 

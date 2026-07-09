@@ -192,3 +192,8 @@ export function outputAtBoundary(
       .map(cloneToken),
   };
 }
+
+/** Last source offset fully represented by an output's ordered tokens. */
+export function outputBoundary(output: ClewOutput): number {
+  return output.tokens.at(-1)?.end ?? 0;
+}

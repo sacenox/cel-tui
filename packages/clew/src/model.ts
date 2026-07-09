@@ -1,7 +1,8 @@
 /**
  * A normalized syntax token produced by `clew`.
  *
- * Offsets are zero-based character offsets into the source content.
+ * Offsets are zero-based UTF-16 code-unit offsets into the source content,
+ * matching JavaScript string indexing.
  * `start` is inclusive and `end` is exclusive.
  */
 export interface ClewToken {

@@ -5,8 +5,8 @@
  * word-wrap calculation, every cursor position calls visibleWidth().
  */
 
-import { bench, group, run } from "mitata";
 import { visibleWidth } from "@cel-tui/core";
+import { bench, group, run } from "mitata";
 import { ASCII_STRING, CJK_EMOJI_STRING, MIXED_STRING } from "./helpers.js";
 
 // --- Benchmarks ---

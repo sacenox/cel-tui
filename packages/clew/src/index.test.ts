@@ -1,8 +1,57 @@
 import { describe, expect, test } from "bun:test";
-import { clew, clewSupportsLanguage } from "./index.js";
+import {
+  type ClewPatch,
+  type ClewToken,
+  clew,
+  clewSupportsLanguage,
+} from "./index.js";
 
 function joinedText(tokens: readonly { text: string }[]): string {
   return tokens.map((token) => token.text).join("");
+}
+
+function applyPatch(
+  current: readonly ClewToken[],
+  patch: ClewPatch,
+): ClewToken[] {
+  return [
+    ...current.filter((token) => token.end <= patch.from),
+    ...patch.tokens,
+    ...current.filter((token) => token.start >= patch.to),
+  ];
+}
+
+function chunkBySize(content: string, size: number): string[] {
+  const chunks: string[] = [];
+  for (let start = 0; start < content.length; start += size) {
+    chunks.push(content.slice(start, start + size));
+  }
+  return chunks;
+}
+
+function expectStreamPatchesReplay(
+  content: string,
+  language: string,
+  chunks: readonly string[],
+): void {
+  const stream = clew("", { lang: language, stability: "stable" });
+  let replayed: ClewToken[] = [];
+
+  stream.onChunk((patch) => {
+    replayed = applyPatch(replayed, patch);
+  });
+  stream.onCorrection((patch) => {
+    replayed = applyPatch(replayed, patch);
+  });
+
+  for (const chunk of chunks) {
+    stream.write(chunk);
+  }
+
+  const final = stream.end();
+  expect(replayed).toEqual(final.tokens);
+  expect(joinedText(replayed)).toBe(content);
+  expect(final).toEqual(clew(content, { lang: language, stream: false }));
 }
 
 function expectFullCoverage(content: string, language: string): void {
@@ -235,6 +284,74 @@ describe("clew", () => {
         (token) => token.text === "EOF",
       ),
     ).toHaveLength(2);
+  });
+
+  test("treats a hash inside a bash word as literal text", () => {
+    const content = "echo foo#bar";
+    const output = clew(content, { lang: "bash", stream: false });
+    const commentOutput = clew("echo foo #bar", {
+      lang: "bash",
+      stream: false,
+    });
+
+    expect(joinedText(output.tokens)).toBe(content);
+    expect(output.tokens.some((token) => token.type === "comment")).toBe(false);
+    expect(output.tokens.find((token) => token.text === "foo#bar")?.type).toBe(
+      "text",
+    );
+    expect(
+      commentOutput.tokens.find((token) => token.text === "#bar")?.type,
+    ).toBe("comment");
+  });
+
+  test("always terminates with full coverage for deterministic bash fuzz inputs", () => {
+    const alphabet = [
+      "a",
+      "b",
+      "c",
+      "X",
+      "Y",
+      "Z",
+      "0",
+      "9",
+      "#",
+      " ",
+      "$",
+      "'",
+      '"',
+      ";",
+      "|",
+      "&",
+      "(",
+      ")",
+      "{",
+      "}",
+      "<",
+      ">",
+      "\n",
+      "\t",
+    ];
+    let seed = 0x9e3779b9;
+
+    const next = (): number => {
+      seed ^= seed << 13;
+      seed ^= seed >>> 17;
+      seed ^= seed << 5;
+      return seed >>> 0;
+    };
+
+    const samples = ["echo foo#bar", "printf %s foo#bar#baz"];
+    for (let sampleIndex = 0; sampleIndex < 128; sampleIndex++) {
+      let sample = "";
+      for (let index = 0; index < 64; index++) {
+        sample += alphabet[next() % alphabet.length] ?? "";
+      }
+      samples.push(sample);
+    }
+
+    for (const sample of samples) {
+      expectFullCoverage(sample, "bash");
+    }
   });
 
   test("tokenizes json properties, literals, and numbers", () => {
@@ -594,6 +711,42 @@ describe("clew", () => {
         text: "hello",
       },
     ]);
+  });
+
+  test("replays stable patches for tokens spanning line boundaries", () => {
+    const cases = [
+      {
+        content: 'value = """alpha\nbeta\ngamma"""',
+        language: "python",
+      },
+      {
+        content: "printf '%s' 'alpha\nbeta\ngamma'",
+        language: "bash",
+      },
+      {
+        content: '{"value":"alpha\nbeta\ngamma"}',
+        language: "json",
+      },
+    ];
+
+    for (const { content, language } of cases) {
+      expectStreamPatchesReplay(content, language, [content]);
+
+      for (let split = 1; split < content.length; split++) {
+        expectStreamPatchesReplay(content, language, [
+          content.slice(0, split),
+          content.slice(split),
+        ]);
+      }
+
+      for (const size of [1, 2, 3, 5, 8]) {
+        expectStreamPatchesReplay(
+          content,
+          language,
+          chunkBySize(content, size),
+        );
+      }
+    }
   });
 
   test("produces the same final output regardless of bash chunk boundaries", () => {

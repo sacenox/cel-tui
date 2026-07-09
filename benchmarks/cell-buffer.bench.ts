@@ -5,12 +5,12 @@
  * and differential rendering (the key to fast re-renders).
  */
 
-import { bench, group, run } from "mitata";
 import { CellBuffer, emitBuffer } from "@cel-tui/core";
+import { bench, group, run } from "mitata";
 import { emitDiff } from "../packages/core/src/emitter.js";
 import { layout } from "../packages/core/src/layout.js";
 import { paint } from "../packages/core/src/paint.js";
-import { appTree, flatTree, inkComparableTree } from "./helpers.js";
+import { appTree } from "./helpers.js";
 
 // --- Buffer creation ---
 
@@ -65,29 +65,38 @@ group("emitDiff: no changes", () => {
 });
 
 group("emitDiff: partial changes", () => {
-  // Base buffer
   const tree1 = layout(appTree(20), 80, 24);
   const buf1 = new CellBuffer(80, 24);
   paint(tree1, buf1);
 
-  // Changed buffer — different message count changes bottom portion
-  const tree2 = layout(appTree(21), 80, 24);
   const buf2 = new CellBuffer(80, 24);
-  paint(tree2, buf2);
+  paint(tree1, buf2);
+  const changed = buf2.get(10, 5);
+  buf2.set(10, 5, { ...changed, char: changed.char === "X" ? "Y" : "X" });
+  if (buf1.diff(buf2).length !== 1) {
+    throw new Error("Partial-diff benchmark must change exactly one cell");
+  }
 
-  bench("80×24 one message added", () => {
+  bench("80×24 one cell changed", () => {
     emitDiff(buf1, buf2);
   });
 });
 
 group("emitDiff: full change", () => {
-  const tree1 = layout(flatTree(24), 80, 24);
   const buf1 = new CellBuffer(80, 24);
-  paint(tree1, buf1);
-
-  const tree2 = layout(flatTree(100), 80, 24);
   const buf2 = new CellBuffer(80, 24);
-  paint(tree2, buf2);
+  const baseCell = {
+    fgColor: null,
+    bgColor: null,
+    bold: false,
+    italic: false,
+    underline: false,
+  } as const;
+  buf1.fill(0, 0, 80, 24, { ...baseCell, char: "A" });
+  buf2.fill(0, 0, 80, 24, { ...baseCell, char: "B" });
+  if (buf1.diff(buf2).length !== 80 * 24) {
+    throw new Error("Full-diff benchmark must change every cell");
+  }
 
   bench("80×24 completely different", () => {
     emitDiff(buf1, buf2);

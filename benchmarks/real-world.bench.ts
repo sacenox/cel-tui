@@ -6,8 +6,8 @@
  * windows, syntax-highlight-like blocks, and wide wrapping token rows.
  */
 
-import { bench, group, run } from "mitata";
 import { CellBuffer, emitBuffer, measureContentHeight } from "@cel-tui/core";
+import { bench, group, run } from "mitata";
 import { emitDiff } from "../packages/core/src/emitter.js";
 import { layout } from "../packages/core/src/layout.js";
 import { paint } from "../packages/core/src/paint.js";

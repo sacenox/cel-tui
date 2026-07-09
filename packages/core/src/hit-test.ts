@@ -199,7 +199,7 @@ export function collectKeyPressHandlers(path: LayoutNode[]): {
  * Collect all focusable nodes in document order (depth-first traversal).
  *
  * A node is focusable if:
- * - It's a TextInput (always focusable), OR
+ * - It's a TextInput whose `focusable` prop is not `false`, OR
  * - It's a container with `onClick` and `focusable` is not `false`, OR
  * - It's a container with explicit `focusable: true`
  *
@@ -215,7 +215,7 @@ export function collectFocusable(root: LayoutNode): LayoutNode[] {
 function collectFocusableRecursive(ln: LayoutNode, result: LayoutNode[]): void {
   const node = ln.node;
 
-  if (node.type === "textinput") {
+  if (node.type === "textinput" && node.props.focusable !== false) {
     result.push(ln);
   } else if (node.type === "vstack" || node.type === "hstack") {
     const isFocusable =

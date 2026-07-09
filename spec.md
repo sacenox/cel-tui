@@ -11,14 +11,34 @@ cel-tui is a TypeScript TUI framework built around a declarative functional API,
 ### Entrypoint
 
 ```ts
+cel.init(terminal, options?: {
+  theme?: Theme;
+  kittyKeyboard?: KittyKeyboardOptions;
+})
 cel.viewport(render: () => Node | Node[])
 cel.render()
+cel.redraw()
+cel.setTheme(theme: Theme)
 cel.setTitle(title: string)
+cel.stop()
 ```
+
+`cel.init` attaches the terminal, configures terminal input/output modes,
+selects the initial theme, and optionally requests Kitty progressive keyboard
+flags. `cel.stop` detaches the terminal and restores the terminal state.
 
 `cel.viewport` sets the render function that returns the UI tree. Accepts a single layer or an array of layers. Each layer is a container with full viewport dimensions, laid out independently. When multiple layers are provided, they are composited bottom-to-top (array index = z-order). Setting the viewport triggers the first render.
 
 `cel.render` requests a re-render. Batched via `process.nextTick()` — multiple calls within the same tick produce a single render. Call this after state changes.
+
+`cel.redraw` requests a batched **full redraw**. It still re-evaluates the
+viewport, but discards the differential-render baseline and re-emits every
+cell. Use it after terminal resume or external screen corruption.
+
+`cel.setTheme(theme)` replaces the active runtime theme and automatically
+requests a full redraw. A normal cell diff cannot detect that the rendering of
+an unchanged palette slot changed, so theme replacement always invalidates the
+full frame.
 
 State is fully external to the framework. Use any state management approach — plain variables, classes, libraries. The framework just calls the render function and renders the returned tree.
 
@@ -35,6 +55,7 @@ The framework emits a best-effort terminal title request using an OSC title sequ
 **Semantics:**
 
 - Later calls replace the previous title set by the app.
+- Repeating the same sanitized title is a no-op.
 - `title` is treated as plain text. Control characters are stripped before writing the sequence.
 - The framework does **not** automatically restore the previous terminal title on `cel.stop()`.
 
@@ -94,34 +115,56 @@ HStack(props, children);
 
 Shared by both VStack and HStack. Containers also accept styling props (see [Styling](#styling)).
 
-| Prop             | Type                                                                       | Description                                              |
-| ---------------- | -------------------------------------------------------------------------- | -------------------------------------------------------- |
-| `width`          | `number \| string`                                                         | Fixed cells or percentage (`"50%"`)                      |
-| `height`         | `number \| string`                                                         | Fixed cells or percentage (`"100%"`)                     |
-| `flex`           | `number`                                                                   | Flex grow factor, proportional to siblings               |
-| `minWidth`       | `number`                                                                   | Minimum width constraint                                 |
-| `maxWidth`       | `number`                                                                   | Maximum width constraint                                 |
-| `minHeight`      | `number`                                                                   | Minimum height constraint                                |
-| `maxHeight`      | `number`                                                                   | Maximum height constraint                                |
-| `padding`        | `{ x?: number, y?: number }`                                               | Internal padding (cells)                                 |
-| `gap`            | `number`                                                                   | Spacing between children (cells)                         |
-| `justifyContent` | `string`                                                                   | Distribute children along the main axis                  |
-| `alignItems`     | `string`                                                                   | Align children along the cross axis                      |
-| `flexWrap`       | `"nowrap" \| "wrap"`                                                       | Wrap children to next line (HStack only)                 |
-| `overflow`       | `"hidden" \| "scroll"`                                                     | Content overflow behavior (default: `"hidden"`)          |
-| `scrollbar`      | `boolean`                                                                  | Show scrollbar indicator                                 |
-| `scrollStep`     | `number`                                                                   | Mouse wheel step in cells (default: adaptive)            |
-| `scrollOffset`   | `number`                                                                   | Scroll position in cells (controlled)                    |
-| `onScroll`       | `ScrollHandler`                                                            | Called on scroll input. Return `false` to keep bubbling. |
-| `onClick`        | `() => void`                                                               | Called on mouse click or Enter when focused              |
-| `focusable`      | `boolean`                                                                  | Opt out of focus (default: `true` if `onClick`)          |
-| `focused`        | `boolean`                                                                  | Whether this element is focused (controlled)             |
-| `onFocus`        | `(event: { reason: "tab" \| "shift+tab" \| "click" \| "escape" }) => void` | Called when element receives focus                       |
-| `onBlur`         | `(event: { reason: "tab" \| "shift+tab" \| "click" \| "escape" }) => void` | Called when element loses focus                          |
-| `focusStyle`     | `StyleProps`                                                               | Style overrides applied when focused                     |
-| `onKeyPress`     | `(key: string) => boolean \| void`                                         | Key event handler. Return `false` to keep bubbling.      |
+| Prop             | Type                                                                                 | Description                                                                          |
+| ---------------- | ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------ |
+| `stateKey`       | `string \| number`                                                                   | Stable identity for framework-managed node state                                     |
+| `width`          | `SizeValue`                                                                          | Fixed cells or percentage (`"50%"`)                                                  |
+| `height`         | `SizeValue`                                                                          | Fixed cells or percentage (`"100%"`)                                                 |
+| `flex`           | `number`                                                                             | Flex grow factor, proportional to siblings                                           |
+| `minWidth`       | `number`                                                                             | Minimum width constraint                                                             |
+| `maxWidth`       | `number`                                                                             | Maximum width constraint                                                             |
+| `minHeight`      | `number`                                                                             | Minimum height constraint                                                            |
+| `maxHeight`      | `number`                                                                             | Maximum height constraint                                                            |
+| `padding`        | `{ x?: number, y?: number }`                                                         | Internal padding (cells)                                                             |
+| `gap`            | `number`                                                                             | Spacing between children (cells)                                                     |
+| `justifyContent` | `"start" \| "end" \| "center" \| "space-between"`                                    | Distribute children along the main axis                                              |
+| `alignItems`     | `"start" \| "end" \| "center" \| "stretch"`                                          | Align children along the cross axis                                                  |
+| `flexWrap`       | `"nowrap" \| "wrap"`                                                                 | Wrap children to next line (HStack only)                                             |
+| `overflow`       | `"hidden" \| "scroll"`                                                               | Content overflow behavior (default: `"hidden"`)                                      |
+| `scrollbar`      | `boolean`                                                                            | Show scrollbar indicator                                                             |
+| `scrollbarStyle` | `{ thumb?: ScrollbarPartStyle, track?: ScrollbarPartStyle }`                         | Customize scrollbar characters and styles                                            |
+| `scrollStep`     | `number`                                                                             | Mouse wheel step in cells (default: adaptive)                                        |
+| `scrollOffset`   | `number`                                                                             | Scroll position in cells (controlled)                                                |
+| `onScroll`       | `ScrollHandler`                                                                      | Called on scroll input. Return `false` to keep bubbling.                             |
+| `onClick`        | `() => void`                                                                         | Called on mouse click or Enter when focused                                          |
+| `focusable`      | `boolean`                                                                            | Focus traversal/click opt-out (TextInput defaults `true`; containers when `onClick`) |
+| `focused`        | `boolean`                                                                            | Whether this element is focused (controlled)                                         |
+| `autoFocus`      | `boolean`                                                                            | Seed focus once when mounted in the active layer                                     |
+| `onFocus`        | `(event: { reason: "auto" \| "tab" \| "shift+tab" \| "click" \| "escape" }) => void` | Called when element receives focus                                                   |
+| `onBlur`         | `(event: { reason: "auto" \| "tab" \| "shift+tab" \| "click" \| "escape" }) => void` | Called when element loses focus                                                      |
+| `focusStyle`     | `StyleProps`                                                                         | Style overrides applied when focused                                                 |
+| `onKeyPress`     | `(key: string, event: KeyEvent) => boolean \| void`                                  | Key event handler. Return `false` to keep bubbling.                                  |
 
 `ScrollHandler` is `((offset: number, maxOffset: number) => void) | ((offset: number, maxOffset: number) => boolean)`. Only an exact `false` return continues propagation to the next scrollable ancestor; any other return value consumes the scroll event. The union preserves source compatibility for legacy void callbacks whose expression bodies incidentally return another value.
+
+### Stateful Node Identity
+
+`stateKey` gives a container or TextInput a stable identity for state owned by
+the framework: uncontrolled focus, uncontrolled container scroll, and
+TextInput cursor/scroll state. Keys are strings or numbers and must be unique
+among the stateful nodes mounted in the viewport at the same time.
+
+State follows a key when siblings are inserted, removed, or reordered and when
+the render function creates fresh props and callback objects. A key that is
+absent for a complete rendered frame is unmounted: its framework state is
+discarded, and later reuse starts a new lifecycle. Controlled props remain the
+source of truth regardless of `stateKey`.
+
+For source compatibility, an omitted `stateKey` retains the existing
+fallbacks: TextInput state follows its `onChange` function reference,
+uncontrolled scroll follows structural position, and uncontrolled focus
+follows traversal position. Dynamic/stateful collections should use explicit
+keys rather than relying on those fallbacks.
 
 ### Sizing
 
@@ -210,7 +253,8 @@ Example: 80 columns, three `flex: 1` children (80 ÷ 3 = 26.667 each):
 - All fractional parts are equal (0.667), first two children receive +1
 - Result: 27, 27, 26
 
-This guarantees the total always sums exactly to the available space, with no order bias.
+This guarantees the total always sums exactly to the available space. Equal
+remainders are resolved deterministically in document order.
 
 ---
 
@@ -229,6 +273,20 @@ Optional visual scrollbar indicator:
 
 ```ts
 VStack({ overflow: "scroll", scrollbar: true });
+```
+
+`scrollbarStyle` customizes the thumb and track independently. Each `char`
+must be exactly one terminal column; style fields use normal `StyleProps`:
+
+```ts
+VStack({
+  overflow: "scroll",
+  scrollbar: true,
+  scrollbarStyle: {
+    thumb: { char: "█", fgColor: "color06", bold: true },
+    track: { char: "·", fgColor: "color08" },
+  },
+});
 ```
 
 ### Scroll Direction
@@ -312,6 +370,63 @@ scrollOffset += addedHeight;
 
 `historyContentWidth` is the width the inserted content actually wraps at. For a padded scroll container, that usually means the container's inner content width.
 
+### Variable-height VirtualList
+
+`@cel-tui/components` provides `VirtualList` for collections that are too long
+to materialize and lay out on every render. It is a factory: create one callable
+instance per mounted list, then call that instance from the viewport render
+function with the current items and exact viewport dimensions.
+
+```ts
+const messages = VirtualList<Message>({
+  itemKey: (message) => message.id,
+  renderItem: (message) => Text(message.body, { wrap: "word" }),
+  estimatedItemHeight: 3,
+  overscan: 8, // cells before and after the viewport
+  defaultStickToBottom: true,
+});
+
+cel.viewport(() =>
+  messages({
+    items,
+    width: terminalWidth,
+    height: conversationHeight,
+    scrollbar: true,
+  }),
+);
+```
+
+The component's virtualization contract is:
+
+- Item keys are `string | number`, must be unique within the list, and carry
+  measured height plus viewport anchoring across insertions, removals, and
+  reordering.
+- Cold rows use a positive cell-height estimate (optionally computed from the
+  item, index, and current width). Rows in the visible window plus cell-based overscan are rendered and measured with
+  `measureContentHeight`; top and bottom spacer nodes represent the rest.
+- `maxRenderedItems` is a hard returned-tree bound, including for zero-height
+  rows or extreme overscan. `maxCachedItems` bounds retained measurements.
+- Omitting `scrollOffset` uses instance-managed scrolling. Supplying it opts
+  into controlled scrolling. `onScroll(offset, maxOffset, reason)` receives
+  `"input"` for wheel requests and `"anchor"` when layout compensation changes
+  the effective offset. Returning exactly `false` bubbles only input events.
+- Sticky-bottom state can be instance-managed (`defaultStickToBottom`) or
+  controlled (`stickToBottom`). Wheel input away from the end disables the
+  uncontrolled sticky state; appends remain pinned while it is active. As with
+  core scroll containers, a controlled `scrollOffset: Infinity` also means
+  "pin to the current end" on every render.
+- The first visible keyed row and its screen position are retained when rows
+  are prepended, removed, reordered, or remeasured. A bounded batch of newly
+  prepended rows is measured immediately; cold rows converge from their
+  estimates as they enter the measurement window.
+- A width change clears all measured heights so wrapped content reflows.
+  Immutable item replacement invalidates the affected key by default;
+  `itemVersion` supports mutable models and `.invalidate(key?)` provides an
+  imperative escape hatch.
+- `.reset()`, `.scrollTo()`, `.scrollToEnd()`, and `.invalidate()` request a
+  render. `.dispose()` eagerly releases retained state when the view is
+  permanently removed; the callable can be reused afterward as a fresh list.
+
 ---
 
 ## Scroll Input Model
@@ -360,7 +475,7 @@ Focus is **keyboard-driven** and separate from scroll. It supports both **uncont
 
 Focus is implicit — no `focusable` prop needed for the common case:
 
-- **TextInput** — always focusable
+- **TextInput** — focusable by default, opt out with `focusable: false`
 - **Container with `onClick`** — focusable by default, opt out with `focusable: false`
 
 ### Traversal
@@ -377,7 +492,14 @@ When a TextInput is focused, insertable text and text-editing keys go to the inp
 HStack({ onClick: handleAction }, [Text("[ Action ]", { bold: true })]);
 ```
 
-The framework tracks which element is focused. `onFocus` and `onBlur` are optional notification callbacks — they fire when focus changes, include a `{ reason }` object (`"tab" | "shift+tab" | "click" | "escape"`), and are not required for focus to work:
+The framework tracks which element is focused. `onFocus` and `onBlur` are optional notification callbacks — they fire when focus changes, include a `{ reason }` object (`"auto" | "tab" | "shift+tab" | "click" | "escape"`), and are not required for focus to work.
+
+Set `autoFocus: true` to seed uncontrolled focus once when that identity first
+mounts in the active topmost layer. If multiple elements request it, the first
+in document order wins. Covered layers do not claim focus. Escape does not let
+the hint reclaim focus on later renders; removing the identity for a complete
+rendered frame resets the hint's lifecycle. When a modal layer disappears, the
+underlying layer's previous focus is restored without firing focus callbacks:
 
 ```ts
 HStack(
@@ -440,28 +562,56 @@ Key events are routed through the focus and layer system, then bubble up the tre
 
 cel-tui enables the [Kitty keyboard protocol](https://sw.kovidgoyal.net/kitty/keyboard-protocol/) and treats it as the preferred source of key identity, but it does **not** assume stdin becomes a pure Kitty-only stream. The framework must work well in both native Kitty-compatible terminals and in `tmux` with `set -s extended-keys on`, where input may arrive as a mixture of Kitty sequences and legacy encodings.
 
-**Why:** Kitty level 1 remains the best available terminal keyboard protocol because it disambiguates modifier combos that legacy encodings collapse. However, real-world hosts — especially terminal multiplexers — may preserve some keys as legacy bytes or translate only part of the stream. The input layer therefore uses Kitty when available and accepts recoverable legacy forms for compatibility.
+**Why:** Kitty's baseline disambiguation flag fixes modifier collisions while
+its independent progressive-enhancement flags can add event phases, alternate
+keys, all-key reporting, and associated text. These are flags, not numbered
+protocol levels. Real-world hosts may still preserve only part of the protocol,
+so the decoder always accepts mixed Kitty and recoverable legacy forms.
 
 **Support targets:**
 
-- **First-class:** native Kitty-compatible terminals (Kitty, WezTerm, Ghostty, foot, Alacritty, Windows Terminal, and others)
+- **First-class:** native Kitty-compatible terminals (Kitty, WezTerm, Ghostty, foot, Alacritty, Windows Terminal 1.25+, and others)
 - **First-class:** `tmux` with `set -s extended-keys on`
 - **Best effort:** legacy terminals or multiplexers that do not preserve Kitty distinctions
 
 **Lifecycle:**
 
-1. `cel.init()` enables Kitty keyboard protocol **level 1** (`CSI > 1 u`) and bracketed paste mode (`CSI ? 2004 h`), and sets a push flag so the keyboard mode is restored on exit
+1. `cel.init()` pushes Kitty's baseline disambiguation flag (`CSI > 1 u`) and bracketed paste mode (`CSI ? 2004 h`). `kittyKeyboard` init options add progressive-enhancement bits to the pushed value
 2. The input decoder accepts a mixed stream of:
-   - Kitty `CSI unicode-codepoint ; modifiers u`
+   - Kitty `CSI key:alternate-keys ; modifiers:event-type ; text-codepoints u`
    - legacy CSI letter / tilde sequences for arrows, Home/End, Delete, PageUp/Down, and function keys
    - raw printable text
    - legacy ASCII control bytes for recoverable `ctrl+letter` shortcuts
    - recoverable ESC-prefixed Alt combinations
 3. `cel.stop()` pops the keyboard mode (`CSI < u`) and disables bracketed paste mode (`CSI ? 2004 l`), restoring the terminal's previous state
 
+```ts
+cel.init(new ProcessTerminal(), {
+  kittyKeyboard: {
+    reportEventTypes: true,
+    reportAlternateKeys: true,
+    reportAllKeys: true,
+    reportAssociatedText: true,
+  },
+});
+```
+
+The options map directly to Kitty's official flags: event types (`2`),
+alternate keys (`4`), all keys as CSI-u (`8`), and associated text (`16`).
+Baseline disambiguation (`1`) is always present. Associated text is undefined
+without all-key reporting in Kitty, so cel-tui automatically enables bit `8`
+when `reportAssociatedText` is requested.
+
+`reportAllKeys` intentionally stops the terminal from sending ordinary text
+bytes. Callers that still want TextInput insertion must also request
+`reportAssociatedText`; cel-tui does not guess layout/IME output from a physical
+key code. Event phases for ordinary text keys likewise require all-key
+reporting. Flags unsupported or stripped by the host simply fall back to the
+mixed baseline/legacy decoder.
+
 **Stream model:** Terminals and multiplexers may batch multiple keyboard and mouse sequences into a single stdin chunk. The framework treats stdin as a stream and decodes all events in order.
 
-**Level 1 details:** At Kitty level 1, unmodified special keys with well-known legacy encodings (Tab, Enter, Escape, Backspace) may still arrive as single-byte legacy input. Modified variants use structured sequences when the host preserves them. The parser must handle both forms.
+**Baseline details:** With only disambiguation enabled, unmodified special keys with well-known legacy encodings (Tab, Enter, Escape, Backspace) may still arrive as single-byte legacy input. Modified variants use structured sequences when the host preserves them. The parser handles both forms.
 
 **tmux compatibility:** In `tmux`, even with extended keys enabled, some shortcuts may still arrive in legacy form rather than Kitty-normalized form. cel-tui treats this as a supported environment, not an error case: recoverable legacy encodings should normalize to the same key strings as native Kitty input.
 
@@ -483,23 +633,31 @@ cel-tui enables bracketed paste mode so the terminal wraps pasted content with `
 
 **Fallback:** If the terminal or multiplexer ignores bracketed paste mode and emits only raw text, the framework cannot distinguish paste from typing; that input falls back to the normal mixed-stream keyboard path.
 
-> **Future enhancement:** Higher protocol levels enable key-release events (`level 2`), associated text reporting (`level 3`), and full key event types (`level 4`). These would enable held-key detection for game-like UIs, distinguishing physical key layout from logical input, and other advanced input patterns. The framework may adopt higher levels in the future.
+`onKeyPress` receives `(key, event)`. `event` exposes `eventType`
+(`"press" | "repeat" | "release"`), exact associated `text`, the main
+`codePoint`, optional `shiftedKey` / `baseLayoutKey`, and reported modifier
+state. Legacy events report `eventType: "press"`; modifier fields unavailable
+from the legacy bytes are false, and repeat phase/physical layout cannot be
+reconstructed after the host discards them.
 
 ### Key Event Flow
 
 1. **Topmost layer** receives the key event
-2. If a **TextInput** is focused:
+2. A **release** event is offered to `onKeyPress` handlers but skips every
+   framework default action: no focus traversal, activation, TextInput edit,
+   cursor movement, or Escape blur
+3. If a **TextInput** is focused:
    - If the TextInput has `onKeyPress`, call it first. If `onKeyPress` returns `false`, the key's **default TextInput action** is prevented — no character insertion, no cursor movement, and no Escape blur. The key is consumed.
    - Otherwise, the TextInput processes insertable text, editing/navigation keys (arrows, backspace, delete, Enter, Tab), and these modifier-based editing shortcuts: `ctrl+a` / `ctrl+e`, `alt+b` / `alt+f`, `ctrl+left` / `ctrl+right`, `ctrl+w`, and `alt+d`. Word movement and deletion use whitespace-delimited boundaries, and `up` / `down` navigate visual wrapped lines. Other modifier combos (e.g., `ctrl+s`) and non-insertable control keys are not editing keys and pass through.
-3. If a **clickable container** is focused, Enter fires `onClick`. Other keys pass through.
-4. Unconsumed keys **bubble up** through ancestors — each `onKeyPress` handler in the ancestor chain is called from innermost to root.
-5. A handler that returns `false` signals the key was **not consumed** — bubbling continues to the next ancestor. Any other return (`undefined`, `true`, or no return) **stops bubbling** (backward-compatible: existing `void` handlers consume by default).
-6. The root container's `onKeyPress` acts as the global key handler — it receives keys that bubble all the way up.
-7. After bubbling, framework default actions run for still-unconsumed keys. Today that means: if `escape` is still unconsumed and an element is focused, the framework blurs it.
+4. If a **clickable container** is focused, Enter press/repeat fires `onClick`. Other keys pass through.
+5. Unconsumed keys **bubble up** through ancestors — each `onKeyPress` handler in the ancestor chain is called from innermost to root.
+6. A handler that returns `false` signals the key was **not consumed** — bubbling continues to the next ancestor. Any other return (`undefined`, `true`, or no return) **stops bubbling** (backward-compatible: existing `void` handlers consume by default).
+7. The root container's `onKeyPress` acts as the global key handler — it receives keys that bubble all the way up.
+8. After bubbling, framework default actions run for still-unconsumed press/repeat events. Today that means: if `escape` is still unconsumed and an element is focused, the framework blurs it.
 
 ### Key Format
 
-All lowercase, modifiers joined by `+` in canonical order `ctrl+alt+shift+<key>`:
+All lowercase, modifiers joined by `+` in canonical order `ctrl+alt+shift+super+hyper+meta+<key>`:
 
 ```
 "ctrl+s"
@@ -512,7 +670,8 @@ All lowercase, modifiers joined by `+` in canonical order `ctrl+alt+shift+<key>`
 "shift+enter"
 ```
 
-**Modifiers:** `ctrl`, `alt`, `shift`
+**Modifiers in key strings:** `ctrl`, `alt`, `shift`, `super`, `hyper`, `meta`.
+The `event.modifiers` object also reports `capsLock` and `numLock` state.
 
 **Named keys:** `escape`, `enter`, `tab`, `backspace`, `delete`, `space`, `plus`, `up`, `down`, `left`, `right`, `home`, `end`, `pageup`, `pagedown`, `f1`–`f12`
 
@@ -642,7 +801,11 @@ Whitespace is always preserved. `\n` in content produces explicit line breaks.
 
 ### TextInput
 
-Multi-line editable text container. Accepts container props and styling props but has no children — its content is the editable `value`. Scroll is always uncontrolled (framework-managed): the stored offset is clamped every render, mouse wheel input adjusts it, and focused inputs further adjust only as needed to keep the cursor visible.
+Multi-line editable text container. Accepts the explicit `TextInputBaseProps`
+subset of container props but has no children — its content is the editable
+`value`. Scroll is always uncontrolled (framework-managed): the stored offset
+is clamped every render, mouse wheel input adjusts it, and focused inputs
+further adjust only as needed to keep the cursor visible.
 
 ```ts
 TextInput(props: TextInputProps)
@@ -650,16 +813,38 @@ TextInput(props: TextInputProps)
 
 #### Props
 
-Container sizing props (`width`, `height`, `flex`, `min*`, `max*`, `padding`), focus props (`focused`, `onFocus`, `onBlur`, `focusStyle`), styling props, wheel scroll prop (`scrollStep`), and:
+`TextInputBaseProps` includes `stateKey`, sizing (`width`, `height`, `flex`,
+`min*`, `max*`, `padding`), styling, focus (`focusable`, `focused`, `autoFocus`,
+`onFocus`, `onBlur`, `focusStyle`), key routing (`onKeyPress`), and wheel step
+(`scrollStep`). It deliberately excludes child layout, container scroll state,
+scrollbar, and click-activation props. TextInput's behavior-specific props are:
 
-| Prop          | Type                               | Description                                                                                                                                       |
-| ------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `value`       | `string`                           | Current text content (controlled)                                                                                                                 |
-| `onChange`    | `(value: string) => void`          | Called on text change                                                                                                                             |
-| `onKeyPress`  | `(key: string) => boolean \| void` | Key handler, fires before editing. Receives normalized semantic key strings. Return `false` to prevent the default TextInput action for that key. |
-| `placeholder` | `TextNode`                         | Text node shown when value is empty (pass a `Text()` call)                                                                                        |
+| Prop             | Type                                                | Description                                                                                             |
+| ---------------- | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `value`          | `string`                                            | Current text content (controlled)                                                                       |
+| `onChange`       | `(value: string) => void`                           | Called on text change                                                                                   |
+| `cursor`         | `number`                                            | Controlled UTF-16 cursor offset, clamped backward to a grapheme boundary                                |
+| `onCursorChange` | `(cursor: number) => void`                          | Called when editing or navigation requests a cursor change                                              |
+| `cursorStyle`    | `"block" \| "bar" \| "underline"`                   | Painted and native terminal cursor shape. Defaults to `"block"`                                         |
+| `onKeyPress`     | `(key: string, event: KeyEvent) => boolean \| void` | Key handler, fires before editing. Return `false` to prevent the default TextInput action for that key. |
+| `placeholder`    | `TextNode`                                          | Text node shown when value is empty (pass a `Text()` call)                                              |
 
-Word-wrap is always on. Cursor position is framework-managed. TextInput scroll follows one rule: clamp the stored offset every render, then if the input is focused, adjust further only as needed to keep the cursor visible after edits, cursor movement, mouse wheel scrolling, or reflow/resize. Supported editing shortcuts include `ctrl+a` / `ctrl+e`, `alt+b` / `alt+f`, `ctrl+left` / `ctrl+right`, `ctrl+w`, and `alt+d`; word movement and deletion use whitespace-delimited boundaries, and `up` / `down` navigate visual wrapped lines. In bracketed paste mode, pasted text is inserted literally at the cursor as one batch edit: one `onChange`, no `onKeyPress`, newlines and tabs preserved.
+Word-wrap is always on. Cursor position is uncontrolled by default. Providing
+`cursor` switches it to controlled mode; editing and navigation call
+`onCursorChange`, and the app must update `cursor`. Offsets use JavaScript
+UTF-16 string indices but are clamped backward to grapheme boundaries so an
+emoji, ZWJ sequence, or combining sequence is never split. Programmatic value
+and cursor updates are applied together on the next render; without controlled
+`cursor`, external value changes preserve the internal cursor relative to the
+unchanged prefix/suffix.
+
+`cursorStyle` controls both cursor representations: the cell-buffer fallback
+and the native blinking terminal cursor selected with DECSCUSR. `"block"`
+inverts the current cell, `"bar"` paints a vertical bar, and `"underline"`
+underlines the current cell. Terminal cleanup restores the user's default
+cursor shape.
+
+TextInput scroll follows one rule: clamp the stored offset every render, then if the input is focused, adjust further only as needed to keep the cursor visible after edits, cursor movement, mouse wheel scrolling, or reflow/resize. Supported editing shortcuts include `ctrl+a` / `ctrl+e`, `alt+b` / `alt+f`, `ctrl+left` / `ctrl+right`, `ctrl+w`, and `alt+d`; word movement and deletion use whitespace-delimited boundaries, and `up` / `down` navigate visual wrapped lines. In bracketed paste mode, pasted text is inserted literally at the cursor as one batch edit: one `onChange`, no `onKeyPress`, newlines and tabs preserved.
 
 #### Growing / Shrinking Pattern
 
@@ -721,6 +906,11 @@ const myTheme: Theme = {
 
 cel.init(terminal, { theme: myTheme });
 ```
+
+Replace the active theme later with `cel.setTheme(nextTheme)`. Theme changes
+automatically perform a full redraw, including when the logical cell buffer is
+unchanged. If an application mutates a theme object in place, call
+`cel.setTheme(theme)` again or `cel.redraw()` to invalidate the terminal frame.
 
 App code uses the same `"color00"`–`"color15"` values regardless of what theme is active. The theme is a rendering concern, not an app logic concern.
 
@@ -849,6 +1039,18 @@ The layout engine writes styled cells into the buffer. This makes clipping trivi
 
 Rendering is **reactive**, not FPS-based. `cel.render()` batches via `process.nextTick()` — multiple calls within the same tick produce a single render. Terminal resize also triggers a re-render automatically. No fixed frame rate, no wasted renders.
 
+Animation is an explicit component-level lifecycle, never a permanent framework
+loop. `createTicker({ maxFps, onTick })` schedules nothing until `.start()`,
+requests at most one batched render per tick, skips delayed frames instead of
+replaying a catch-up burst, and can be paused with `.stop()` or permanently
+released with `.dispose()`. `Spinner()` builds on this scheduler and is likewise
+inert unless `.start()` or the explicit `autoStart` option is used.
+
+`cel.redraw()` uses the same batching mechanism but forces the next frame to be
+emitted in full. `cel.setTheme()` schedules this full-redraw path automatically.
+If a differential frame has no changed cells and no cursor change, the renderer
+emits no terminal bytes.
+
 ### Synchronized Output
 
 All screen updates are wrapped in **CSI 2026** (`\x1b[?2026h` to begin, `\x1b[?2026l` to end). The terminal holds display updates until the end marker, producing atomic flicker-free screen refreshes.
@@ -859,7 +1061,7 @@ Three strategies, selected automatically:
 
 | Strategy           | When            | Description                                    |
 | ------------------ | --------------- | ---------------------------------------------- |
-| **Full + clear**   | Terminal resize | Clear scrollback, re-render everything         |
+| **Full + clear**   | Terminal resize | Clear the display, re-render everything        |
 | **Full, no clear** | First render    | Output everything to clean screen              |
 | **Differential**   | Most renders    | Compare buffers, only emit changed cells/lines |
 

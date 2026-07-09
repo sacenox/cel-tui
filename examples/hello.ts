@@ -8,8 +8,8 @@
  * Run: bun run examples/hello.ts
  */
 
-import { cel, VStack, HStack, Text, ProcessTerminal } from "@cel-tui/core";
-import { Spacer } from "@cel-tui/components";
+import { Spacer, Spinner } from "@cel-tui/components";
+import { cel, HStack, ProcessTerminal, Text, VStack } from "@cel-tui/core";
 import { warningBox } from "./warning-box";
 
 const logo = [
@@ -28,30 +28,25 @@ const palette: Array<
 > = ["color06", "color05", "color03", "color02", "color04", "color01"];
 
 let colorIndex = 0;
-let tick = 0;
 
 const MIN_COLS = 38;
 const MIN_ROWS = 14;
 
-const spinnerFrames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+const spinner = Spinner({ maxFps: 12.5 });
 
 function clock(): string {
   const now = new Date();
   return now.toLocaleTimeString("en-US", { hour12: false });
 }
 
-// Animate spinner
-setInterval(() => {
-  tick++;
-  cel.render();
-}, 80);
-
 function quit() {
+  spinner.dispose();
   cel.stop();
   process.exit();
 }
 
 cel.init(new ProcessTerminal());
+spinner.start();
 cel.viewport(() => {
   const cols = process.stdout.columns || 80;
   const rows = process.stdout.rows || 24;
@@ -80,7 +75,6 @@ cel.viewport(() => {
   }
 
   const color = palette[colorIndex % palette.length]!;
-  const spinner = spinnerFrames[tick % spinnerFrames.length]!;
 
   return VStack(
     {
@@ -116,7 +110,7 @@ cel.viewport(() => {
 
       // Live info row
       HStack({ gap: 2 }, [
-        Text(`${spinner}`, { fgColor: color, bold: true }),
+        spinner({ fgColor: color, bold: true }),
         Text(clock()),
         Text("│", { fgColor: "color08" }),
         Text("press any key to change color", { fgColor: "color08" }),

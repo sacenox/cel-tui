@@ -184,40 +184,15 @@ function intrinsicMainSize(
     node.type === "hstack" &&
     (node.props as ContainerProps).flexWrap === "wrap"
   ) {
-    const wrapWidths: number[] = [];
-    const wrapHeights: number[] = [];
-    for (const child of node.children) {
-      const cProps = getProps(child);
-      const flex = cProps?.flex ?? 0;
-      let w: number;
-      if (flex > 0) {
-        w = cProps?.minWidth ?? 0;
-      } else {
-        w =
-          resolveSizeValue(cProps?.width, innerCross) ??
-          intrinsicMainSize(child, false, innerCross);
-        if (cProps) {
-          w = clamp(w, cProps.minWidth ?? 0, cProps.maxWidth ?? Infinity);
-        }
-      }
-      wrapWidths.push(w);
-      let h =
-        resolveSizeValue(cProps?.height, 0) ??
-        intrinsicMainSize(child, true, innerCross);
-      if (cProps) {
-        h = clamp(h, cProps.minHeight ?? 0, cProps.maxHeight ?? Infinity);
-      }
-      wrapHeights.push(h);
-    }
-    const wrapRows = assignWrapRows(wrapWidths, innerCross, mainAxisGap);
+    const wrapRows = measureWrapRows(node.children, {
+      availableHeight: 0,
+      availableWidth: innerCross,
+      intrinsicWidthCrossSize: innerCross,
+      itemGap: mainAxisGap,
+    });
     let total = 0;
     for (let ri = 0; ri < wrapRows.length; ri++) {
-      let maxH = 0;
-      for (const idx of requiredAt(wrapRows, ri, "wrap row")) {
-        const height = requiredAt(wrapHeights, idx, "wrap height");
-        if (height > maxH) maxH = height;
-      }
-      total += maxH;
+      total += requiredAt(wrapRows, ri, "measured wrap row").height;
       if (ri < wrapRows.length - 1) total += gap;
     }
     return total + padMain;
@@ -407,6 +382,136 @@ function allocateFlexSizes(
   return sizes;
 }
 
+interface WrapMeasurementOptions {
+  availableHeight: number;
+  availableWidth: number;
+  /**
+   * Cross-size hint used only while finding a non-flex child's intrinsic width.
+   * Intrinsic-height callers do not have a definite height, so this can differ
+   * from the available height.
+   */
+  intrinsicWidthCrossSize: number;
+  itemGap: number;
+}
+
+interface MeasuredWrapRow {
+  childHeights: number[];
+  childIndices: number[];
+  childWidths: number[];
+  height: number;
+}
+
+/**
+ * Assign wrapping HStack children to rows, allocate each row's flex widths,
+ * then measure child heights at those final widths.
+ */
+function measureWrapRows(
+  children: readonly Node[],
+  options: WrapMeasurementOptions,
+): MeasuredWrapRow[] {
+  const baseWidths: number[] = [];
+  const flexValues: number[] = [];
+
+  for (const child of children) {
+    const cProps = getProps(child);
+    const flex = getNodeFlex(child, false);
+    flexValues.push(flex);
+
+    let baseWidth: number;
+    if (flex > 0) {
+      // Flex children use minWidth for row assignment (like CSS flex-basis).
+      baseWidth = cProps?.minWidth ?? 0;
+    } else {
+      baseWidth =
+        resolveSizeValue(cProps?.width, options.availableWidth) ??
+        intrinsicMainSize(child, false, options.intrinsicWidthCrossSize);
+      if (cProps) {
+        baseWidth = clamp(
+          baseWidth,
+          cProps.minWidth ?? 0,
+          cProps.maxWidth ?? Infinity,
+        );
+      }
+    }
+    baseWidths.push(baseWidth);
+  }
+
+  const rowIndices = assignWrapRows(
+    baseWidths,
+    options.availableWidth,
+    options.itemGap,
+  );
+
+  return rowIndices.map((childIndices) => {
+    const rowGapTotal = options.itemGap * (childIndices.length - 1);
+    const rowAvailableWidth = options.availableWidth - rowGapTotal;
+    let fixedWidth = 0;
+    const flexPositions: number[] = [];
+    const childWidths = childIndices.map((childIndex, position) => {
+      if (requiredAt(flexValues, childIndex, "flex value") > 0) {
+        flexPositions.push(position);
+        return 0;
+      }
+
+      const width = requiredAt(baseWidths, childIndex, "base width");
+      fixedWidth += width;
+      return width;
+    });
+
+    if (flexPositions.length > 0) {
+      const allocated = allocateFlexSizes(
+        flexPositions.map((position) => {
+          const childIndex = requiredAt(
+            childIndices,
+            position,
+            "wrap row index",
+          );
+          const cProps = getProps(
+            requiredAt(children, childIndex, "child node"),
+          );
+          return {
+            flex: requiredAt(flexValues, childIndex, "flex value"),
+            min: cProps?.minWidth ?? 0,
+            max: cProps?.maxWidth ?? Infinity,
+          };
+        }),
+        Math.max(0, rowAvailableWidth - fixedWidth),
+      );
+
+      for (let index = 0; index < flexPositions.length; index++) {
+        const position = requiredAt(flexPositions, index, "flex position");
+        childWidths[position] = requiredAt(
+          allocated,
+          index,
+          "allocated flex size",
+        );
+      }
+    }
+
+    let height = 0;
+    const childHeights = childIndices.map((childIndex, position) => {
+      const child = requiredAt(children, childIndex, "child node");
+      const cProps = getProps(child);
+      const childWidth = requiredAt(childWidths, position, "child width");
+      let childHeight =
+        resolveSizeValue(cProps?.height, options.availableHeight) ??
+        intrinsicMainSize(child, true, childWidth);
+
+      if (cProps) {
+        childHeight = clamp(
+          childHeight,
+          cProps.minHeight ?? 0,
+          cProps.maxHeight ?? Infinity,
+        );
+      }
+      height = Math.max(height, childHeight);
+      return childHeight;
+    });
+
+    return { childHeights, childIndices, childWidths, height };
+  });
+}
+
 // --- Main layout ---
 
 /**
@@ -487,111 +592,24 @@ function layoutWrapHStack(
   const innerW = Math.max(0, width - padX * 2);
   const innerH = Math.max(0, height - padY * 2);
 
-  // Phase 1: Measure each child's base width and cross (height) size
-  const baseWidths: number[] = [];
-  const crossSizes: number[] = [];
-  const flexValues: number[] = [];
+  const rows = measureWrapRows(children, {
+    availableHeight: innerH,
+    availableWidth: innerW,
+    intrinsicWidthCrossSize: innerH,
+    itemGap,
+  });
 
-  for (const child of children) {
-    const cProps = getProps(child);
-    const flex = getNodeFlex(child, false);
-    flexValues.push(flex);
-
-    let baseW: number;
-    if (flex > 0) {
-      // Flex children use minWidth for row assignment (like CSS flex-basis)
-      baseW = cProps?.minWidth ?? 0;
-    } else {
-      baseW =
-        resolveSizeValue(cProps?.width, innerW) ??
-        intrinsicMainSize(child, false, innerH);
-      if (cProps) {
-        baseW = clamp(baseW, cProps.minWidth ?? 0, cProps.maxWidth ?? Infinity);
-      }
-    }
-    baseWidths.push(baseW);
-
-    // Always compute real cross size (explicit or intrinsic) for row height
-    let cross =
-      resolveSizeValue(cProps?.height, innerH) ??
-      intrinsicMainSize(child, true, innerW);
-    // Apply cross-axis constraints (e.g. maxHeight)
-    if (cProps) {
-      cross = clamp(cross, cProps.minHeight ?? 0, cProps.maxHeight ?? Infinity);
-    }
-    crossSizes.push(cross);
-  }
-
-  // Phase 2: Assign children to rows
-  const rows = assignWrapRows(baseWidths, innerW, itemGap);
-
-  // Phase 3: Layout each row independently
+  // Layout each measured row independently.
   const layoutChildren: LayoutNode[] = [];
   let rowY = 0;
 
   for (let ri = 0; ri < rows.length; ri++) {
-    const rowIdx = requiredAt(rows, ri, "wrap row");
+    const row = requiredAt(rows, ri, "measured wrap row");
+    const rowIdx = row.childIndices;
+    const childWidths = row.childWidths;
+    const crossSizes = row.childHeights;
+    const rowHeight = row.height;
     const rowGapTotal = itemGap * (rowIdx.length - 1);
-    const rowAvail = innerW - rowGapTotal;
-
-    // Compute fixed and flex totals for this row
-    let fixedMain = 0;
-    let totalFlex = 0;
-    for (const idx of rowIdx) {
-      const flexValue = requiredAt(flexValues, idx, "flex value");
-      if (flexValue > 0) {
-        totalFlex += flexValue;
-      } else {
-        fixedMain += requiredAt(baseWidths, idx, "base width");
-      }
-    }
-
-    // Distribute flex space within this row
-    const flexSpace = Math.max(0, rowAvail - fixedMain);
-    const childWidths: number[] = new Array(rowIdx.length);
-
-    if (totalFlex > 0) {
-      const flexPositions: number[] = [];
-      for (let ci = 0; ci < rowIdx.length; ci++) {
-        const rowIndex = requiredAt(rowIdx, ci, "wrap row index");
-        if (requiredAt(flexValues, rowIndex, "flex value") > 0) {
-          flexPositions.push(ci);
-        }
-      }
-
-      const allocated = allocateFlexSizes(
-        flexPositions.map((ci) => {
-          const rowIndex = requiredAt(rowIdx, ci, "wrap row index");
-          const cProps = getProps(requiredAt(children, rowIndex, "child node"));
-          return {
-            flex: requiredAt(flexValues, rowIndex, "flex value"),
-            min: cProps?.minWidth ?? 0,
-            max: cProps?.maxWidth ?? Infinity,
-          };
-        }),
-        flexSpace,
-      );
-
-      for (let fi = 0; fi < flexPositions.length; fi++) {
-        const ci = requiredAt(flexPositions, fi, "flex position");
-        childWidths[ci] = requiredAt(allocated, fi, "allocated flex size");
-      }
-    }
-
-    // Non-flex children keep their base width
-    for (let ci = 0; ci < rowIdx.length; ci++) {
-      if (childWidths[ci] === undefined) {
-        const rowIndex = requiredAt(rowIdx, ci, "wrap row index");
-        childWidths[ci] = requiredAt(baseWidths, rowIndex, "base width");
-      }
-    }
-
-    // Row height = max cross size of children in this row
-    let rowHeight = 0;
-    for (const idx of rowIdx) {
-      const crossSize = requiredAt(crossSizes, idx, "cross size");
-      if (crossSize > rowHeight) rowHeight = crossSize;
-    }
 
     // justifyContent: compute main-axis starting offset
     let totalUsedWidth = rowGapTotal;
@@ -627,9 +645,16 @@ function layoutWrapHStack(
       if (align === "stretch") {
         const cProps = getProps(requiredAt(children, idx, "child node"));
         const explicitH = resolveSizeValue(cProps?.height, innerH);
-        childH = explicitH ?? rowHeight;
+        childH =
+          explicitH === undefined
+            ? clamp(
+                rowHeight,
+                cProps?.minHeight ?? 0,
+                cProps?.maxHeight ?? Infinity,
+              )
+            : requiredAt(crossSizes, ci, "cross size");
       } else {
-        childH = requiredAt(crossSizes, idx, "cross size");
+        childH = requiredAt(crossSizes, ci, "cross size");
       }
 
       // Cross-axis alignment within the row

@@ -1,5 +1,89 @@
 # cel-tui Benchmark Results
 
+> These are historical snapshots, not universal performance claims. For
+> before/after work, run `bun run bench:regression` on the same machine, Bun
+> version, and power profile; it emits environment metadata and raw fixed-work
+> samples as JSON.
+
+## 2026-07-09 quality-pass comparison
+
+Same-machine, same-runtime (`Bun 1.3.13`) fixed-work medians recorded before
+and after the rendering quality pass:
+
+| Case                                      | Before  | After   | Change |
+| ----------------------------------------- | ------- | ------- | ------ |
+| Allocate `CellBuffer(120, 40)`            | 92.8 µs | 3.4 µs  | -96.3% |
+| Allocate + paint 1,000 messages at top    | 1.33 ms | 0.44 ms | -67.1% |
+| Allocate + paint 1,000 messages at bottom | 8.61 ms | 0.45 ms | -94.8% |
+
+The bottom-scroll gain comes from translating and clipping during traversal
+instead of cloning every layout node in a scrolled subtree. The allocation
+gain comes from sharing an immutable empty-cell sentinel. The checked-in
+`bench:regression` harness now makes equivalent future comparisons
+repeatable and records its raw samples and environment as JSON.
+
+Two mid-pass checkpoints isolate the later ASCII painting fast path: the
+Ink-shaped end-to-end case moved from 0.663 ms to 0.198 ms (-70.1%), and the
+20-message app case from 4.29 ms to 0.466 ms (-89.1%). These are not the
+original repository baseline, so they are intentionally separate from the
+table above.
+
+The full test suite also moved from 561 tests in 4.77 s to 608 tests in
+0.40 s after replacing fixed timer sleeps with a deterministic render-flush
+seam. Line coverage increased from 93.20% to 93.52%.
+
+### SyntaxHighlight cache scaling
+
+The same quality pass replaced the global four-state content-prefix heuristic
+with a bounded exact-render cache plus explicit `createSyntaxHighlight()`
+instances. The fixed workload below renders 24-line TypeScript snippets for 30
+frames after three warmup frames on the same Bun 1.3.13 process shape:
+
+| Static snippets per frame | Before    | After     |
+| ------------------------- | --------- | --------- |
+| 4                         | 0.0058 ms | 0.0067 ms |
+| 5                         | 1.7105 ms | 0.0082 ms |
+| 5 / 4 scaling ratio       | 297.3x    | 1.22x     |
+
+Crossing the old four-entry boundary made every lookup miss. At five snippets,
+the new cache removes 99.5% of that frame cost while scaling close to the ideal
+1.25x increase in work. `bench:regression` now includes fixed-work 4-snippet,
+5-snippet, and 32-isolated-instance cases; one recorded run measured medians of
+3.40 µs, 4.17 µs, and 0.93 µs per frame respectively.
+
+### Variable-height VirtualList
+
+The first-class `VirtualList` regression case uses 5,000 keyed, variable-height
+mini-coder message rows at 120×40. It includes callable component rendering,
+visible-row measurement, prefix/window calculation, spacer construction, and
+layout. A same-process steady-state run on Bun 1.3.13 measured:
+
+| Case                                | Median        |
+| ----------------------------------- | ------------- |
+| Build + layout all 5,000 rows       | 134.39 ms     |
+| VirtualList + layout visible window | 2.170 ms      |
+| Relative reduction / speedup        | 98.4% / 61.9× |
+
+The virtual result retains cell-accurate measured heights for active rows and
+uses bounded estimates for cold rows; only the viewport plus configured
+overscan appears in the returned node tree. Both cases remain in
+`bench:regression` so future changes can be compared with the same fixed-work
+harness and raw samples.
+
+### Editing-key lookup
+
+The exploratory key benchmark exposed an immutable `Set` being rebuilt for
+every named key event. Hoisting that lookup removed the hot-path allocation on
+the same machine and similar measured clock (~1.7 GHz):
+
+| Case                     | Before  | After   | Change        |
+| ------------------------ | ------- | ------- | ------------- |
+| `isEditingKey("enter")`  | 1.39 µs | 3.94 ns | -99.7% / 353× |
+| `isEditingKey("ctrl+s")` | 1.26 µs | 6.03 ns | -99.5% / 209× |
+
+`bench:regression` now includes the combined named-key/shortcut lookup; one
+recorded fixed-work median was 11.09 ns for both calls together.
+
 **Machine:** 12th Gen Intel Core i9-12900, ~4.4 GHz  
 **Runtime:** Bun 1.3.9 (x64-linux)  
 **Date:** 2026-04-05 (updated from 2026-04-04 baseline)
@@ -100,18 +184,21 @@ Paint is O(cells), not O(nodes) — 100 vs 1,000 children produce similar times 
 
 ### CellBuffer & ANSI Emission
 
-| Operation                    | Time     |
-| ---------------------------- | -------- |
-| Buffer creation 80×24        | 24.7 µs  |
-| Buffer creation 120×40       | 58.2 µs  |
-| Buffer creation 200×50       | 117.0 µs |
-| emitBuffer 80×24 (full)      | 21.4 µs  |
-| emitBuffer 120×40 (full)     | 46.4 µs  |
-| emitDiff 80×24 (no changes)  | 11.8 µs  |
-| emitDiff 80×24 (partial)     | 11.1 µs  |
-| emitDiff 80×24 (full change) | 11.2 µs  |
+| Operation                    | Time                       |
+| ---------------------------- | -------------------------- |
+| Buffer creation 80×24        | 24.7 µs                    |
+| Buffer creation 120×40       | 58.2 µs                    |
+| Buffer creation 200×50       | 117.0 µs                   |
+| emitBuffer 80×24 (full)      | 21.4 µs                    |
+| emitBuffer 120×40 (full)     | 46.4 µs                    |
+| emitDiff 80×24 (no changes)  | 11.8 µs                    |
+| emitDiff 80×24 (partial)     | invalid historical fixture |
+| emitDiff 80×24 (full change) | invalid historical fixture |
 
-Differential rendering has near-constant cost regardless of change amount — dominated by the comparison scan over all cells.
+The original partial/full-change fixtures accidentally produced identical
+visible buffers, so their published timings did not measure the named cases.
+The fixtures now assert that exactly one or every cell changes, respectively;
+use `bun run benchmarks/cell-buffer.bench.ts` for corrected measurements.
 
 ### Hit Test & Focus
 

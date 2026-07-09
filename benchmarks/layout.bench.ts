@@ -8,12 +8,12 @@
 import { bench, group, run } from "mitata";
 import { layout } from "../packages/core/src/layout.js";
 import {
+  appTree,
   flatTree,
+  inkComparableTree,
   nestedTree,
   styledTree,
   wrappedTextTree,
-  inkComparableTree,
-  appTree,
 } from "./helpers.js";
 
 const W = 120;

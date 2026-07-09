@@ -43,3 +43,5 @@ for (const name of benchmarks) {
     },
   );
 }
+
+console.log("\nAll benchmark groups completed successfully.");
